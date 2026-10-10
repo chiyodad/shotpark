@@ -18,9 +18,9 @@
 </p>
 
 <p align="center">
-  <a href="https://chiyodad.github.io/shotpark/">홈페이지</a> ·
+  <a href="https://shotpark.site/">홈페이지</a> ·
   <a href="https://github.com/chiyodad/shotpark/releases/latest">다운로드</a> ·
-  <a href="https://chiyodad.github.io/shotpark/en/">English page</a> ·
+  <a href="https://shotpark.site/en/">English page</a> ·
   <a href="#english">English</a>
 </p>
 
@@ -180,7 +180,7 @@ MIT © Suseok Park
 <a id="english"></a>
 ## English
 
-> Full English page: https://chiyodad.github.io/shotpark/en/
+> Full English page: https://shotpark.site/en/
 
 **ShotPark** is a free, open-source **Lightshot alternative for Mac**: a region screenshot tool for macOS, built natively for Apple Silicon in Swift/AppKit with zero dependencies. Hotkey → drag a region → annotate → copy / save / share.
 
