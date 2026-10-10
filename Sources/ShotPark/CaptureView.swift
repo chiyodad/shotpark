@@ -49,7 +49,7 @@ final class CaptureView: NSView, NSTextFieldDelegate {
     var textSize: CGFloat = Preferences.textSize {
         didSet { textOptions.fontSize = textSize; Preferences.textSize = textSize; applyTextFieldStyle() }
     }
-    var textStyle: TextStyle = Preferences.textStyle {
+    var textStyle: TextStyles = Preferences.textStyle {
         didSet { textOptions.style = textStyle; Preferences.textStyle = textStyle; applyTextFieldStyle() }
     }
     var boxColor: NSColor = Preferences.boxColor {
@@ -481,10 +481,7 @@ final class CaptureView: NSView, NSTextFieldDelegate {
     // MARK: text tool
 
     private func stepTextSize(_ dir: Int) {
-        let sizes = TextOptionsView.sizes
-        guard let i = sizes.firstIndex(of: textSize) else { textSize = sizes[1]; return }
-        let j = min(max(i + dir, 0), sizes.count - 1)
-        textSize = sizes[j]
+        textSize = min(max(textSize + CGFloat(dir * 2), 8), 200)
     }
 
     private func beginText(at p: CGPoint, initialText: String = "") {
@@ -518,14 +515,31 @@ final class CaptureView: NSView, NSTextFieldDelegate {
         boxColor = sh.boxColor
         boxAlpha = sh.boxAlpha
         tool = .text
-        // inverse of the origin maths in commitText()
         beginText(at: CGPoint(x: o.x, y: o.y - textSize * 0.1), initialText: sh.text)
+        alignEditor(toOrigin: o)
     }
 
-    /// Top-left text origin the current editing field will commit to.
+    /// Top-left corner (in this view's coordinates) of the glyphs as the field editor currently
+    /// lays them out — so the committed annotation lands exactly where the text was while typing.
     private var editingTextOrigin: CGPoint? {
         guard let tf = textField else { return nil }
+        if let editor = tf.currentEditor() as? NSTextView, let lm = editor.layoutManager, let tc = editor.textContainer {
+            lm.ensureLayout(for: tc)
+            var line = lm.usedRect(for: tc)
+            if lm.numberOfGlyphs > 0 { line = lm.lineFragmentUsedRect(forGlyphAt: 0, effectiveRange: nil) }
+            else { line.origin.x += tc.lineFragmentPadding }
+            let topLeftInEditor = NSPoint(x: editor.textContainerOrigin.x + line.minX,
+                                          y: editor.textContainerOrigin.y + line.minY)
+            return convert(topLeftInEditor, from: editor)
+        }
         return CGPoint(x: tf.frame.minX + 2, y: tf.frame.maxY - textSize * 0.2)
+    }
+
+    /// Shift the editing field so its glyphs start exactly at `target` (used when re-editing).
+    private func alignEditor(toOrigin target: CGPoint) {
+        guard let tf = textField, let cur = editingTextOrigin else { return }
+        tf.frame = tf.frame.offsetBy(dx: target.x - cur.x, dy: target.y - cur.y)
+        needsDisplay = true
     }
 
     private var editingText: String { textField?.stringValue ?? "" }
@@ -572,7 +586,7 @@ final class CaptureView: NSView, NSTextFieldDelegate {
         guard let tf = textField else { return }
         let text = tf.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
         if !text.isEmpty {
-            let origin = CGPoint(x: tf.frame.minX + 2, y: tf.frame.maxY - textSize * 0.2)
+            let origin = editingTextOrigin ?? CGPoint(x: tf.frame.minX + 2, y: tf.frame.maxY - textSize * 0.2)
             shapes.append(Shape(tool: .text, points: [origin], color: color, lineWidth: lineWidth,
                                 text: text, fontSize: textSize, textStyle: textStyle,
                                 boxColor: boxColor, boxAlpha: boxAlpha))
@@ -626,7 +640,7 @@ final class CaptureView: NSView, NSTextFieldDelegate {
             let t = editingText.isEmpty ? "텍스트 입력…" : editingText
             let box = Shape.boxRect(text: t, fontSize: textSize, style: textStyle, origin: o)
             let r = Shape.boxCornerRadius(fontSize: textSize)
-            if textStyle == .box {
+            if textStyle.contains(.box) {
                 ctx.setFillColor(boxColor.withAlphaComponent(boxAlpha).cgColor)
                 ctx.addPath(CGPath(roundedRect: box, cornerWidth: r, cornerHeight: r, transform: nil))
                 ctx.fillPath()
@@ -747,14 +761,17 @@ final class CaptureView: NSView, NSTextFieldDelegate {
 enum Preferences {
     private static let colorKey = "annotationColor"
     private static let textSizeKey = "annotationTextSize"
-    private static let textStyleKey = "annotationTextStyle"
+    private static let textStyleKey = "annotationTextStyles"
 
     static var textSize: CGFloat {
-        get { let v = UserDefaults.standard.double(forKey: textSizeKey); return v > 0 ? CGFloat(v) : 20 }
+        get { let v = UserDefaults.standard.double(forKey: textSizeKey); return v > 0 ? CGFloat(v) : 24 }
         set { UserDefaults.standard.set(Double(newValue), forKey: textSizeKey) }
     }
-    static var textStyle: TextStyle {
-        get { TextStyle(rawValue: UserDefaults.standard.integer(forKey: textStyleKey)) ?? .shadow }
+    static var textStyle: TextStyles {
+        get {
+            guard UserDefaults.standard.object(forKey: textStyleKey) != nil else { return .shadow }
+            return TextStyles(rawValue: UserDefaults.standard.integer(forKey: textStyleKey))
+        }
         set { UserDefaults.standard.set(newValue.rawValue, forKey: textStyleKey) }
     }
     private static let boxColorKey = "annotationBoxColor"

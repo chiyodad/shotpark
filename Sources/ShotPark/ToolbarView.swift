@@ -305,45 +305,59 @@ final class ColorPaletteView: NSView {
     override func resetCursorRects() { addCursorRect(bounds, cursor: .arrow) }
 }
 
-/// Options bar shown while the text tool is active: font size, style, and (for the box style)
-/// background colour + opacity.
-final class TextOptionsView: NSView {
-    static let sizes: [CGFloat] = [14, 20, 28, 40, 56]
+/// Options bar shown while the text tool is active: font size (3 presets + free entry),
+/// style toggles (shadow / outline / box — any combination), and box colour + opacity.
+final class TextOptionsView: NSView, NSTextFieldDelegate {
+    static let sizes: [CGFloat] = [16, 24, 40]
     static let height: CGFloat = 34
 
-    var fontSize: CGFloat = 20 { didSet { needsDisplay = true } }
-    var style: TextStyle = .shadow { didSet { updateLayout(); needsDisplay = true } }
+    var fontSize: CGFloat = 24 { didSet { sizeField.stringValue = "\(Int(fontSize))"; needsDisplay = true } }
+    var style: TextStyles = .shadow { didSet { updateLayout(); needsDisplay = true } }
     var boxColor: NSColor = .white { didSet { needsDisplay = true } }
     var boxAlpha: CGFloat = 0.85 { didSet { slider.doubleValue = boxAlpha; needsDisplay = true } }
 
     var onSize: ((CGFloat) -> Void)?
-    var onStyle: ((TextStyle) -> Void)?
+    var onStyle: ((TextStyles) -> Void)?
     var onBoxColor: ((NSColor) -> Void)?
     var onBoxAlpha: ((CGFloat) -> Void)?
     /// Called whenever the bar's size changes so the host can re-layout.
     var onResize: (() -> Void)?
 
-    private struct Item { let label: String; let width: CGFloat; let size: CGFloat?; let style: TextStyle?; let sepBefore: Bool }
+    private struct Item { let label: String; let width: CGFloat; let size: CGFloat?; let style: TextStyles?; let sepBefore: Bool }
     private var items: [Item] = []
     private var hoverIndex: Int?
     private let slider = NSSlider(value: 0.85, minValue: 0.15, maxValue: 1.0, target: nil, action: nil)
+    private let sizeField = NSTextField(string: "24")
 
     private static let swatch: CGFloat = 18
     private static let swatchGap: CGFloat = 5
     private static let sliderWidth: CGFloat = 90
+    private static let sizeFieldWidth: CGFloat = 44
 
     init() {
         super.init(frame: .zero)
-        items = Self.sizes.map { Item(label: "\(Int($0))", width: 38, size: $0, style: nil, sepBefore: false) }
-        for (i, st) in TextStyle.allCases.enumerated() {
-            items.append(Item(label: st.label, width: 50, size: nil, style: st, sepBefore: i == 0))
+        items = Self.sizes.map { Item(label: "\(Int($0))", width: 36, size: $0, style: nil, sepBefore: false) }
+        for (i, st) in TextStyles.all.enumerated() {
+            items.append(Item(label: st.label, width: 52, size: nil, style: st, sepBefore: i == 0))
         }
+
+        sizeField.isBezeled = true
+        sizeField.bezelStyle = .roundedBezel
+        sizeField.controlSize = .small
+        sizeField.font = NSFont.monospacedDigitSystemFont(ofSize: 11, weight: .medium)
+        sizeField.alignment = .center
+        sizeField.focusRingType = .none
+        sizeField.delegate = self
+        sizeField.toolTip = "글자 크기 (8–200) 직접 입력 후 Enter"
+        addSubview(sizeField)
+
         slider.controlSize = .mini
         slider.isContinuous = true
         slider.target = self
         slider.action = #selector(sliderChanged)
         slider.isHidden = true
         addSubview(slider)
+
         updateLayout()
         wantsLayer = true
         layer?.shadowColor = NSColor.black.cgColor
@@ -353,13 +367,23 @@ final class TextOptionsView: NSView {
     }
     required init?(coder: NSCoder) { fatalError() }
 
-    private var baseWidth: CGFloat {
-        var w: CGFloat = 6 + 50
-        for it in items { w += it.width + (it.sepBefore ? 10 : 0) }
-        return w + 6
-    }
-
+    // layout: [텍스트] [16][24][40] [field] | [그림자][외곽선][배경] || [배경] swatches slider %
+    private let leading: CGFloat = 6 + 44
+    private var sizeFieldX: CGFloat { leading + CGFloat(Self.sizes.count) * 36 + 4 }
+    private var stylesX: CGFloat { sizeFieldX + Self.sizeFieldWidth + 10 }
+    private var baseWidth: CGFloat { stylesX + CGFloat(TextStyles.all.count) * 52 + 6 }
     private var boxSectionX: CGFloat { baseWidth + 4 }
+
+    private func rects() -> [NSRect] {
+        var out: [NSRect] = []
+        var x = leading
+        for it in items {
+            if it.sepBefore { x = stylesX }
+            out.append(NSRect(x: x, y: 4, width: it.width, height: Self.height - 8))
+            x += it.width
+        }
+        return out
+    }
 
     private func swatchRects() -> [NSRect] {
         let x0 = boxSectionX + 44
@@ -370,7 +394,8 @@ final class TextOptionsView: NSView {
     }
 
     private func updateLayout() {
-        let showBox = style == .box
+        sizeField.frame = NSRect(x: sizeFieldX, y: (Self.height - 20) / 2, width: Self.sizeFieldWidth, height: 20)
+        let showBox = style.contains(.box)
         var w = baseWidth
         if showBox {
             let swatchesW = CGFloat(Shape.boxColors.count) * (Self.swatch + Self.swatchGap)
@@ -389,15 +414,15 @@ final class TextOptionsView: NSView {
         onBoxAlpha?(boxAlpha)
     }
 
-    private func rects() -> [NSRect] {
-        var out: [NSRect] = []
-        var x: CGFloat = 6 + 50
-        for it in items {
-            if it.sepBefore { x += 10 }
-            out.append(NSRect(x: x, y: 4, width: it.width, height: Self.height - 8))
-            x += it.width
+    // size field: commit on Enter / focus loss
+    func controlTextDidEndEditing(_ obj: Notification) {
+        if let v = Double(sizeField.stringValue.trimmingCharacters(in: .whitespaces)) {
+            let clamped = CGFloat(min(max(v, 8), 200)).rounded()
+            fontSize = clamped
+            onSize?(clamped)
+        } else {
+            sizeField.stringValue = "\(Int(fontSize))"
         }
-        return out
     }
 
     override func updateTrackingAreas() {
@@ -415,7 +440,7 @@ final class TextOptionsView: NSView {
 
         let labelAttrs: [NSAttributedString.Key: Any] = [.font: NSFont.systemFont(ofSize: 11, weight: .medium),
                                                          .foregroundColor: NSColor.white.withAlphaComponent(0.6)]
-        NSAttributedString(string: "텍스트", attributes: labelAttrs).draw(at: NSPoint(x: 12, y: (bounds.height - 13) / 2))
+        NSAttributedString(string: "크기", attributes: labelAttrs).draw(at: NSPoint(x: 12, y: (bounds.height - 13) / 2))
 
         for (i, r) in rects().enumerated() {
             let it = items[i]
@@ -423,21 +448,22 @@ final class TextOptionsView: NSView {
                 NSColor.white.withAlphaComponent(0.18).setFill()
                 NSRect(x: r.minX - 5.5, y: r.minY + 4, width: 1, height: r.height - 8).fill()
             }
-            let selected = (it.size != nil && it.size == fontSize) || (it.style != nil && it.style == style)
+            let selected = (it.size != nil && it.size == fontSize) || (it.style != nil && style.contains(it.style!))
             if selected || hoverIndex == i {
                 NSColor.white.withAlphaComponent(selected ? 0.28 : 0.12).setFill()
                 NSBezierPath(roundedRect: r.insetBy(dx: 2, dy: 1), xRadius: 6, yRadius: 6).fill()
             }
             let font: NSFont = it.size != nil
-                ? NSFont.boldSystemFont(ofSize: min(15, 9 + it.size! * 0.12))
+                ? NSFont.boldSystemFont(ofSize: min(15, 9 + it.size! * 0.14))
                 : NSFont.systemFont(ofSize: 12, weight: .medium)
-            let str = NSAttributedString(string: it.label, attributes: [.font: font, .foregroundColor: NSColor.white])
+            var text = it.label
+            if let st = it.style { text = (style.contains(st) ? "✓ " : "") + text }
+            let str = NSAttributedString(string: text, attributes: [.font: font, .foregroundColor: NSColor.white])
             let sz = str.size()
             str.draw(at: NSPoint(x: r.midX - sz.width / 2, y: r.midY - sz.height / 2))
         }
 
-        guard style == .box else { return }
-        // separator + "배경" label + swatches + opacity percentage
+        guard style.contains(.box) else { return }
         NSColor.white.withAlphaComponent(0.18).setFill()
         NSRect(x: boxSectionX - 1, y: 8, width: 1, height: bounds.height - 16).fill()
         NSAttributedString(string: "배경", attributes: labelAttrs).draw(at: NSPoint(x: boxSectionX + 8, y: (bounds.height - 13) / 2))
@@ -468,10 +494,13 @@ final class TextOptionsView: NSView {
         if let idx = rects().firstIndex(where: { $0.contains(p) }) {
             let it = items[idx]
             if let sz = it.size { fontSize = sz; onSize?(sz) }
-            if let st = it.style { style = st; onStyle?(st) }
+            if let st = it.style {
+                if style.contains(st) { style.remove(st) } else { style.insert(st) }
+                onStyle?(style)
+            }
             return
         }
-        if style == .box, let i = swatchRects().firstIndex(where: { $0.insetBy(dx: -3, dy: -3).contains(p) }) {
+        if style.contains(.box), let i = swatchRects().firstIndex(where: { $0.insetBy(dx: -3, dy: -3).contains(p) }) {
             boxColor = Shape.boxColors[i]
             onBoxColor?(boxColor)
         }
