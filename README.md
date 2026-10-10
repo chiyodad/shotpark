@@ -82,11 +82,12 @@ Apple 개발자 서명이 없는 오픈소스 앱이라 처음 열 때 macOS가 
 
 첫 캡처(`⌘⇧9`) 때 권한 요청 창이 뜹니다. **"시스템 설정 열기"** → 목록에서 **ShotPark**을 켜고, 앱을 한 번 종료했다가(메뉴 막대 아이콘 → ShotPark 종료) 다시 실행하세요.
 
-<p align="center">
-  <img src="docs/img/perm-dialog.png" width="400" alt="화면 기록 권한 요청">
-  &nbsp;
-  <img src="docs/img/screen-recording.png" width="380" alt="시스템 설정에서 ShotPark 켜기">
-</p>
+<table align="center">
+  <tr>
+    <td valign="top" align="center" width="50%"><img src="docs/img/perm-dialog.png" width="400" alt="화면 기록 권한 요청"><br><sub>① 첫 캡처 때 뜨는 권한 요청 창</sub></td>
+    <td valign="top" align="center" width="50%"><img src="docs/img/screen-recording.png" width="380" alt="시스템 설정에서 ShotPark 켜기"><br><sub>② 시스템 설정에서 ShotPark 켜기</sub></td>
+  </tr>
+</table>
 
 ### 소스에서 빌드
 
