@@ -19,7 +19,7 @@ SHA=$(shasum -a 256 "$ZIP" | cut -d' ' -f1)
 echo "▶ $ZIP  sha256=$SHA"
 
 git tag -f "v$VER"
-git push -q origin main "v$VER"
+git push -q origin main && git push -q -f origin "v$VER"
 if gh release view "v$VER" -R "$REPO" >/dev/null 2>&1; then
   gh release upload "v$VER" "$ZIP" -R "$REPO" --clobber
 else
