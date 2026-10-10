@@ -78,11 +78,11 @@
   .bmc { margin-top: 22px; display: flex; flex-direction: column; align-items: center; gap: 8px; }
   .bmc .why { color: var(--muted); font-size: 13.5px; }
   footer .foot-bmc { margin-top: 14px; }
-  .lang { display: inline-flex; border: 1px solid var(--line); border-radius: 999px; overflow: hidden; margin-left: 18px; font-size: 13px; vertical-align: middle; }
-  .lang a { padding: 4px 11px; color: var(--muted); margin: 0; }
-  .lang a.on { background: var(--accent); color: #fff; }
-  .lang a:hover { text-decoration: none; }
-  @media (max-width: 680px) { header.top nav a:not(.lang a) { margin-left: 12px; } }
+  .lang { display: inline-flex; align-items: center; border: 1px solid var(--line); border-radius: 999px; padding: 2px; margin-left: 18px; font-size: 13px; vertical-align: middle; background: var(--card); }
+  header.top nav .lang a { margin: 0; padding: 3px 12px; border-radius: 999px; color: var(--muted); line-height: 1.4; }
+  header.top nav .lang a.on { background: var(--accent); color: #fff; }
+  header.top nav .lang a:hover { text-decoration: none; }
+  @media (max-width: 680px) { header.top nav a { margin-left: 12px; } }
 </style>
 </head>
 <body>
