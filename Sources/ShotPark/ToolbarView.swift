@@ -78,7 +78,7 @@ final class ToolbarView: NSView {
         Item(symbol: "circle",               tip: "타원 (E)",    action: .selectTool(.ellipse)),
         Item(symbol: "highlighter",          tip: "마커 (M)",    action: .selectTool(.marker)),
         Item(symbol: "character",            tip: "텍스트 (T) — ⇧↩ 줄바꿈, 크기·스타일은 아래 옵션 바", action: .selectTool(.text)),
-        Item(symbol: "number.circle",        tip: "번호 스탬프 (N) — 클릭할 때마다 1, 2, 3…", action: .selectTool(.number)),
+        Item(symbol: "1.circle",             tip: "번호 스탬프 (N) — 클릭할 때마다 ①, ②, ③… 순서 표시", action: .selectTool(.number)),
         Item(symbol: "paintpalette.fill",    tip: "색상",        action: .color),
         Item(symbol: "arrow.uturn.backward", tip: "실행 취소 (⌘Z)", action: .undo, separatorBefore: true),
         Item(symbol: "doc.on.doc",           tip: "클립보드로 복사 (⌘C / Enter)", action: .copy, separatorBefore: true),
