@@ -305,19 +305,32 @@ final class ColorPaletteView: NSView {
     override func resetCursorRects() { addCursorRect(bounds, cursor: .arrow) }
 }
 
-/// Options bar shown while the text tool is active: font size + style (shadow / outline / plain).
+/// Options bar shown while the text tool is active: font size, style, and (for the box style)
+/// background colour + opacity.
 final class TextOptionsView: NSView {
     static let sizes: [CGFloat] = [14, 20, 28, 40, 56]
     static let height: CGFloat = 34
 
     var fontSize: CGFloat = 20 { didSet { needsDisplay = true } }
-    var style: TextStyle = .shadow { didSet { needsDisplay = true } }
+    var style: TextStyle = .shadow { didSet { updateLayout(); needsDisplay = true } }
+    var boxColor: NSColor = .white { didSet { needsDisplay = true } }
+    var boxAlpha: CGFloat = 0.85 { didSet { slider.doubleValue = boxAlpha; needsDisplay = true } }
+
     var onSize: ((CGFloat) -> Void)?
     var onStyle: ((TextStyle) -> Void)?
+    var onBoxColor: ((NSColor) -> Void)?
+    var onBoxAlpha: ((CGFloat) -> Void)?
+    /// Called whenever the bar's size changes so the host can re-layout.
+    var onResize: (() -> Void)?
 
     private struct Item { let label: String; let width: CGFloat; let size: CGFloat?; let style: TextStyle?; let sepBefore: Bool }
     private var items: [Item] = []
     private var hoverIndex: Int?
+    private let slider = NSSlider(value: 0.85, minValue: 0.15, maxValue: 1.0, target: nil, action: nil)
+
+    private static let swatch: CGFloat = 18
+    private static let swatchGap: CGFloat = 5
+    private static let sliderWidth: CGFloat = 90
 
     init() {
         super.init(frame: .zero)
@@ -325,9 +338,13 @@ final class TextOptionsView: NSView {
         for (i, st) in TextStyle.allCases.enumerated() {
             items.append(Item(label: st.label, width: 50, size: nil, style: st, sepBefore: i == 0))
         }
-        var w: CGFloat = 6 + 50 // leading "크기" label
-        for it in items { w += it.width + (it.sepBefore ? 10 : 0) }
-        setFrameSize(NSSize(width: w + 6, height: Self.height))
+        slider.controlSize = .mini
+        slider.isContinuous = true
+        slider.target = self
+        slider.action = #selector(sliderChanged)
+        slider.isHidden = true
+        addSubview(slider)
+        updateLayout()
         wantsLayer = true
         layer?.shadowColor = NSColor.black.cgColor
         layer?.shadowOpacity = 0.5
@@ -335,6 +352,42 @@ final class TextOptionsView: NSView {
         layer?.masksToBounds = false
     }
     required init?(coder: NSCoder) { fatalError() }
+
+    private var baseWidth: CGFloat {
+        var w: CGFloat = 6 + 50
+        for it in items { w += it.width + (it.sepBefore ? 10 : 0) }
+        return w + 6
+    }
+
+    private var boxSectionX: CGFloat { baseWidth + 4 }
+
+    private func swatchRects() -> [NSRect] {
+        let x0 = boxSectionX + 44
+        return (0..<Shape.boxColors.count).map { i in
+            NSRect(x: x0 + CGFloat(i) * (Self.swatch + Self.swatchGap), y: (Self.height - Self.swatch) / 2,
+                   width: Self.swatch, height: Self.swatch)
+        }
+    }
+
+    private func updateLayout() {
+        let showBox = style == .box
+        var w = baseWidth
+        if showBox {
+            let swatchesW = CGFloat(Shape.boxColors.count) * (Self.swatch + Self.swatchGap)
+            let sliderX = boxSectionX + 44 + swatchesW + 10
+            slider.frame = NSRect(x: sliderX, y: (Self.height - 16) / 2, width: Self.sliderWidth, height: 16)
+            w = sliderX + Self.sliderWidth + 46
+        }
+        slider.isHidden = !showBox
+        let old = frame.size
+        setFrameSize(NSSize(width: w, height: Self.height))
+        if old != frame.size { onResize?() }
+    }
+
+    @objc private func sliderChanged() {
+        boxAlpha = CGFloat(slider.doubleValue)
+        onBoxAlpha?(boxAlpha)
+    }
 
     private func rects() -> [NSRect] {
         var out: [NSRect] = []
@@ -382,6 +435,26 @@ final class TextOptionsView: NSView {
             let sz = str.size()
             str.draw(at: NSPoint(x: r.midX - sz.width / 2, y: r.midY - sz.height / 2))
         }
+
+        guard style == .box else { return }
+        // separator + "배경" label + swatches + opacity percentage
+        NSColor.white.withAlphaComponent(0.18).setFill()
+        NSRect(x: boxSectionX - 1, y: 8, width: 1, height: bounds.height - 16).fill()
+        NSAttributedString(string: "배경", attributes: labelAttrs).draw(at: NSPoint(x: boxSectionX + 8, y: (bounds.height - 13) / 2))
+        for (i, r) in swatchRects().enumerated() {
+            let c = Shape.boxColors[i]
+            c.setFill()
+            NSBezierPath(ovalIn: r).fill()
+            let isSel = boxColor.isClose(to: c)
+            (isSel ? NSColor.white : NSColor.white.withAlphaComponent(0.35)).setStroke()
+            let ring = NSBezierPath(ovalIn: isSel ? r.insetBy(dx: -1.5, dy: -1.5) : r)
+            ring.lineWidth = isSel ? 2 : 1
+            ring.stroke()
+        }
+        let pct = NSAttributedString(string: "\(Int((boxAlpha * 100).rounded()))%",
+                                     attributes: [.font: NSFont.monospacedDigitSystemFont(ofSize: 11, weight: .medium),
+                                                  .foregroundColor: NSColor.white])
+        pct.draw(at: NSPoint(x: slider.frame.maxX + 6, y: (bounds.height - 13) / 2))
     }
 
     override func mouseMoved(with event: NSEvent) {
@@ -392,10 +465,16 @@ final class TextOptionsView: NSView {
     override func mouseExited(with event: NSEvent) { hoverIndex = nil; needsDisplay = true }
     override func mouseDown(with event: NSEvent) {
         let p = convert(event.locationInWindow, from: nil)
-        guard let idx = rects().firstIndex(where: { $0.contains(p) }) else { return }
-        let it = items[idx]
-        if let sz = it.size { fontSize = sz; onSize?(sz) }
-        if let st = it.style { style = st; onStyle?(st) }
+        if let idx = rects().firstIndex(where: { $0.contains(p) }) {
+            let it = items[idx]
+            if let sz = it.size { fontSize = sz; onSize?(sz) }
+            if let st = it.style { style = st; onStyle?(st) }
+            return
+        }
+        if style == .box, let i = swatchRects().firstIndex(where: { $0.insetBy(dx: -3, dy: -3).contains(p) }) {
+            boxColor = Shape.boxColors[i]
+            onBoxColor?(boxColor)
+        }
     }
     override func resetCursorRects() { addCursorRect(bounds, cursor: .arrow) }
 }

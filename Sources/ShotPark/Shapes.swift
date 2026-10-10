@@ -26,6 +26,8 @@ struct Shape {
     var text: String = ""
     var fontSize: CGFloat = 20
     var textStyle: TextStyle = .shadow
+    var boxColor: NSColor = .white
+    var boxAlpha: CGFloat = 0.85
 
     var rect: CGRect {
         guard points.count >= 2 else { return .zero }
@@ -57,13 +59,14 @@ struct Shape {
         return attrs
     }
 
-    /// Background colour for the `.box` style — dark behind light text, white behind dark text.
-    static func boxColor(for color: NSColor) -> NSColor {
-        let light = (color.usingColorSpace(.sRGB)?.brightnessComponent ?? 0) > 0.6
-        return light ? NSColor.black.withAlphaComponent(0.78) : NSColor.white.withAlphaComponent(0.9)
-    }
-
     static let boxPadding = CGSize(width: 8, height: 4)
+    static let boxColors: [NSColor] = [
+        .white, .black,
+        NSColor(srgbRed: 1.00, green: 0.93, blue: 0.35, alpha: 1), // yellow
+        NSColor(srgbRed: 0.75, green: 0.95, blue: 0.55, alpha: 1), // lime
+        NSColor(srgbRed: 0.70, green: 0.88, blue: 1.00, alpha: 1), // sky
+        NSColor(srgbRed: 1.00, green: 0.80, blue: 0.86, alpha: 1), // pink
+    ]
 }
 
 /// Draws shapes in a non-flipped (bottom-left origin) CoreGraphics context.
@@ -148,7 +151,7 @@ enum ShapeRenderer {
                 let pad = Shape.boxPadding
                 let box = CGRect(x: textOrigin.x - pad.width, y: textOrigin.y - pad.height,
                                  width: size.width + pad.width * 2, height: size.height + pad.height * 2)
-                ctx.setFillColor(Shape.boxColor(for: s.color).cgColor)
+                ctx.setFillColor(s.boxColor.withAlphaComponent(s.boxAlpha).cgColor)
                 let r = min(6, s.fontSize * 0.25)
                 ctx.addPath(CGPath(roundedRect: box, cornerWidth: r, cornerHeight: r, transform: nil))
                 ctx.fillPath()

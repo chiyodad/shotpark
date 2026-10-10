@@ -51,6 +51,12 @@ final class CaptureView: NSView, NSTextFieldDelegate {
     var textStyle: TextStyle = Preferences.textStyle {
         didSet { textOptions.style = textStyle; Preferences.textStyle = textStyle; applyTextFieldStyle() }
     }
+    var boxColor: NSColor = Preferences.boxColor {
+        didSet { textOptions.boxColor = boxColor; Preferences.boxColor = boxColor; applyTextFieldStyle() }
+    }
+    var boxAlpha: CGFloat = Preferences.boxAlpha {
+        didSet { textOptions.boxAlpha = boxAlpha; Preferences.boxAlpha = boxAlpha; applyTextFieldStyle() }
+    }
 
     private var pixelScale: CGFloat { CGFloat(screenshot.width) / max(bounds.width, 1) }
 
@@ -80,8 +86,13 @@ final class CaptureView: NSView, NSTextFieldDelegate {
         textOptions.isHidden = true
         textOptions.fontSize = textSize
         textOptions.style = textStyle
+        textOptions.boxColor = boxColor
+        textOptions.boxAlpha = boxAlpha
         textOptions.onSize = { [weak self] in self?.textSize = $0 }
         textOptions.onStyle = { [weak self] in self?.textStyle = $0 }
+        textOptions.onBoxColor = { [weak self] in self?.boxColor = $0 }
+        textOptions.onBoxAlpha = { [weak self] in self?.boxAlpha = $0 }
+        textOptions.onResize = { [weak self] in self?.layoutToolbar() }
         addSubview(textOptions)
     }
 
@@ -465,7 +476,7 @@ final class CaptureView: NSView, NSTextFieldDelegate {
         tf.textColor = color
         if textStyle == .box {
             tf.drawsBackground = true
-            tf.backgroundColor = Shape.boxColor(for: color)
+            tf.backgroundColor = boxColor.withAlphaComponent(boxAlpha)
         } else {
             tf.drawsBackground = false
         }
@@ -481,7 +492,8 @@ final class CaptureView: NSView, NSTextFieldDelegate {
         if !text.isEmpty {
             let origin = CGPoint(x: tf.frame.minX + 2, y: tf.frame.maxY - textSize * 0.2)
             shapes.append(Shape(tool: .text, points: [origin], color: color, lineWidth: lineWidth,
-                                text: text, fontSize: textSize, textStyle: textStyle))
+                                text: text, fontSize: textSize, textStyle: textStyle,
+                                boxColor: boxColor, boxAlpha: boxAlpha))
         }
         tf.removeFromSuperview()
         textField = nil
@@ -644,6 +656,24 @@ enum Preferences {
     static var textStyle: TextStyle {
         get { TextStyle(rawValue: UserDefaults.standard.integer(forKey: textStyleKey)) ?? .shadow }
         set { UserDefaults.standard.set(newValue.rawValue, forKey: textStyleKey) }
+    }
+    private static let boxColorKey = "annotationBoxColor"
+    private static let boxAlphaKey = "annotationBoxAlpha"
+    static var boxColor: NSColor {
+        get {
+            if let data = UserDefaults.standard.data(forKey: boxColorKey),
+               let c = try? NSKeyedUnarchiver.unarchivedObject(ofClass: NSColor.self, from: data) { return c }
+            return .white
+        }
+        set {
+            if let data = try? NSKeyedArchiver.archivedData(withRootObject: newValue, requiringSecureCoding: true) {
+                UserDefaults.standard.set(data, forKey: boxColorKey)
+            }
+        }
+    }
+    static var boxAlpha: CGFloat {
+        get { let v = UserDefaults.standard.double(forKey: boxAlphaKey); return v > 0 ? CGFloat(v) : 0.85 }
+        set { UserDefaults.standard.set(Double(newValue), forKey: boxAlphaKey) }
     }
 
     static var color: NSColor {

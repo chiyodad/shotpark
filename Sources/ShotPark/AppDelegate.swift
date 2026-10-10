@@ -73,7 +73,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                     let size = (args.count >= 4 ? Double(args[args.count - 1]) : nil) ?? 20
                     let label = args.count >= 4 && Double(args[args.count - 1]) != nil ? args[2..<(args.count - 1)].joined(separator: ",") : args[2...].joined(separator: ",")
                     shapes.append(Shape(tool: .text, points: [pt(v[0], v[1])], color: color, lineWidth: 3,
-                                        text: label, fontSize: CGFloat(size), textStyle: Preferences.textStyle))
+                                        text: label, fontSize: CGFloat(size), textStyle: Preferences.textStyle,
+                                        boxColor: Preferences.boxColor, boxAlpha: Preferences.boxAlpha))
                 default: break
                 }
             }
