@@ -23,6 +23,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             ScreenCapture.requestPermission()
         }
 
+        // Pre-fetch display info so the first ⌘⇧9 is as fast as the rest; refresh when screens change.
+        ScreenCapture.prewarm()
+        NotificationCenter.default.addObserver(forName: NSApplication.didChangeScreenParametersNotification,
+                                               object: nil, queue: .main) { _ in ScreenCapture.prewarm() }
+
         handleDemoEnvironment()
     }
 

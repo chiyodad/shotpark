@@ -39,13 +39,9 @@ final class CaptureSession {
 
     @MainActor
     func start() async {
-        var captured: [(NSScreen, CGImage)] = []
-        for screen in NSScreen.screens {
-            let id = ScreenCapture.displayID(for: screen)
-            if let img = await ScreenCapture.capture(displayID: id) {
-                captured.append((screen, img))
-            }
-        }
+        let t0 = CFAbsoluteTimeGetCurrent()
+        let captured = await ScreenCapture.captureAll(NSScreen.screens)
+        NSLog("ShotPark: captured \(captured.count) display(s) in \(Int((CFAbsoluteTimeGetCurrent() - t0) * 1000)) ms")
         guard !captured.isEmpty else {
             end()
             showPermissionAlert()
@@ -157,6 +153,7 @@ final class CaptureSession {
         windows = []
         views = []
         onEnd()
+        ScreenCapture.prewarm() // keep the next capture instant
     }
 
     private func showPermissionAlert() {
