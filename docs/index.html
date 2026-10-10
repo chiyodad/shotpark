@@ -155,25 +155,23 @@
   <section id="install">
     <h2>설치</h2>
 
-    <p>가장 쉬운 방법은 터미널 한 줄입니다. 최신 버전을 받아 응용 프로그램 폴더에 넣고, Gatekeeper 격리 플래그까지 풀어서 바로 실행합니다 (아래 1·2단계를 대신합니다).</p>
-    <pre><code>curl -fsSL https://shotpark.site/install.sh | sh</code></pre>
-    <p>Homebrew를 쓰신다면:</p>
-    <pre><code>brew install --cask chiyodad/tap/shotpark</code></pre>
-    <p class="note" style="margin-bottom:28px">둘 다 설치 후 3단계(화면 기록 권한)는 똑같이 필요합니다. 수동으로 설치하려면 아래 순서대로.</p>
-
     <div class="step">
       <div class="n">1</div>
       <div>
-        <h3>다운로드하고 응용 프로그램 폴더로</h3>
-        <p><a href="https://github.com/chiyodad/shotpark/releases/latest">최신 릴리즈</a>에서 <code>ShotPark-x.y.z.zip</code>을 받아 압축을 풀고 <b>ShotPark.app</b>을 응용 프로그램 폴더로 옮깁니다.</p>
+        <h3>설치 방법</h3>
+        <p><b>1) CLI</b> — 최신 버전 다운로드 → 응용 프로그램 폴더 → 격리 플래그 해제 → 실행:</p>
+        <pre><code>curl -fsSL https://shotpark.site/install.sh | sh</code></pre>
+        <p><b>2) Homebrew</b></p>
+        <pre><code>brew install --cask chiyodad/tap/shotpark</code></pre>
+        <p><b>3) 다운로드</b> — <a href="https://github.com/chiyodad/shotpark/releases/latest">최신 릴리즈</a>에서 <code>ShotPark-x.y.z.zip</code>을 받아 압축을 풀고 <b>ShotPark.app</b>을 응용 프로그램 폴더로 옮깁니다.</p>
       </div>
     </div>
 
     <div class="step">
       <div class="n">2</div>
       <div>
-        <h3>처음 한 번, Gatekeeper 통과</h3>
-        <p>ShotPark은 Apple 개발자 서명이 없는 오픈소스 앱이라 처음 열 때 macOS가 "확인할 수 없는 개발자"라며 막습니다. 아래 둘 중 편한 방법으로 한 번만 열어 주면 그 뒤로는 묻지 않습니다.</p>
+        <h3>Gatekeeper 통과하기 (최초 1회)</h3>
+        <p>ShotPark은 Apple 개발자 서명이 없는 오픈소스 앱이라 처음 열 때 macOS가 "확인할 수 없는 개발자"라며 막습니다. 아래 둘 중 편한 방법으로 한 번만 열어 주면 그 뒤로는 묻지 않습니다. CLI·Homebrew로 설치했다면 이미 처리되어 있습니다.</p>
         <p><b>방법 A — 터미널 한 줄</b> (가장 확실):</p>
         <pre><code>xattr -d com.apple.quarantine /Applications/ShotPark.app</code></pre>
         <p><b>방법 B — 설정에서 허용</b>: 앱을 한 번 더블클릭해 경고를 닫은 뒤, <b>시스템 설정 → 개인정보 보호 및 보안</b> 맨 아래에 나타나는 <b>"그래도 열기"</b>를 누릅니다.</p>
@@ -183,7 +181,7 @@
     <div class="step">
       <div class="n">3</div>
       <div>
-        <h3>화면 기록 권한 허용</h3>
+        <h3>화면 기록 권한 부여</h3>
         <p>첫 캡처(<kbd>⌘⇧9</kbd>) 때 아래 창이 뜹니다. <b>"시스템 설정 열기"</b>를 누르고 목록에서 <b>ShotPark</b>을 켜 주세요. 켠 뒤 앱을 한 번 종료했다가(메뉴 막대 아이콘 → ShotPark 종료) 다시 실행하면 바로 캡처됩니다.</p>
         <div class="two">
           <div class="fig"><img src="img/perm-dialog.png" alt="화면 기록 권한 요청 대화상자"></div>

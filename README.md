@@ -67,32 +67,32 @@
 
 ## 설치
 
-가장 쉬운 방법 — 터미널 한 줄 (최신 버전 다운로드 → 응용 프로그램 폴더 → 격리 플래그 해제 → 실행):
+### 1. 설치 방법
+
+**1) CLI** (최신 버전 다운로드 → 응용 프로그램 폴더 → 격리 플래그 해제 → 실행):
 
 ```sh
 curl -fsSL https://shotpark.site/install.sh | sh
 ```
 
-Homebrew:
+**2) Homebrew**
 
 ```sh
 brew install --cask chiyodad/tap/shotpark
 ```
 
-둘 다 첫 캡처 때 화면 기록 권한(아래 3단계)은 똑같이 필요합니다. 수동 설치는 아래 순서대로.
+**3) 다운로드**
 
-### 1. 다운로드
+[최신 릴리즈](https://github.com/chiyodad/shotpark/releases/latest)에서 `ShotPark-x.y.z.zip`을 받아 압축을 풀고 `ShotPark.app`을 응용 프로그램 폴더로 옮깁니다.
 
-[최신 릴리즈](https://github.com/chiyodad/shotpark/releases/latest)에서 `ShotPark-x.y.z.zip`을 받아 압축을 풀고 `ShotPark.app`을 **응용 프로그램** 폴더로 옮깁니다.
+### 2. Gatekeeper 통과하기 (최초 1회)
 
-### 2. 처음 한 번, Gatekeeper 통과
-
-Apple 개발자 서명이 없는 오픈소스 앱이라 처음 열 때 macOS가 "확인할 수 없는 개발자"라며 막습니다. 둘 중 하나로 한 번만 열어 주면 그 뒤로는 묻지 않습니다.
+Apple 개발자 서명이 없는 오픈소스 앱이라 처음 열 때 macOS가 "확인할 수 없는 개발자"라며 막습니다. 둘 중 하나로 한 번만 열어 주면 그 뒤로는 묻지 않습니다. CLI·Homebrew로 설치했다면 이미 처리되어 있습니다.
 
 - **방법 A — 터미널 한 줄** (가장 확실): `xattr -d com.apple.quarantine /Applications/ShotPark.app`
 - **방법 B — 설정에서 허용**: 앱을 더블클릭해 경고를 닫은 뒤, 시스템 설정 → 개인정보 보호 및 보안 맨 아래의 **"그래도 열기"**.
 
-### 3. 화면 기록 권한
+### 3. 화면 기록 권한 부여
 
 첫 캡처(`⌘⇧9`) 때 권한 요청 창이 뜹니다. **"시스템 설정 열기"** → 목록에서 **ShotPark**을 켜고, 앱을 한 번 종료했다가(메뉴 막대 아이콘 → ShotPark 종료) 다시 실행하세요.
 
