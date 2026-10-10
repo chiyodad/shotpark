@@ -5,7 +5,7 @@
 <h1 align="center">ShotPark</h1>
 
 <p align="center">
-  Lightshot 스타일의 맥용 영역 캡처 · 주석 · 공유 도구<br>
+  맥에서 화면 한 부분을 잡아 바로 표시하고 보내는 가장 빠른 길<br>
   <b>Apple Silicon 네이티브</b> · 외부 의존성 없음 · 메뉴 막대 상주
 </p>
 
@@ -22,11 +22,17 @@
   <a href="#english">English</a>
 </p>
 
+<p align="center">
+  <img src="docs/img/demo-map.jpg" width="820" alt="ShotPark으로 지도를 캡처해 경복궁과 안국역을 표시한 실제 화면">
+</p>
+
+<p align="center"><sub>실제 화면. <code>⌘⇧9</code> → 지도 위를 드래그 → 원·화살표·텍스트로 표시 → <code>⌘C</code>로 복사.</sub></p>
+
 ---
 
 ## 왜 만들었나
 
-Lightshot for Mac은 2017년 이후 업데이트가 멈춘 Intel(x86_64) 전용 앱이라, Rosetta가 빠진 최신 macOS와 Apple Silicon 맥에서는 더 이상 실행되지 않습니다. ShotPark은 그 작업 흐름 — **단축키 → 드래그로 영역 선택 → 바로 주석 → 복사/저장/공유** — 을 그대로 가져와 Swift와 AppKit만으로 새로 만든 네이티브 앱입니다.
+쓰던 영역 캡처 앱이 Intel 전용이라 Apple Silicon 맥에서 더 이상 돌아가지 않게 됐습니다. 그 작업 흐름 — **단축키 → 드래그로 영역 선택 → 바로 주석 → 복사/저장/공유** — 을 그대로 가져와 Swift와 AppKit만으로 새로 만든 네이티브 앱입니다.
 
 ## 기능
 
@@ -50,20 +56,36 @@ Lightshot for Mac은 2017년 이후 업데이트가 멈춘 Intel(x86_64) 전용 
 - 설정 창: 캡처 단축키, 저장 폴더, 바로 저장 여부.
 - 외부 라이브러리 0개. 소스 전체가 Swift 파일 9개.
 
+<p align="center">
+  <img src="docs/img/app-settings.png" width="520" alt="ShotPark 설정 창">
+</p>
+
 ## 설치
 
-### 릴리즈 다운로드 (권장)
+### 1. 다운로드
 
-1. [최신 릴리즈](https://github.com/suseokpark/shotpark/releases/latest)에서 `ShotPark-x.y.z.zip`을 받습니다.
-2. 압축을 풀고 `ShotPark.app`을 **응용 프로그램** 폴더로 옮깁니다.
-3. 앱이 ad-hoc 서명이라 처음 실행 시 Gatekeeper가 막습니다. 둘 중 하나로 열어 주세요.
-   - Finder에서 앱을 **우클릭 → 열기 → 열기**, 또는
-   - 터미널: `xattr -d com.apple.quarantine /Applications/ShotPark.app`
-4. 첫 캡처 때 **화면 기록 권한**을 요청합니다. 시스템 설정 → 개인정보 보호 및 보안 → **화면 및 시스템 오디오 기록**에서 ShotPark을 켠 뒤 앱을 한 번 종료했다가 다시 실행하세요.
+[최신 릴리즈](https://github.com/suseokpark/shotpark/releases/latest)에서 `ShotPark-x.y.z.zip`을 받아 압축을 풀고 `ShotPark.app`을 **응용 프로그램** 폴더로 옮깁니다.
+
+### 2. 처음 한 번, Gatekeeper 통과
+
+Apple 개발자 서명이 없는 오픈소스 앱이라 처음 열 때 macOS가 "확인할 수 없는 개발자"라며 막습니다. 둘 중 하나로 한 번만 열어 주면 그 뒤로는 묻지 않습니다.
+
+- **방법 A — 터미널 한 줄** (가장 확실): `xattr -d com.apple.quarantine /Applications/ShotPark.app`
+- **방법 B — 설정에서 허용**: 앱을 더블클릭해 경고를 닫은 뒤, 시스템 설정 → 개인정보 보호 및 보안 맨 아래의 **"그래도 열기"**.
+
+### 3. 화면 기록 권한
+
+첫 캡처(`⌘⇧9`) 때 권한 요청 창이 뜹니다. **"시스템 설정 열기"** → 목록에서 **ShotPark**을 켜고, 앱을 한 번 종료했다가(메뉴 막대 아이콘 → ShotPark 종료) 다시 실행하세요.
+
+<p align="center">
+  <img src="docs/img/perm-dialog.png" width="400" alt="화면 기록 권한 요청">
+  &nbsp;
+  <img src="docs/img/screen-recording.png" width="380" alt="시스템 설정에서 ShotPark 켜기">
+</p>
 
 ### 소스에서 빌드
 
-Xcode Command Line Tools만 있으면 됩니다 (`xcode-select --install`).
+Xcode Command Line Tools만 있으면 됩니다 (`xcode-select --install`). 직접 빌드하면 2단계는 필요 없습니다.
 
 ```sh
 git clone https://github.com/suseokpark/shotpark.git
@@ -101,7 +123,10 @@ cd shotpark
 화면 기록 권한이 아직 없는 경우입니다. 메뉴 막대 아이콘 → "화면 기록 권한 설정…"으로 설정 창을 열어 ShotPark을 켜고, 앱을 종료했다가 다시 실행하세요. 다른 앱이 같은 단축키를 전역으로 잡고 있다면 설정에서 다른 조합으로 바꿔 보세요.
 
 **"손상되었기 때문에 열 수 없습니다"라고 떠요.**
-Apple 개발자 서명이 없는 앱이라 다운로드한 파일에 격리 속성이 붙어서 그렇습니다. 위 설치 3번 항목대로 우클릭 → 열기 또는 `xattr -d com.apple.quarantine`로 해제하면 됩니다. 소스에서 직접 빌드하면 이 단계가 필요 없습니다.
+다운로드한 파일에 붙는 격리 속성 때문입니다. 설치 2단계의 `xattr -d com.apple.quarantine /Applications/ShotPark.app`으로 해제하면 됩니다.
+
+**업데이트했더니 화면 기록 권한을 다시 물어봐요.**
+정상입니다. 서명이 바뀐 새 빌드는 macOS가 새 앱으로 취급해서 한 번 더 묻습니다. 직접 빌드하는 경우 키체인에 `ShotPark Developer`라는 코드 서명 인증서를 만들어 두면 `build.sh`가 자동으로 그 인증서로 서명해 재빌드 후에도 권한이 유지됩니다.
 
 **"공유 → Slack/카카오톡"은 어떻게 동작하나요?**
 이미지를 클립보드에 복사한 뒤 해당 앱에 파일을 넘깁니다. Slack처럼 파일을 받는 앱은 바로 업로드 창이 뜨고, 받지 않는 앱은 앞으로 올라오기만 하므로 `⌘V`로 붙여넣으면 됩니다.
@@ -109,7 +134,7 @@ Apple 개발자 서명이 없는 앱이라 다운로드한 파일에 격리 속�
 **Intel 맥에서도 되나요?**
 빌드 스크립트가 arm64로 고정되어 있습니다. `build.sh`의 `--arch arm64`를 지우고 빌드하면 Intel에서도 돌아갑니다 (테스트는 안 했습니다).
 
-**온라인 업로드/링크 공유(prnt.sc 같은)는요?**
+**온라인 업로드/링크 공유는요?**
 없습니다. 의도적으로 모든 것이 로컬에서만 처리됩니다.
 
 ## 프로젝트 구조
@@ -126,10 +151,12 @@ Sources/ShotPark/
   ToolbarView.swift     플로팅 툴바, 색상 팔레트
   Settings.swift        설정(UserDefaults), 단축키 레코더, 설정 창, 저장 알림
 Info.plist              LSUIElement(메뉴 막대 전용), 권한 설명
-build.sh                빌드 → .app 번들 → 아이콘 → ad-hoc 서명 → 설치
-makeicon.swift          앱 아이콘 생성 스크립트
-docs/                   GitHub Pages 홈페이지
+build.sh                빌드 → .app 번들 → 아이콘 → 서명 → 설치
+makeicon.swift          아이콘이 없을 때 쓰는 대체 아이콘 생성 스크립트
+docs/                   GitHub Pages 홈페이지 + 스크린샷
 ```
+
+문서용 스크린샷은 환경 변수로 재현할 수 있습니다: `SHOTPARK_DEMO="x,y,w,h"`(선택 영역, 포인트 단위·좌상단 기준)와 `SHOTPARK_DEMO_SHAPES="ellipse:x1,y1,x2,y2;arrow:…;text:x,y,라벨"`을 주고 실행하면 그 상태로 오버레이가 뜹니다. `SHOTPARK_SETTINGS=1`은 설정 창을 바로 엽니다.
 
 ## 기여
 
@@ -144,14 +171,14 @@ MIT © Suseok Park
 <a id="english"></a>
 ## English
 
-**ShotPark** is a Lightshot-style region screenshot tool for macOS, rewritten natively for Apple Silicon in Swift/AppKit with zero dependencies. Lightshot for Mac is an Intel-only binary that no longer runs on modern macOS without Rosetta; ShotPark keeps the same workflow: hotkey → drag a region → annotate → copy / save / share.
+**ShotPark** is a region screenshot tool for macOS, built natively for Apple Silicon in Swift/AppKit with zero dependencies. Hotkey → drag a region → annotate → copy / save / share.
 
 - Global hotkey (default `⌘⇧9`, configurable), resizable/movable selection, multi-monitor, Retina-resolution capture via ScreenCaptureKit.
 - Annotations: pen, line, arrow, rectangle, ellipse, marker, text, 10-color palette, undo.
 - `⌘C`/`Enter` copies to clipboard, `⌘S` saves PNG directly to a folder of your choice, `⌘⇧S` shares to Claude / Slack / KakaoTalk or the macOS share sheet.
 - Menu-bar only, launch-at-login option, settings window.
 
-**Install:** grab `ShotPark-x.y.z.zip` from the [latest release](https://github.com/suseokpark/shotpark/releases/latest), move `ShotPark.app` to Applications, then right-click → Open (the app is ad-hoc signed, so Gatekeeper needs a one-time override — or run `xattr -d com.apple.quarantine /Applications/ShotPark.app`). Grant **Screen Recording** permission on first capture and relaunch.
+**Install:** grab `ShotPark-x.y.z.zip` from the [latest release](https://github.com/suseokpark/shotpark/releases/latest), move `ShotPark.app` to Applications, clear the quarantine flag once (`xattr -d com.apple.quarantine /Applications/ShotPark.app`, or allow it under System Settings → Privacy & Security → "Open Anyway"), then grant **Screen Recording** permission on first capture and relaunch.
 
 **Build from source:** `git clone https://github.com/suseokpark/shotpark.git && cd shotpark && ./build.sh --install` (needs Xcode Command Line Tools). Requires macOS 13+.
 

@@ -33,8 +33,15 @@ if [ -f icon.png ]; then
   iconutil -c icns build/AppIcon.iconset -o "$APP/Contents/Resources/AppIcon.icns"
 fi
 
-echo "▶ codesign (ad-hoc)"
-codesign --force --deep --sign - --identifier ai.worxphere.suseok.shotpark "$APP"
+# 'ShotPark Developer' 라는 자체 서명 인증서가 키체인에 있으면 그걸로, 없으면 ad-hoc 으로 서명합니다.
+# (ad-hoc 은 빌드마다 서명이 바뀌어 화면 기록 권한을 매번 다시 물어봅니다.)
+if security find-identity -v -p codesigning 2>/dev/null | grep -q "ShotPark Developer"; then
+  echo "▶ codesign (ShotPark Developer)"
+  codesign --force --deep --sign "ShotPark Developer" --identifier ai.worxphere.suseok.shotpark "$APP"
+else
+  echo "▶ codesign (ad-hoc)"
+  codesign --force --deep --sign - --identifier ai.worxphere.suseok.shotpark "$APP"
+fi
 file "$APP/Contents/MacOS/$NAME"
 
 if [[ "${1:-}" == "--install" ]]; then

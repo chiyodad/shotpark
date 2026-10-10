@@ -98,6 +98,8 @@ final class CaptureSession {
         }
     }
 
+    var primaryView: CaptureView? { views.first }
+
     func activate(_ view: CaptureView) {
         for v in views where v !== view { v.reset() }
         if let win = view.window, !win.isKeyWindow {

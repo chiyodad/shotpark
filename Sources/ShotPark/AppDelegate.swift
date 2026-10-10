@@ -22,6 +22,55 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             // Triggers the system prompt + adds the app to the Screen Recording list.
             ScreenCapture.requestPermission()
         }
+
+        handleDemoEnvironment()
+    }
+
+    /// Developer aid for taking documentation screenshots:
+    ///   SHOTPARK_SETTINGS=1                → open the settings window on launch
+    ///   SHOTPARK_DEMO="x,y,w,h"            → start a capture and pre-fill a selection (+ sample
+    ///                                        annotations) at the given rect, in points, top-left origin
+    ///                                        of the main screen. The overlay stays up until Esc.
+    private func handleDemoEnvironment() {
+        let env = ProcessInfo.processInfo.environment
+        if env["SHOTPARK_SETTINGS"] == "1" {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { self.openSettings() }
+        }
+        guard let spec = env["SHOTPARK_DEMO"] else { return }
+        let nums = spec.split(separator: ",").compactMap { Double($0.trimmingCharacters(in: .whitespaces)) }
+        guard nums.count == 4, let screen = NSScreen.main else { return }
+        let r = CGRect(x: nums[0], y: screen.frame.height - nums[1] - nums[3], width: nums[2], height: nums[3])
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { self.startCapture() }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2.5) { [weak self] in
+            guard let view = self?.session?.primaryView else { return }
+            let color = ColorPaletteView.colors[0]
+            // SHOTPARK_DEMO_SHAPES="ellipse:x1,y1,x2,y2;arrow:x1,y1,x2,y2;rect:...;text:x,y,label"
+            // coordinates in points, top-left origin of the main screen.
+            let H = screen.frame.height
+            func pt(_ x: Double, _ y: Double) -> CGPoint { CGPoint(x: x, y: H - y) }
+            var shapes: [Shape] = []
+            for item in (env["SHOTPARK_DEMO_SHAPES"] ?? "").split(separator: ";") {
+                let parts = item.split(separator: ":", maxSplits: 1).map(String.init)
+                guard parts.count == 2 else { continue }
+                let args = parts[1].split(separator: ",").map { String($0) }
+                let v = args.compactMap { Double($0) }
+                switch parts[0] {
+                case "ellipse" where v.count >= 4:
+                    shapes.append(Shape(tool: .ellipse, points: [pt(v[0], v[1]), pt(v[2], v[3])], color: color, lineWidth: 3))
+                case "rect" where v.count >= 4:
+                    shapes.append(Shape(tool: .rect, points: [pt(v[0], v[1]), pt(v[2], v[3])], color: color, lineWidth: 3))
+                case "arrow" where v.count >= 4:
+                    shapes.append(Shape(tool: .arrow, points: [pt(v[0], v[1]), pt(v[2], v[3])], color: color, lineWidth: 3))
+                case "line" where v.count >= 4:
+                    shapes.append(Shape(tool: .line, points: [pt(v[0], v[1]), pt(v[2], v[3])], color: color, lineWidth: 3))
+                case "text" where v.count >= 2 && args.count >= 3:
+                    shapes.append(Shape(tool: .text, points: [pt(v[0], v[1])], color: color, lineWidth: 3,
+                                        text: args[2...].joined(separator: ","), fontSize: 20))
+                default: break
+                }
+            }
+            view.applyDemo(selection: r, shapes: shapes)
+        }
     }
 
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {

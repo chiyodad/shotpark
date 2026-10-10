@@ -533,6 +533,18 @@ final class CaptureView: NSView, NSTextFieldDelegate {
         str.draw(at: CGPoint(x: box.minX + pad, y: box.minY + pad / 2))
     }
 
+    // MARK: demo / screenshots (used by `SHOTPARK_DEMO` env var only)
+
+    func applyDemo(selection rect: CGRect, shapes demoShapes: [Shape]) {
+        state = .selected
+        selection = rect.integral
+        shapes = demoShapes
+        tool = .move
+        layoutToolbar()
+        window?.invalidateCursorRects(for: self)
+        needsDisplay = true
+    }
+
     // MARK: export
 
     func renderResult() -> NSImage? {

@@ -155,7 +155,7 @@ final class HotKeyRecorderView: NSView {
         recording = true
     }
 
-    override func becomeFirstResponder() -> Bool { recording = true; return true }
+    override func becomeFirstResponder() -> Bool { true } // recording starts on click only
     override func resignFirstResponder() -> Bool { recording = false; return true }
 
     override func keyDown(with event: NSEvent) {
