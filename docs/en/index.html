@@ -122,7 +122,7 @@
     <p>Lightshot set the bar for quick screenshots: press a key, drag a box, scribble on it, copy. The problem is that its Mac app is an Intel-only build, so on Apple Silicon it has to run through Rosetta — if it runs at all. ShotPark keeps that exact workflow and rebuilds it natively for modern Macs with Swift and AppKit, with nothing phoning home.</p>
     <div class="grid" style="margin-top:18px">
       <div class="card"><div class="ic">⚡️</div><h3>Same muscle memory</h3><p>Hotkey → drag → annotate → <kbd>⌘C</kbd>. If you used Lightshot, you already know how ShotPark works. The overlay appears in well under 100&nbsp;ms.</p></div>
-      <div class="card"><div class="ic">🍎</div><h3>Built for Apple Silicon</h3><p>Native arm64 binary using ScreenCaptureKit. No Rosetta, no Electron, no Java — a 9-file Swift app with zero third-party libraries.</p></div>
+      <div class="card"><div class="ic">🍎</div><h3>Built for Apple Silicon</h3><p>Native arm64 binary using ScreenCaptureKit. No Rosetta, no Electron, no Java — a 10-file Swift app with zero third-party libraries.</p></div>
       <div class="card"><div class="ic">🔒</div><h3>No cloud, no account</h3><p>Lightshot's "upload to prnt.sc" button is intentionally absent. Captures go to your clipboard, your folder, or the app you pick. Nothing leaves the machine.</p></div>
       <div class="card"><div class="ic">🧰</div><h3>More annotation, not less</h3><p>Everything Lightshot had plus multi-line text with shadow / outline / background box, numbered stamps, emoji stamps, movable and editable annotations, undo and redo.</p></div>
     </div>
@@ -136,7 +136,7 @@
       <div class="card"><div class="ic">📋</div><h3>Copy · save · share</h3><p><kbd>⌘C</kbd> to the clipboard, <kbd>⌘S</kbd> straight to your chosen folder as PNG, <kbd>⌘⇧S</kbd> to Claude · Slack · KakaoTalk or the macOS share sheet.</p></div>
       <div class="card"><div class="ic">🖥️</div><h3>Retina · multi-monitor</h3><p>ScreenCaptureKit captures every display at its true resolution. Works the same with one monitor or five.</p></div>
       <div class="card"><div class="ic">⚙️</div><h3>Your settings</h3><p>Change the capture hotkey, the save folder and the save/copy behaviour in the settings window. Optional launch at login. UI in English or Korean, following your macOS language.</p></div>
-      <div class="card"><div class="ic">🪶</div><h3>Light and transparent</h3><p>9 Swift/AppKit files, 0 external libraries. No Dock icon — menu bar only. Never uploads anything.</p></div>
+      <div class="card"><div class="ic">🪶</div><h3>Light and transparent</h3><p>10 Swift/AppKit files, 0 external libraries. No Dock icon — menu bar only. Never uploads anything.</p></div>
     </div>
     <div class="settings-fig"><img src="img/settings-window.png" alt="ShotPark settings window — capture hotkey, save folder, direct-save options"></div>
     <p class="caption">Settings (<kbd>⌘,</kbd>). Click the hotkey box and press the combination you want; it applies immediately. Save folder, direct save and save↔copy linking live here too. The app follows your macOS language (English or Korean).</p>
@@ -166,6 +166,12 @@
 
   <section id="install">
     <h2>Install</h2>
+
+    <p>The easiest way is one line in Terminal. It downloads the latest release, puts it in Applications, clears the Gatekeeper quarantine flag and launches it (replaces steps 1 and 2 below).</p>
+    <pre><code>curl -fsSL https://shotpark.site/install.sh | sh</code></pre>
+    <p>Homebrew user?</p>
+    <pre><code>brew install --cask chiyodad/tap/shotpark</code></pre>
+    <p class="note" style="margin-bottom:28px">Either way, step 3 (Screen Recording permission) is still needed. To install by hand, follow the steps below.</p>
 
     <div class="step">
       <div class="n">1</div>

@@ -59,13 +59,27 @@
 **그 외**
 - 메뉴 막대에만 상주 (Dock에 안 뜸), 로그인 시 자동 실행 옵션. UI는 macOS 언어에 따라 한국어 · 영어 자동 선택.
 - 설정 창: 캡처 단축키, 저장 폴더, 바로 저장 여부.
-- 외부 라이브러리 0개. 소스 전체가 Swift 파일 9개.
+- 외부 라이브러리 0개. 소스 전체가 Swift 파일 10개.
 
 <p align="center">
   <img src="docs/img/settings-window.png" width="520" alt="ShotPark 설정 창">
 </p>
 
 ## 설치
+
+가장 쉬운 방법 — 터미널 한 줄 (최신 버전 다운로드 → 응용 프로그램 폴더 → 격리 플래그 해제 → 실행):
+
+```sh
+curl -fsSL https://shotpark.site/install.sh | sh
+```
+
+Homebrew:
+
+```sh
+brew install --cask chiyodad/tap/shotpark
+```
+
+둘 다 첫 캡처 때 화면 기록 권한(아래 3단계)은 똑같이 필요합니다. 수동 설치는 아래 순서대로.
 
 ### 1. 다운로드
 
@@ -160,10 +174,12 @@ Sources/ShotPark/
   Shapes.swift          주석 모델 + 렌더러 (화면/내보내기 동일 코드)
   ToolbarView.swift     플로팅 툴바, 색상 팔레트
   Settings.swift        설정(UserDefaults), 단축키 레코더, 설정 창, 저장 알림
+  L10n.swift            한국어/영어 문자열 선택 (macOS 언어 따름)
 Info.plist              LSUIElement(메뉴 막대 전용), 권한 설명
 build.sh                빌드 → .app 번들 → 아이콘 → 서명 → 설치
+release.sh              빌드 → zip → GitHub 릴리즈 → Homebrew cask(chiyodad/homebrew-tap) 갱신
 makeicon.swift          아이콘이 없을 때 쓰는 대체 아이콘 생성 스크립트
-docs/                   GitHub Pages 홈페이지 + 스크린샷
+docs/                   홈페이지(shotpark.site) + 스크린샷 + install.sh(한 줄 설치 스크립트)
 ```
 
 문서용 스크린샷은 환경 변수로 재현할 수 있습니다: `SHOTPARK_DEMO="x,y,w,h"`(선택 영역, 포인트 단위·좌상단 기준)와 `SHOTPARK_DEMO_SHAPES="ellipse:x1,y1,x2,y2;arrow:…;text:x,y,라벨"`을 주고 실행하면 그 상태로 오버레이가 뜹니다. `SHOTPARK_SETTINGS=1`은 설정 창을 바로 엽니다.
@@ -191,7 +207,7 @@ MIT © Suseok Park
 - `⌘C`/`Enter` copies to clipboard, `⌘S` saves `shotpark-yyyyMMdd-HHmmss.png` directly to a folder of your choice, `⌘⇧S` shares to Claude / Slack / KakaoTalk or the macOS share sheet.
 - Menu-bar only, launch-at-login option, settings window. English or Korean UI, following your macOS language.
 
-**Install:** grab `ShotPark-x.y.z.zip` from the [latest release](https://github.com/chiyodad/shotpark/releases/latest), move `ShotPark.app` to Applications, clear the quarantine flag once (`xattr -d com.apple.quarantine /Applications/ShotPark.app`, or allow it under System Settings → Privacy & Security → "Open Anyway"), then grant **Screen Recording** permission on first capture and relaunch.
+**Install:** one line — `curl -fsSL https://shotpark.site/install.sh | sh` — or `brew install --cask chiyodad/tap/shotpark`. Manually: grab `ShotPark-x.y.z.zip` from the [latest release](https://github.com/chiyodad/shotpark/releases/latest), move `ShotPark.app` to Applications, clear the quarantine flag once (`xattr -d com.apple.quarantine /Applications/ShotPark.app`, or allow it under System Settings → Privacy & Security → "Open Anyway"), then grant **Screen Recording** permission on first capture and relaunch.
 
 **Build from source:** `git clone https://github.com/chiyodad/shotpark.git && cd shotpark && ./build.sh --install` (needs Xcode Command Line Tools). Requires macOS 13+.
 
