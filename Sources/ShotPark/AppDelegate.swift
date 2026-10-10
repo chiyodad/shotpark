@@ -211,7 +211,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         \(Settings.hotKey.display)  영역 캡처 시작 (설정에서 변경 가능)
         드래그  영역 선택 · 핸들로 크기 조절 · 안쪽 드래그로 이동
-        P 펜 · L 선 · A 화살표 · R 사각형 · E 타원 · M 마커 · T 텍스트 · V 선택
+        P 펜 · L 선 · A 화살표 · R 사각형 · E 타원 · M 마커 · T 텍스트 · N 번호 · V 선택
         Enter / ⌘C  클립보드로 복사   ⌘S  PNG 저장   ⌘⇧S  공유(Claude·Slack·카카오톡)
         ⌘Z  실행 취소   Esc  취소
 

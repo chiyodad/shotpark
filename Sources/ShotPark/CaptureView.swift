@@ -2,7 +2,7 @@ import AppKit
 
 /// Full-screen overlay view: region selection, annotation canvas, toolbar host.
 /// Coordinates are standard AppKit (origin bottom-left, points).
-final class CaptureView: NSView, NSTextFieldDelegate {
+final class CaptureView: NSView, NSTextViewDelegate {
     enum State { case idle, selecting, selected }
 
     private enum Handle: CaseIterable {
@@ -54,7 +54,8 @@ final class CaptureView: NSView, NSTextFieldDelegate {
     private let palette = ColorPaletteView()
     private let textOptions = TextOptionsView()
     private let strokeOptions = StrokeOptionsView()
-    private var textField: NSTextField?
+    private var textEditor: AnnotationTextView?
+    private var mouseLoc: CGPoint?
 
     var textSize: CGFloat = Preferences.textSize {
         didSet { textOptions.fontSize = textSize; Preferences.textSize = textSize; applyTextFieldStyle() }
@@ -240,8 +241,8 @@ final class CaptureView: NSView, NSTextFieldDelegate {
             v.frame = NSRect(x: min(toolbar.frame.minX, bounds.width - w - 4), y: y, width: w, height: h)
             nextY = below ? y - 6 : y + h + 6
         }
-        textOptions.isHidden = tool != .text
-        if tool == .text { place(textOptions) }
+        textOptions.isHidden = !(tool == .text || tool == .number)
+        if tool == .text || tool == .number { place(textOptions) }
         let drawing: Set<Tool> = [.pen, .line, .arrow, .rect, .ellipse, .marker]
         strokeOptions.isHidden = !drawing.contains(tool)
         if drawing.contains(tool) { place(strokeOptions) }
@@ -314,7 +315,7 @@ final class CaptureView: NSView, NSTextFieldDelegate {
     @objc func copy(_ sender: Any?) { if state == .selected { copyToClipboard() } }
 
     func undoLast() {
-        if textField != nil { cancelText(); return }
+        if textEditor != nil { cancelText(); return }
         if !shapes.isEmpty {
             redoStack.append(shapes.removeLast())
             selectedShape = nil
@@ -337,7 +338,7 @@ final class CaptureView: NSView, NSTextFieldDelegate {
         session?.activate(self)
         palette.isHidden = true
 
-        if textField != nil {
+        if textEditor != nil {
             commitText()
             return
         }
@@ -368,6 +369,15 @@ final class CaptureView: NSView, NSTextFieldDelegate {
                     beginText(at: p)
                     return
                 }
+                if tool == .number {
+                    let next = (shapes.filter { $0.tool == .number }.compactMap { Int($0.text) }.max() ?? 0) + 1
+                    shapes.append(Shape(tool: .number, points: [p], color: color, lineWidth: lineWidth,
+                                        text: "\(next)", fontSize: textSize))
+                    redoStack = []
+                    window?.invalidateCursorRects(for: self)
+                    needsDisplay = true
+                    return
+                }
                 currentShape = Shape(tool: tool, points: [p, p], color: color, lineWidth: lineWidth)
                 drag = .draw
                 needsDisplay = true
@@ -387,6 +397,7 @@ final class CaptureView: NSView, NSTextFieldDelegate {
 
     override func mouseDragged(with event: NSEvent) {
         let p = clamp(convert(event.locationInWindow, from: nil))
+        mouseLoc = p
         switch drag {
         case .none:
             return
@@ -466,8 +477,9 @@ final class CaptureView: NSView, NSTextFieldDelegate {
     }
 
     override func mouseMoved(with event: NSEvent) {
-        guard state == .idle else { return }
         let p = convert(event.locationInWindow, from: nil)
+        mouseLoc = p
+        guard state == .idle else { return }
         let r = windowFrames.first { $0.contains(p) }?.intersection(bounds)
         if r != hoverWindowRect { hoverWindowRect = r; needsDisplay = true }
     }
@@ -489,7 +501,7 @@ final class CaptureView: NSView, NSTextFieldDelegate {
         let code = Int(event.keyCode)
 
         if code == 53 { // esc: text edit → tool → shape selection → selection → close
-            if textField != nil { cancelText() }
+            if textEditor != nil { cancelText() }
             else if state == .selected && tool != .move { tool = .move; palette.isHidden = true }
             else if selectedShape != nil { selectedShape = nil }
             else if state != .idle { reset() }
@@ -544,7 +556,7 @@ final class CaptureView: NSView, NSTextFieldDelegate {
             return
         }
         guard state == .selected, flags.isEmpty || flags == .shift else { return }
-        let map: [Int: Tool] = [35: .pen, 37: .line, 0: .arrow, 15: .rect, 14: .ellipse, 46: .marker, 17: .text, 9: .move]
+        let map: [Int: Tool] = [35: .pen, 37: .line, 0: .arrow, 15: .rect, 14: .ellipse, 46: .marker, 17: .text, 45: .number, 9: .move]
         if let t = map[code] { tool = t }
     }
 
@@ -567,21 +579,14 @@ final class CaptureView: NSView, NSTextFieldDelegate {
 
     private func beginText(at p: CGPoint, initialText: String = "") {
         let height = textSize * 1.5
-        let tf = NSTextField(frame: NSRect(x: p.x - 2, y: p.y - height + textSize * 0.3, width: 140, height: height))
-        tf.isBezeled = false
-        tf.isBordered = false
-        tf.drawsBackground = false
-        tf.focusRingType = .none
-        tf.delegate = self
-        tf.lineBreakMode = .byClipping
-        tf.stringValue = initialText
-        addSubview(tf)
-        textField = tf
+        let tv = AnnotationTextView(frame: NSRect(x: p.x - 2, y: p.y - height + textSize * 0.3, width: 160, height: height))
+        tv.delegate = self
+        tv.string = initialText
+        addSubview(tv)
+        textEditor = tv
         applyTextFieldStyle()
-        window?.makeFirstResponder(tf)
-        if !initialText.isEmpty, let editor = tf.currentEditor() {
-            editor.selectedRange = NSRange(location: (initialText as NSString).length, length: 0)
-        }
+        window?.makeFirstResponder(tv)
+        tv.setSelectedRange(NSRange(location: (initialText as NSString).length, length: 0))
         needsDisplay = true
     }
 
@@ -600,96 +605,153 @@ final class CaptureView: NSView, NSTextFieldDelegate {
         alignEditor(toOrigin: o)
     }
 
-    /// Top-left corner (in this view's coordinates) of the glyphs as the field editor currently
-    /// lays them out — so the committed annotation lands exactly where the text was while typing.
+    /// Top-left corner (in this view's coordinates) of the glyphs as the editor currently lays
+    /// them out — so the committed annotation lands exactly where the text was while typing.
     private var editingTextOrigin: CGPoint? {
-        guard let tf = textField else { return nil }
-        if let editor = tf.currentEditor() as? NSTextView, let lm = editor.layoutManager, let tc = editor.textContainer {
-            lm.ensureLayout(for: tc)
-            var line = lm.usedRect(for: tc)
-            if lm.numberOfGlyphs > 0 { line = lm.lineFragmentUsedRect(forGlyphAt: 0, effectiveRange: nil) }
-            else { line.origin.x += tc.lineFragmentPadding }
-            let topLeftInEditor = NSPoint(x: editor.textContainerOrigin.x + line.minX,
-                                          y: editor.textContainerOrigin.y + line.minY)
-            return convert(topLeftInEditor, from: editor)
-        }
-        return CGPoint(x: tf.frame.minX + 2, y: tf.frame.maxY - textSize * 0.2)
+        guard let tv = textEditor, let lm = tv.layoutManager, let tc = tv.textContainer else { return nil }
+        lm.ensureLayout(for: tc)
+        var line = lm.usedRect(for: tc)
+        if lm.numberOfGlyphs > 0 { line = lm.lineFragmentUsedRect(forGlyphAt: 0, effectiveRange: nil) }
+        else { line.origin.x += tc.lineFragmentPadding }
+        let topLeftInEditor = NSPoint(x: tv.textContainerOrigin.x + line.minX,
+                                      y: tv.textContainerOrigin.y + line.minY)
+        return convert(topLeftInEditor, from: tv)
     }
 
-    /// Shift the editing field so its glyphs start exactly at `target` (used when re-editing).
+    /// Shift the editor so its glyphs start exactly at `target` (used when re-editing).
     private func alignEditor(toOrigin target: CGPoint) {
-        guard let tf = textField, let cur = editingTextOrigin else { return }
-        tf.frame = tf.frame.offsetBy(dx: target.x - cur.x, dy: target.y - cur.y)
+        guard let tv = textEditor, let cur = editingTextOrigin else { return }
+        tv.frame = tv.frame.offsetBy(dx: target.x - cur.x, dy: target.y - cur.y)
         needsDisplay = true
     }
 
-    private var editingText: String { textField?.stringValue ?? "" }
+    private var editingText: String { textEditor?.string ?? "" }
 
-    /// Live-preview the current size / colour in the editing field and grow it with the text.
-    /// While editing, the field is drawn by the shared field editor (an NSTextView), so its
-    /// attributes have to be updated too — changing only the NSTextField does nothing visible.
+    /// Apply the current size / colour to the editor and grow it to fit the text (multi-line).
     private func applyTextFieldStyle() {
-        guard let tf = textField else { return }
+        guard let tv = textEditor, let lm = tv.layoutManager, let tc = tv.textContainer else { return }
         let font = NSFont.boldSystemFont(ofSize: textSize)
-
-        tf.font = font
-        tf.textColor = color
-        tf.drawsBackground = false
-        tf.placeholderAttributedString = NSAttributedString(string: "텍스트 입력…",
-            attributes: [.foregroundColor: color.withAlphaComponent(0.5), .font: font])
-
-        let height = textSize * 1.5
-        let textW = NSAttributedString(string: editingText.isEmpty ? "텍스트 입력…" : editingText,
-                                       attributes: [.font: font]).size().width
-        let width = textW + textSize + 24
-        tf.frame = NSRect(x: tf.frame.minX, y: tf.frame.maxY - height, width: width, height: height)
-
-        if let editor = tf.currentEditor() as? NSTextView {
-            editor.font = font
-            editor.textColor = color
-            editor.insertionPointColor = color
-            editor.drawsBackground = false
-            editor.typingAttributes = [.font: font, .foregroundColor: color]
-            if let storage = editor.textStorage, storage.length > 0 {
-                storage.addAttributes([.font: font, .foregroundColor: color], range: NSRange(location: 0, length: storage.length))
-            }
-            editor.needsDisplay = true
+        tv.font = font
+        tv.textColor = color
+        tv.insertionPointColor = color
+        tv.typingAttributes = [.font: font, .foregroundColor: color]
+        if let storage = tv.textStorage, storage.length > 0 {
+            storage.addAttributes([.font: font, .foregroundColor: color], range: NSRange(location: 0, length: storage.length))
         }
-        tf.needsDisplay = true
-        needsDisplay = true // the box preview is drawn by this view, behind the field
+        lm.ensureLayout(for: tc)
+        let used = lm.usedRect(for: tc)
+        let minW = NSAttributedString(string: "텍스트 입력…", attributes: [.font: font]).size().width
+        let w = max(used.width, minW) + tc.lineFragmentPadding * 2 + textSize + 8
+        let h = max(used.height, font.ascender - font.descender + font.leading) + 4
+        tv.frame = NSRect(x: tv.frame.minX, y: tv.frame.maxY - h, width: w, height: h)
+        tv.needsDisplay = true
+        needsDisplay = true // the box preview + placeholder are drawn by this view, behind the editor
     }
 
-    func controlTextDidChange(_ obj: Notification) {
+    func textDidChange(_ notification: Notification) {
         applyTextFieldStyle()
     }
 
     private func commitText() {
-        guard let tf = textField else { return }
-        let text = tf.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let tv = textEditor else { return }
+        let text = tv.string.trimmingCharacters(in: .whitespacesAndNewlines)
         if !text.isEmpty {
-            let origin = editingTextOrigin ?? CGPoint(x: tf.frame.minX + 2, y: tf.frame.maxY - textSize * 0.2)
+            let origin = editingTextOrigin ?? CGPoint(x: tv.frame.minX + 2, y: tv.frame.maxY - textSize * 0.2)
             shapes.append(Shape(tool: .text, points: [origin], color: color, lineWidth: lineWidth,
                                 text: text, fontSize: textSize, textStyle: textStyle,
                                 boxColor: boxColor, boxAlpha: boxAlpha))
             redoStack = []
         }
-        tf.removeFromSuperview()
-        textField = nil
+        tv.removeFromSuperview()
+        textEditor = nil
         window?.makeFirstResponder(self)
         window?.invalidateCursorRects(for: self)
         needsDisplay = true
     }
 
     private func cancelText() {
-        textField?.removeFromSuperview()
-        textField = nil
+        textEditor?.removeFromSuperview()
+        textEditor = nil
         window?.makeFirstResponder(self)
+        needsDisplay = true
     }
 
-    func control(_ control: NSControl, textView: NSTextView, doCommandBy commandSelector: Selector) -> Bool {
-        if commandSelector == #selector(NSResponder.insertNewline(_:)) { commitText(); return true }
+    /// Enter commits, ⇧Enter / ⌥Enter insert a line break, Esc cancels.
+    func textView(_ textView: NSTextView, doCommandBy commandSelector: Selector) -> Bool {
+        if commandSelector == #selector(NSResponder.insertNewline(_:)) {
+            let flags = NSApp.currentEvent?.modifierFlags ?? []
+            if flags.contains(.shift) || flags.contains(.option) {
+                textView.insertText("\n", replacementRange: textView.selectedRange())
+                return true
+            }
+            commitText()
+            return true
+        }
         if commandSelector == #selector(NSResponder.cancelOperation(_:)) { cancelText(); return true }
         return false
+    }
+
+    // MARK: magnifier
+
+    /// Pixel loupe shown while choosing the region: 8× zoom around the cursor + exact coordinates.
+    private func drawMagnifier(at p: CGPoint) {
+        let s = pixelScale
+        let zoom: CGFloat = 8
+        let size: CGFloat = 132
+        let srcPts = size / zoom                       // points of screen shown
+        let px = Int((p.x * s).rounded()), py = Int(((bounds.height - p.y) * s).rounded())
+        let srcPx = Int((srcPts * s).rounded())
+        let crop = CGRect(x: px - srcPx / 2, y: py - srcPx / 2, width: srcPx, height: srcPx)
+
+        var origin = CGPoint(x: p.x + 24, y: p.y - 24 - size)
+        if origin.x + size > bounds.width { origin.x = p.x - 24 - size }
+        if origin.y < 0 { origin.y = p.y + 24 }
+        let frame = CGRect(origin: origin, size: CGSize(width: size, height: size))
+
+        guard let ctx = NSGraphicsContext.current?.cgContext else { return }
+        ctx.saveGState()
+        let clip = CGPath(roundedRect: frame, cornerWidth: 10, cornerHeight: 10, transform: nil)
+        ctx.addPath(clip); ctx.clip()
+        ctx.setFillColor(NSColor.black.cgColor); ctx.fill(frame)
+        ctx.interpolationQuality = .none
+        if let img = screenshot.cropping(to: crop.intersection(CGRect(x: 0, y: 0, width: screenshot.width, height: screenshot.height))) {
+            // keep the cursor pixel centred even when the crop was clipped at the screen edge
+            let inter = crop.intersection(CGRect(x: 0, y: 0, width: screenshot.width, height: screenshot.height))
+            let dx = (inter.minX - crop.minX) / s * zoom
+            let dyTop = (inter.minY - crop.minY) / s * zoom
+            let w = inter.width / s * zoom, h = inter.height / s * zoom
+            let dest = CGRect(x: frame.minX + dx, y: frame.maxY - dyTop - h, width: w, height: h)
+            ctx.draw(img, in: dest)
+        }
+        // crosshair on the centre pixel
+        let cell = zoom / s
+        let cx = frame.midX, cy = frame.midY
+        ctx.setStrokeColor(NSColor.systemRed.withAlphaComponent(0.9).cgColor)
+        ctx.setLineWidth(1)
+        ctx.stroke(CGRect(x: cx - cell / 2, y: cy - cell / 2, width: cell, height: cell))
+        ctx.setStrokeColor(NSColor.white.withAlphaComponent(0.35).cgColor)
+        ctx.move(to: CGPoint(x: frame.minX, y: cy)); ctx.addLine(to: CGPoint(x: frame.maxX, y: cy))
+        ctx.move(to: CGPoint(x: cx, y: frame.minY)); ctx.addLine(to: CGPoint(x: cx, y: frame.maxY))
+        ctx.strokePath()
+        ctx.restoreGState()
+
+        // border + readout
+        ctx.saveGState()
+        ctx.setStrokeColor(NSColor.white.withAlphaComponent(0.9).cgColor)
+        ctx.setLineWidth(1.5)
+        ctx.addPath(clip); ctx.strokePath()
+        var label = "\(px), \(py)"
+        if state == .selecting {
+            label += "   \(Int((selection.width * s).rounded())) × \(Int((selection.height * s).rounded()))"
+        }
+        let str = NSAttributedString(string: label, attributes: [
+            .font: NSFont.monospacedDigitSystemFont(ofSize: 11, weight: .medium), .foregroundColor: NSColor.white])
+        let sz = str.size()
+        let box = CGRect(x: frame.minX, y: frame.minY - sz.height - 10, width: max(size, sz.width + 12), height: sz.height + 6)
+        ctx.setFillColor(NSColor(calibratedWhite: 0.1, alpha: 0.85).cgColor)
+        ctx.addPath(CGPath(roundedRect: box, cornerWidth: 4, cornerHeight: 4, transform: nil)); ctx.fillPath()
+        str.draw(at: CGPoint(x: box.minX + 6, y: box.minY + 3))
+        ctx.restoreGState()
     }
 
     // MARK: drawing
@@ -716,6 +778,7 @@ final class CaptureView: NSView, NSTextFieldDelegate {
                 bounds.fill()
             }
             drawIdleHint()
+            if let m = mouseLoc { drawMagnifier(at: m) }
             return
         }
 
@@ -731,7 +794,7 @@ final class CaptureView: NSView, NSTextFieldDelegate {
         ctx.clip(to: selection)
         ShapeRenderer.draw(shapes, in: ctx)
         if let c = currentShape { ShapeRenderer.draw(c, in: ctx) }
-        if textField != nil, let o = editingTextOrigin {
+        if textEditor != nil, let o = editingTextOrigin {
             // preview of the exact area the background box will cover
             let t = editingText.isEmpty ? "텍스트 입력…" : editingText
             let box = Shape.boxRect(text: t, fontSize: textSize, style: textStyle, origin: o)
@@ -747,6 +810,11 @@ final class CaptureView: NSView, NSTextFieldDelegate {
             ctx.addPath(CGPath(roundedRect: box, cornerWidth: r, cornerHeight: r, transform: nil))
             ctx.strokePath()
             ctx.setLineDash(phase: 0, lengths: [])
+            if editingText.isEmpty {
+                let ph = NSAttributedString(string: "텍스트 입력…  (⇧↩ 줄바꿈)", attributes: [
+                    .font: NSFont.boldSystemFont(ofSize: textSize), .foregroundColor: color.withAlphaComponent(0.45)])
+                ph.draw(at: Shape.textRect(text: " ", fontSize: textSize, style: textStyle, origin: o).origin)
+            }
         }
         ctx.restoreGState()
 
@@ -777,6 +845,7 @@ final class CaptureView: NSView, NSTextFieldDelegate {
         }
 
         drawSizeLabel()
+        if state == .selecting, let m = mouseLoc { drawMagnifier(at: m) }
     }
 
     private func drawSizeLabel() {

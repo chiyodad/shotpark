@@ -24,6 +24,38 @@ func symbolImage(_ name: String, color: NSColor, pointSize: CGFloat, weight: NSF
     return img
 }
 
+/// Multi-line, auto-sizing, transparent text editor used for the text annotation while typing.
+final class AnnotationTextView: NSTextView {
+    private let ownedStorage: NSTextStorage   // TextKit 1 does not retain the storage for us
+
+    override init(frame frameRect: NSRect) {
+        let storage = NSTextStorage()
+        ownedStorage = storage
+        let lm = NSLayoutManager()
+        storage.addLayoutManager(lm)
+        let tc = NSTextContainer(containerSize: NSSize(width: 4000, height: 4000))
+        tc.widthTracksTextView = false
+        tc.heightTracksTextView = false
+        lm.addTextContainer(tc)
+        super.init(frame: frameRect, textContainer: tc)
+        isRichText = false
+        drawsBackground = false
+        isFieldEditor = false
+        isHorizontallyResizable = false
+        isVerticallyResizable = false
+        textContainerInset = .zero
+        allowsUndo = true
+        usesFontPanel = false
+        usesRuler = false
+        isAutomaticQuoteSubstitutionEnabled = false
+        isAutomaticDashSubstitutionEnabled = false
+        isAutomaticTextReplacementEnabled = false
+        isContinuousSpellCheckingEnabled = false
+    }
+    required init?(coder: NSCoder) { fatalError() }
+    override var acceptsFirstResponder: Bool { true }
+}
+
 /// Lightshot-style dark floating toolbar, drawn by hand so it looks the same everywhere.
 final class ToolbarView: NSView {
     struct Item {
@@ -45,7 +77,8 @@ final class ToolbarView: NSView {
         Item(symbol: "rectangle",            tip: "사각형 (R)",  action: .selectTool(.rect)),
         Item(symbol: "circle",               tip: "타원 (E)",    action: .selectTool(.ellipse)),
         Item(symbol: "highlighter",          tip: "마커 (M)",    action: .selectTool(.marker)),
-        Item(symbol: "character",            tip: "텍스트 (T) — 크기·스타일은 아래 옵션 바 / ⌘+ ⌘-", action: .selectTool(.text)),
+        Item(symbol: "character",            tip: "텍스트 (T) — ⇧↩ 줄바꿈, 크기·스타일은 아래 옵션 바", action: .selectTool(.text)),
+        Item(symbol: "number.circle",        tip: "번호 스탬프 (N) — 클릭할 때마다 1, 2, 3…", action: .selectTool(.number)),
         Item(symbol: "paintpalette.fill",    tip: "색상",        action: .color),
         Item(symbol: "arrow.uturn.backward", tip: "실행 취소 (⌘Z)", action: .undo, separatorBefore: true),
         Item(symbol: "doc.on.doc",           tip: "클립보드로 복사 (⌘C / Enter)", action: .copy, separatorBefore: true),

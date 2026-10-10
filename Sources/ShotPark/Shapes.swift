@@ -1,7 +1,7 @@
 import AppKit
 
 enum Tool: Int, CaseIterable {
-    case move, pen, line, arrow, rect, ellipse, marker, text
+    case move, pen, line, arrow, rect, ellipse, marker, text, number
 }
 
 /// How annotation text is set off from the background. Any combination can be on at once.
@@ -96,9 +96,15 @@ extension Shape {
     /// Stroke width actually used on screen (marker is a wide translucent band).
     var effectiveWidth: CGFloat { tool == .marker ? lineWidth * 5 : lineWidth }
 
+    /// Radius of a number stamp (scales with the text size setting).
+    var stampRadius: CGFloat { max(12, fontSize * 0.7) }
+
     /// Rough bounding box used for selection highlight.
     var bounds: CGRect {
         switch tool {
+        case .number:
+            guard let c = points.first else { return .zero }
+            return CGRect(x: c.x - stampRadius, y: c.y - stampRadius, width: stampRadius * 2, height: stampRadius * 2)
         case .text:
             guard let o = points.first else { return .zero }
             return Shape.boxRect(text: text, fontSize: fontSize, style: textStyle, origin: o)
@@ -126,6 +132,9 @@ extension Shape {
         switch tool {
         case .move: return false
         case .text: return bounds.contains(p)
+        case .number:
+            guard let c = points.first else { return false }
+            return hypot(p.x - c.x, p.y - c.y) <= stampRadius + 2
         case .rect:
             let r = rect
             return r.insetBy(dx: -tol, dy: -tol).contains(p) && !r.insetBy(dx: tol, dy: tol).contains(p)
@@ -223,6 +232,21 @@ enum ShapeRenderer {
 
         case .ellipse:
             ctx.strokeEllipse(in: s.rect)
+
+        case .number:
+            guard let c = s.points.first else { return }
+            let r = s.stampRadius
+            let circle = CGRect(x: c.x - r, y: c.y - r, width: r * 2, height: r * 2)
+            ctx.setShadow(offset: CGSize(width: 0, height: -1), blur: 3, color: NSColor.black.withAlphaComponent(0.4).cgColor)
+            ctx.fillEllipse(in: circle)
+            ctx.setShadow(offset: .zero, blur: 0, color: nil)
+            ctx.setStrokeColor(NSColor.white.cgColor)
+            ctx.setLineWidth(max(1.5, r * 0.12))
+            ctx.strokeEllipse(in: circle.insetBy(dx: 1, dy: 1))
+            let str = NSAttributedString(string: s.text, attributes: [
+                .font: NSFont.boldSystemFont(ofSize: r * 1.15), .foregroundColor: NSColor.white])
+            let sz = str.size()
+            str.draw(at: CGPoint(x: c.x - sz.width / 2, y: c.y - sz.height / 2))
 
         case .text:
             guard let origin = s.points.first, !s.text.isEmpty else { return }

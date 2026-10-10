@@ -131,8 +131,8 @@ enum Settings {
 
     static func fileName(date: Date = Date()) -> String {
         let fmt = DateFormatter()
-        fmt.dateFormat = "yyyy-MM-dd 'at' HH.mm.ss"
-        return "Screenshot \(fmt.string(from: date)).png"
+        fmt.dateFormat = "yyyyMMdd-HHmmss"
+        return "shotpark-\(fmt.string(from: date)).png"
     }
 }
 
