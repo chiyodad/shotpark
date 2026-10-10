@@ -469,21 +469,36 @@ final class CaptureView: NSView, NSTextFieldDelegate {
         window?.makeFirstResponder(tf)
     }
 
-    /// Live-preview the current size/colour in the editing field.
+    /// Live-preview the current size / colour / box in the editing field.
+    /// While editing, the field is drawn by the shared field editor (an NSTextView), so its
+    /// attributes have to be updated too — changing only the NSTextField does nothing visible.
     private func applyTextFieldStyle() {
         guard let tf = textField else { return }
-        tf.font = NSFont.boldSystemFont(ofSize: textSize)
+        let font = NSFont.boldSystemFont(ofSize: textSize)
+        let bg: NSColor? = textStyle == .box ? boxColor.withAlphaComponent(boxAlpha) : nil
+
+        tf.font = font
         tf.textColor = color
-        if textStyle == .box {
-            tf.drawsBackground = true
-            tf.backgroundColor = boxColor.withAlphaComponent(boxAlpha)
-        } else {
-            tf.drawsBackground = false
-        }
+        tf.drawsBackground = bg != nil
+        tf.backgroundColor = bg ?? .clear
         tf.placeholderAttributedString = NSAttributedString(string: "텍스트 입력…",
-            attributes: [.foregroundColor: color.withAlphaComponent(0.5), .font: NSFont.boldSystemFont(ofSize: textSize)])
+            attributes: [.foregroundColor: color.withAlphaComponent(0.5), .font: font])
         let height = textSize * 1.5
         tf.frame = NSRect(x: tf.frame.minX, y: tf.frame.maxY - height, width: tf.frame.width, height: height)
+
+        if let editor = tf.currentEditor() as? NSTextView {
+            editor.font = font
+            editor.textColor = color
+            editor.insertionPointColor = color
+            editor.drawsBackground = bg != nil
+            editor.backgroundColor = bg ?? .clear
+            editor.typingAttributes = [.font: font, .foregroundColor: color]
+            if let storage = editor.textStorage, storage.length > 0 {
+                storage.addAttributes([.font: font, .foregroundColor: color], range: NSRange(location: 0, length: storage.length))
+            }
+            editor.needsDisplay = true
+        }
+        tf.needsDisplay = true
     }
 
     private func commitText() {
