@@ -60,7 +60,7 @@
 - 외부 라이브러리 0개. 소스 전체가 Swift 파일 9개.
 
 <p align="center">
-  <img src="docs/img/app-settings.png" width="520" alt="ShotPark 설정 창">
+  <img src="docs/img/settings-window.png" width="520" alt="ShotPark 설정 창">
 </p>
 
 ## 설치
