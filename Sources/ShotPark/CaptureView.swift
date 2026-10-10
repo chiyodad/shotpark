@@ -588,8 +588,8 @@ final class CaptureView: NSView, NSTextViewDelegate {
             case 1:  if state == .selected { flags.contains(.shift) ? showShareMenu() : saveToFile() } // S
             case 6:  flags.contains(.shift) ? redoLast() : undoLast()                  // Z / ⇧Z
             case 0:  selectWholeScreen()                                               // A
-            case 24, 69: if tool == .text { stepTextSize(+1) }                         // = / keypad +
-            case 27, 78: if tool == .text { stepTextSize(-1) }                         // - / keypad -
+            case 24, 69: if tool == .text || tool == .number { stepTextSize(+1) }                         // = / keypad +
+            case 27, 78: if tool == .text || tool == .number { stepTextSize(-1) }                         // - / keypad -
             default: break
             }
             return
