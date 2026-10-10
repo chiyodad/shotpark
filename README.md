@@ -19,6 +19,7 @@
 <p align="center">
   <a href="https://suseokpark.github.io/shotpark/">홈페이지</a> ·
   <a href="https://github.com/suseokpark/shotpark/releases/latest">다운로드</a> ·
+  <a href="https://suseokpark.github.io/shotpark/en/">English page</a> ·
   <a href="#english">English</a>
 </p>
 
@@ -178,7 +179,9 @@ MIT © Suseok Park
 <a id="english"></a>
 ## English
 
-**ShotPark** is a region screenshot tool for macOS, built natively for Apple Silicon in Swift/AppKit with zero dependencies. Hotkey → drag a region → annotate → copy / save / share.
+> Full English page: https://suseokpark.github.io/shotpark/en/
+
+**ShotPark** is a free, open-source **Lightshot alternative for Mac**: a region screenshot tool for macOS, built natively for Apple Silicon in Swift/AppKit with zero dependencies. Hotkey → drag a region → annotate → copy / save / share.
 
 - Global hotkey (default `⌘⇧9`, configurable), resizable/movable selection, multi-monitor, Retina-resolution capture via ScreenCaptureKit.
 - Click a window to select it, or drag a region; resize with handles, nudge with arrow keys.
