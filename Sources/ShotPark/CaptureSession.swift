@@ -117,10 +117,10 @@ final class CaptureSession {
         case .copy:
             Exporter.copy(image)
             if Settings.copyAlsoSaves, let url = Exporter.saveDirect(image) {
-                Toast.show("클립보드에 복사됨 · 저장됨", subtitle: url.lastPathComponent, duration: 1.6,
+                Toast.show(L("클립보드에 복사됨 · 저장됨", "Copied · Saved"), subtitle: url.lastPathComponent, duration: 1.6,
                            onClick: { NSWorkspace.shared.activateFileViewerSelecting([url]) })
             } else {
-                Toast.show("클립보드에 복사됨", duration: 1.1)
+                Toast.show(L("클립보드에 복사됨", "Copied to clipboard"), duration: 1.1)
             }
         case .save:
             Exporter.save(image)
@@ -167,10 +167,10 @@ final class CaptureSession {
 
     private func showPermissionAlert() {
         let alert = NSAlert()
-        alert.messageText = "화면 기록 권한이 필요합니다"
-        alert.informativeText = "시스템 설정 → 개인정보 보호 및 보안 → 화면 및 시스템 오디오 기록에서 ShotPark을 허용한 뒤 다시 시도해 주세요."
-        alert.addButton(withTitle: "시스템 설정 열기")
-        alert.addButton(withTitle: "닫기")
+        alert.messageText = L("화면 기록 권한이 필요합니다", "Screen Recording permission is required")
+        alert.informativeText = L("시스템 설정 → 개인정보 보호 및 보안 → 화면 및 시스템 오디오 기록에서 ShotPark을 허용한 뒤 다시 시도해 주세요.", "Enable ShotPark under System Settings → Privacy & Security → Screen & System Audio Recording, then try again.")
+        alert.addButton(withTitle: L("시스템 설정 열기", "Open System Settings"))
+        alert.addButton(withTitle: L("닫기", "Close"))
         NSApp.activate(ignoringOtherApps: true)
         if alert.runModal() == .alertFirstButtonReturn {
             ScreenCapture.requestPermission()
@@ -190,14 +190,14 @@ struct ShareTarget {
     static let all: [ShareTarget] = [
         ShareTarget(name: "Claude", bundleIDs: ["com.anthropic.claudefordesktop"], symbol: "sparkles"),
         ShareTarget(name: "Slack", bundleIDs: ["com.tinyspeck.slackmacgap"], symbol: "number"),
-        ShareTarget(name: "카카오톡", bundleIDs: ["com.kakao.KakaoTalkMac"], symbol: "bubble.left.fill"),
+        ShareTarget(name: L("카카오톡", "KakaoTalk"), bundleIDs: ["com.kakao.KakaoTalkMac"], symbol: "bubble.left.fill"),
     ]
 
     var appURL: URL? {
         for id in bundleIDs {
             if let u = NSWorkspace.shared.urlForApplication(withBundleIdentifier: id) { return u }
         }
-        let fallback = URL(fileURLWithPath: "/Applications/\(name == "카카오톡" ? "KakaoTalk" : name).app")
+        let fallback = URL(fileURLWithPath: "/Applications/\(bundleIDs.first == "com.kakao.KakaoTalkMac" ? "KakaoTalk" : name).app")
         return FileManager.default.fileExists(atPath: fallback.path) ? fallback : nil
     }
 
@@ -273,8 +273,8 @@ enum Exporter {
 
         if Settings.saveDirectly {
             if let url = saveDirect(image) {
-                Toast.show(Settings.saveAlsoCopies ? "저장됨 · 클립보드에 복사됨 — \(url.lastPathComponent)" : "저장됨 — \(url.lastPathComponent)",
-                           subtitle: (folder.path as NSString).abbreviatingWithTildeInPath + "  ·  클릭하면 Finder에서 열림",
+                Toast.show(Settings.saveAlsoCopies ? L("저장됨 · 클립보드에 복사됨 — \(url.lastPathComponent)", "Saved · Copied — \(url.lastPathComponent)") : L("저장됨 — \(url.lastPathComponent)", "Saved — \(url.lastPathComponent)"),
+                           subtitle: (folder.path as NSString).abbreviatingWithTildeInPath + L("  ·  클릭하면 Finder에서 열림", "  ·  click to reveal in Finder"),
                            onClick: { NSWorkspace.shared.activateFileViewerSelecting([url]) })
                 return
             }

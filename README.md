@@ -56,7 +56,7 @@
 - **공유** 버튼(`⌘⇧S`): Claude · Slack · 카카오톡으로 바로 보내기, 또는 macOS 공유 시트(메일 · 메시지 · AirDrop · 메모 등).
 
 **그 외**
-- 메뉴 막대에만 상주 (Dock에 안 뜸), 로그인 시 자동 실행 옵션.
+- 메뉴 막대에만 상주 (Dock에 안 뜸), 로그인 시 자동 실행 옵션. UI는 macOS 언어에 따라 한국어 · 영어 자동 선택.
 - 설정 창: 캡처 단축키, 저장 폴더, 바로 저장 여부.
 - 외부 라이브러리 0개. 소스 전체가 Swift 파일 9개.
 
@@ -187,10 +187,10 @@ MIT © Suseok Park
 - Click a window to select it, or drag a region; resize with handles, nudge with arrow keys.
 - Annotations: pen, line, arrow, rectangle, ellipse, marker, multi-line text (shadow / outline / background box), numbered stamps, emoji stamps; 10-color palette, 3 stroke widths, undo/redo; move or delete any annotation afterwards.
 - `⌘C`/`Enter` copies to clipboard, `⌘S` saves `shotpark-yyyyMMdd-HHmmss.png` directly to a folder of your choice, `⌘⇧S` shares to Claude / Slack / KakaoTalk or the macOS share sheet.
-- Menu-bar only, launch-at-login option, settings window.
+- Menu-bar only, launch-at-login option, settings window. English or Korean UI, following your macOS language.
 
 **Install:** grab `ShotPark-x.y.z.zip` from the [latest release](https://github.com/suseokpark/shotpark/releases/latest), move `ShotPark.app` to Applications, clear the quarantine flag once (`xattr -d com.apple.quarantine /Applications/ShotPark.app`, or allow it under System Settings → Privacy & Security → "Open Anyway"), then grant **Screen Recording** permission on first capture and relaunch.
 
 **Build from source:** `git clone https://github.com/suseokpark/shotpark.git && cd shotpark && ./build.sh --install` (needs Xcode Command Line Tools). Requires macOS 13+.
 
-The UI is currently Korean; the shortcut table above applies as-is. MIT licensed.
+The UI follows your macOS language (English or Korean). MIT licensed.

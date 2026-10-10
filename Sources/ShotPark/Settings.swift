@@ -178,7 +178,7 @@ final class HotKeyRecorderView: NSView {
         path.lineWidth = recording ? 1.5 : 1
         path.stroke()
 
-        let text = recording ? "키 조합을 누르세요…" : spec.display
+        let text = recording ? L("키 조합을 누르세요…", "Press a key combination…") : spec.display
         let attrs: [NSAttributedString.Key: Any] = [
             .font: recording ? NSFont.systemFont(ofSize: 12) : NSFont.systemFont(ofSize: 14, weight: .medium),
             .foregroundColor: recording ? NSColor.secondaryLabelColor : NSColor.labelColor,
@@ -226,14 +226,14 @@ final class SettingsWindowController: NSWindowController {
 
     private let recorder = HotKeyRecorderView()
     private let folderLabel = NSTextField(labelWithString: "")
-    private let directCheckbox = NSButton(checkboxWithTitle: "⌘S 저장 시 확인 창 없이 지정 폴더에 바로 저장", target: nil, action: nil)
-    private let saveCopiesCheckbox = NSButton(checkboxWithTitle: "⌘S 저장할 때 클립보드에도 복사", target: nil, action: nil)
-    private let copySavesCheckbox = NSButton(checkboxWithTitle: "⌘C 복사할 때 저장 폴더에도 PNG 저장", target: nil, action: nil)
+    private let directCheckbox = NSButton(checkboxWithTitle: L("⌘S 저장 시 확인 창 없이 지정 폴더에 바로 저장", "⌘S saves straight to the folder, no dialog"), target: nil, action: nil)
+    private let saveCopiesCheckbox = NSButton(checkboxWithTitle: L("⌘S 저장할 때 클립보드에도 복사", "⌘S also copies to the clipboard"), target: nil, action: nil)
+    private let copySavesCheckbox = NSButton(checkboxWithTitle: L("⌘C 복사할 때 저장 폴더에도 PNG 저장", "⌘C also saves a PNG to the folder"), target: nil, action: nil)
 
     private init() {
-        let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 480, height: 290),
+        let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: L10n.isKorean ? 480 : 520, height: 290),
                               styleMask: [.titled, .closable], backing: .buffered, defer: false)
-        window.title = "ShotPark 설정"
+        window.title = L("ShotPark 설정", "ShotPark Settings")
         window.isReleasedWhenClosed = false
         window.center()
         super.init(window: window)
@@ -257,7 +257,7 @@ final class SettingsWindowController: NSWindowController {
             Settings.hotKey = spec
             self?.refresh()
         }
-        let resetBtn = NSButton(title: "기본값(⌘⇧9)", target: self, action: #selector(resetHotKey))
+        let resetBtn = NSButton(title: L("기본값(⌘⇧9)", "Default (⌘⇧9)"), target: self, action: #selector(resetHotKey))
         resetBtn.bezelStyle = .rounded
         resetBtn.controlSize = .small
         let hotkeyRow = NSStackView(views: [recorder, resetBtn])
@@ -266,7 +266,7 @@ final class SettingsWindowController: NSWindowController {
         recorder.widthAnchor.constraint(equalToConstant: 160).isActive = true
         recorder.heightAnchor.constraint(equalToConstant: 28).isActive = true
 
-        let hotkeyHint = NSTextField(wrappingLabelWithString: "클릭한 뒤 원하는 키 조합을 누르세요. ⌘ / ⌥ / ⌃ 중 하나가 포함되거나 F키여야 합니다.")
+        let hotkeyHint = NSTextField(wrappingLabelWithString: L("클릭한 뒤 원하는 키 조합을 누르세요. ⌘ / ⌥ / ⌃ 중 하나가 포함되거나 F키여야 합니다.", "Click, then press the combination you want. It must include ⌘ / ⌥ / ⌃ or be an F key."))
         hotkeyHint.font = .systemFont(ofSize: 11)
         hotkeyHint.textColor = .secondaryLabelColor
 
@@ -274,10 +274,10 @@ final class SettingsWindowController: NSWindowController {
         folderLabel.lineBreakMode = .byTruncatingMiddle
         folderLabel.font = .systemFont(ofSize: 12)
         folderLabel.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
-        let chooseBtn = NSButton(title: "변경…", target: self, action: #selector(chooseFolder))
+        let chooseBtn = NSButton(title: L("변경…", "Change…"), target: self, action: #selector(chooseFolder))
         chooseBtn.bezelStyle = .rounded
         chooseBtn.controlSize = .small
-        let openBtn = NSButton(title: "Finder에서 열기", target: self, action: #selector(openFolder))
+        let openBtn = NSButton(title: L("Finder에서 열기", "Show in Finder"), target: self, action: #selector(openFolder))
         openBtn.bezelStyle = .rounded
         openBtn.controlSize = .small
         let folderRow = NSStackView(views: [folderLabel, chooseBtn, openBtn])
@@ -295,9 +295,9 @@ final class SettingsWindowController: NSWindowController {
         copySavesCheckbox.font = .systemFont(ofSize: 12)
 
         let grid = NSGridView(views: [
-            [label("캡처 단축키"), hotkeyRow],
+            [label(L("캡처 단축키", "Capture hotkey")), hotkeyRow],
             [NSGridCell.emptyContentView, hotkeyHint],
-            [label("저장 폴더"), folderRow],
+            [label(L("저장 폴더", "Save folder")), folderRow],
             [NSGridCell.emptyContentView, directCheckbox],
             [NSGridCell.emptyContentView, saveCopiesCheckbox],
             [NSGridCell.emptyContentView, copySavesCheckbox],
@@ -305,15 +305,15 @@ final class SettingsWindowController: NSWindowController {
         grid.rowSpacing = 10
         grid.columnSpacing = 12
         grid.column(at: 0).xPlacement = .trailing
-        grid.column(at: 0).width = 90
-        grid.column(at: 1).width = 340
+        grid.column(at: 0).width = L10n.isKorean ? 90 : 110
+        grid.column(at: 1).width = L10n.isKorean ? 340 : 350
         grid.rowAlignment = .firstBaseline
         grid.row(at: 0).yPlacement = .center
         grid.row(at: 2).yPlacement = .center
         grid.translatesAutoresizingMaskIntoConstraints = false
         content.addSubview(grid)
 
-        let footer = NSTextField(wrappingLabelWithString: "변경 사항은 즉시 적용됩니다.")
+        let footer = NSTextField(wrappingLabelWithString: L("변경 사항은 즉시 적용됩니다.", "Changes apply immediately."))
         footer.font = .systemFont(ofSize: 11)
         footer.textColor = .tertiaryLabelColor
         footer.translatesAutoresizingMaskIntoConstraints = false
@@ -360,8 +360,8 @@ final class SettingsWindowController: NSWindowController {
         panel.canCreateDirectories = true
         panel.allowsMultipleSelection = false
         panel.directoryURL = Settings.saveFolder
-        panel.prompt = "이 폴더 사용"
-        panel.message = "스크린샷을 저장할 폴더를 선택하세요"
+        panel.prompt = L("이 폴더 사용", "Use This Folder")
+        panel.message = L("스크린샷을 저장할 폴더를 선택하세요", "Choose where screenshots are saved")
         guard let window else { return }
         panel.beginSheetModal(for: window) { [weak self] resp in
             guard resp == .OK, let url = panel.url else { return }

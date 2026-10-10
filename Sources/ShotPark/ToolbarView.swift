@@ -71,21 +71,21 @@ final class ToolbarView: NSView {
     static let height: CGFloat = 44
 
     let items: [Item] = [
-        Item(symbol: "pencil",               tip: "펜 (P)",      action: .selectTool(.pen)),
-        Item(symbol: "line.diagonal",        tip: "선 (L)",      action: .selectTool(.line)),
-        Item(symbol: "arrow.up.right",       tip: "화살표 (A)",  action: .selectTool(.arrow)),
-        Item(symbol: "rectangle",            tip: "사각형 (R)",  action: .selectTool(.rect)),
-        Item(symbol: "circle",               tip: "타원 (E)",    action: .selectTool(.ellipse)),
-        Item(symbol: "highlighter",          tip: "마커 (M)",    action: .selectTool(.marker)),
-        Item(symbol: "character",            tip: "텍스트 (T) — ⇧↩ 줄바꿈, 크기·스타일은 아래 옵션 바", action: .selectTool(.text)),
-        Item(symbol: "1.circle",             tip: "번호 스탬프 (N) — 클릭할 때마다 ①, ②, ③… 순서 표시", action: .selectTool(.number)),
-        Item(symbol: "face.smiling",         tip: "이모지 도장 (S) — 아래에서 이모지를 고르고 클릭해 찍기", action: .selectTool(.emoji)),
-        Item(symbol: "paintpalette.fill",    tip: "색상",        action: .color),
-        Item(symbol: "arrow.uturn.backward", tip: "실행 취소 (⌘Z)", action: .undo, separatorBefore: true),
-        Item(symbol: "doc.on.doc",           tip: "클립보드로 복사 (⌘C / Enter)", action: .copy, separatorBefore: true),
-        Item(symbol: "square.and.arrow.down", tip: "저장 (⌘S)",  action: .save),
-        Item(symbol: "square.and.arrow.up",  tip: "공유 — Claude · Slack · 카카오톡 (⌘⇧S)", action: .share),
-        Item(symbol: "xmark",                tip: "닫기 (Esc)",  action: .close),
+        Item(symbol: "pencil",               tip: L("펜 (P)", "Pen (P)"),      action: .selectTool(.pen)),
+        Item(symbol: "line.diagonal",        tip: L("선 (L)", "Line (L)"),      action: .selectTool(.line)),
+        Item(symbol: "arrow.up.right",       tip: L("화살표 (A)", "Arrow (A)"),  action: .selectTool(.arrow)),
+        Item(symbol: "rectangle",            tip: L("사각형 (R)", "Rectangle (R)"),  action: .selectTool(.rect)),
+        Item(symbol: "circle",               tip: L("타원 (E)", "Ellipse (E)"),    action: .selectTool(.ellipse)),
+        Item(symbol: "highlighter",          tip: L("마커 (M)", "Marker (M)"),    action: .selectTool(.marker)),
+        Item(symbol: "character",            tip: L("텍스트 (T) — ⇧↩ 줄바꿈, 크기·스타일은 아래 옵션 바", "Text (T) — ⇧↩ new line; size & style in the bar below"), action: .selectTool(.text)),
+        Item(symbol: "1.circle",             tip: L("번호 스탬프 (N) — 클릭할 때마다 ①, ②, ③… 순서 표시", "Number stamp (N) — each click places ①, ②, ③…"), action: .selectTool(.number)),
+        Item(symbol: "face.smiling",         tip: L("이모지 도장 (S) — 아래에서 이모지를 고르고 클릭해 찍기", "Emoji stamp (S) — pick an emoji below, then click to place"), action: .selectTool(.emoji)),
+        Item(symbol: "paintpalette.fill",    tip: L("색상", "Color"),        action: .color),
+        Item(symbol: "arrow.uturn.backward", tip: L("실행 취소 (⌘Z)", "Undo (⌘Z)"), action: .undo, separatorBefore: true),
+        Item(symbol: "doc.on.doc",           tip: L("클립보드로 복사 (⌘C / Enter)", "Copy to clipboard (⌘C / Enter)"), action: .copy, separatorBefore: true),
+        Item(symbol: "square.and.arrow.down", tip: L("저장 (⌘S)", "Save (⌘S)"),  action: .save),
+        Item(symbol: "square.and.arrow.up",  tip: L("공유 — Claude · Slack · 카카오톡 (⌘⇧S)", "Share — Claude · Slack · KakaoTalk (⌘⇧S)"), action: .share),
+        Item(symbol: "xmark",                tip: L("닫기 (Esc)", "Close (Esc)"),  action: .close),
     ]
 
     /// Rect of a toolbar item in this view's coordinates (for popping menus below it).
@@ -382,7 +382,7 @@ final class TextOptionsView: NSView, NSTextFieldDelegate {
         sizeField.alignment = .center
         sizeField.focusRingType = .none
         sizeField.delegate = self
-        sizeField.toolTip = "글자 크기 (8–200) 직접 입력 후 Enter"
+        sizeField.toolTip = L("글자 크기 (8–200) 직접 입력 후 Enter", "Type a font size (8–200) and press Enter")
         addSubview(sizeField)
 
         slider.controlSize = .mini
@@ -474,7 +474,7 @@ final class TextOptionsView: NSView, NSTextFieldDelegate {
 
         let labelAttrs: [NSAttributedString.Key: Any] = [.font: NSFont.systemFont(ofSize: 11, weight: .medium),
                                                          .foregroundColor: NSColor.white.withAlphaComponent(0.6)]
-        NSAttributedString(string: "크기", attributes: labelAttrs).draw(at: NSPoint(x: 12, y: (bounds.height - 13) / 2))
+        NSAttributedString(string: L("크기", "Size"), attributes: labelAttrs).draw(at: NSPoint(x: 12, y: (bounds.height - 13) / 2))
 
         for (i, r) in rects().enumerated() {
             let it = items[i]
@@ -500,7 +500,7 @@ final class TextOptionsView: NSView, NSTextFieldDelegate {
         guard style.contains(.box) else { return }
         NSColor.white.withAlphaComponent(0.18).setFill()
         NSRect(x: boxSectionX - 1, y: 8, width: 1, height: bounds.height - 16).fill()
-        NSAttributedString(string: "배경", attributes: labelAttrs).draw(at: NSPoint(x: boxSectionX + 8, y: (bounds.height - 13) / 2))
+        NSAttributedString(string: L("배경", "Box"), attributes: labelAttrs).draw(at: NSPoint(x: boxSectionX + 8, y: (bounds.height - 13) / 2))
         for (i, r) in swatchRects().enumerated() {
             let c = Shape.boxColors[i]
             c.setFill()
@@ -546,7 +546,7 @@ final class TextOptionsView: NSView, NSTextFieldDelegate {
 final class EmojiOptionsView: NSView, NSTextFieldDelegate {
     static let presets = ["👍", "❤️", "🔥", "✅", "❌", "⭐️", "👀", "💡", "⚠️", "🎉", "😂", "🤔"]
     static let sizes: [CGFloat] = [28, 44, 72]
-    static let sizeLabels = ["작게", "보통", "크게"]
+    static let sizeLabels = [L("작게", "S"), L("보통", "M"), L("크게", "L")]
     static let height: CGFloat = 36
 
     var emoji: String = "👍" { didSet { needsDisplay = true } }
@@ -611,7 +611,7 @@ final class EmojiOptionsView: NSView, NSTextFieldDelegate {
         bg.stroke()
         let labelAttrs: [NSAttributedString.Key: Any] = [.font: NSFont.systemFont(ofSize: 11, weight: .medium),
                                                          .foregroundColor: NSColor.white.withAlphaComponent(0.6)]
-        NSAttributedString(string: "도장", attributes: labelAttrs).draw(at: NSPoint(x: 12, y: (bounds.height - 13) / 2))
+        NSAttributedString(string: L("도장", "Stamp"), attributes: labelAttrs).draw(at: NSPoint(x: 12, y: (bounds.height - 13) / 2))
 
         for (i, r) in choiceRects().enumerated() {
             let selected = choices[i] == emoji
@@ -627,7 +627,7 @@ final class EmojiOptionsView: NSView, NSTextFieldDelegate {
         let mr = moreRect
         NSColor.white.withAlphaComponent(hoverIndex == 100 ? 0.2 : 0.1).setFill()
         NSBezierPath(roundedRect: mr, xRadius: 6, yRadius: 6).fill()
-        let more = NSAttributedString(string: "더보기…", attributes: [.font: NSFont.systemFont(ofSize: 12, weight: .medium), .foregroundColor: NSColor.white])
+        let more = NSAttributedString(string: L("더보기…", "More…"), attributes: [.font: NSFont.systemFont(ofSize: 12, weight: .medium), .foregroundColor: NSColor.white])
         more.draw(at: NSPoint(x: mr.midX - more.size().width / 2, y: mr.midY - more.size().height / 2))
 
         for (i, r) in sizeRects().enumerated() {
@@ -678,7 +678,7 @@ final class EmojiOptionsView: NSView, NSTextFieldDelegate {
 /// Options bar for the drawing tools: stroke width presets.
 final class StrokeOptionsView: NSView {
     static let widths: [CGFloat] = [2, 4, 7]
-    static let labels = ["얇게", "보통", "굵게"]
+    static let labels = [L("얇게", "Thin"), L("보통", "Normal"), L("굵게", "Thick")]
     static let height: CGFloat = 34
 
     var lineWidth: CGFloat = 4 { didSet { needsDisplay = true } }
@@ -714,7 +714,7 @@ final class StrokeOptionsView: NSView {
         bg.stroke()
         let labelAttrs: [NSAttributedString.Key: Any] = [.font: NSFont.systemFont(ofSize: 11, weight: .medium),
                                                          .foregroundColor: NSColor.white.withAlphaComponent(0.6)]
-        NSAttributedString(string: "굵기", attributes: labelAttrs).draw(at: NSPoint(x: 12, y: (bounds.height - 13) / 2))
+        NSAttributedString(string: L("굵기", "Width"), attributes: labelAttrs).draw(at: NSPoint(x: 12, y: (bounds.height - 13) / 2))
         for (i, r) in rects().enumerated() {
             let w = Self.widths[i]
             let selected = w == lineWidth

@@ -15,9 +15,9 @@ struct TextStyles: OptionSet, Equatable {
 
     var label: String {
         switch self {
-        case .shadow: return "그림자"
-        case .outline: return "외곽선"
-        case .box: return "배경"
+        case .shadow: return L("그림자", "Shadow")
+        case .outline: return L("외곽선", "Outline")
+        case .box: return L("배경", "Box")
         default: return ""
         }
     }

@@ -97,8 +97,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         captureItem?.keyEquivalent = spec.keyEquivalent
         captureItem?.keyEquivalentModifierMask = spec.nsModifiers
-        captureItem?.title = spec.keyEquivalent.isEmpty ? "영역 캡처  (\(spec.display))" : "영역 캡처"
-        statusItem?.button?.toolTip = "ShotPark — \(spec.display) 로 영역 캡처"
+        captureItem?.title = spec.keyEquivalent.isEmpty ? L("영역 캡처  (\(spec.display))", "Capture Region  (\(spec.display))") : L("영역 캡처", "Capture Region")
+        statusItem?.button?.toolTip = L("ShotPark — \(spec.display) 로 영역 캡처", "ShotPark — \(spec.display) to capture a region")
     }
 
     // MARK: menus
@@ -109,25 +109,25 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         let appMenuItem = NSMenuItem()
         let appMenu = NSMenu()
-        appMenu.addItem(withTitle: "설정…", action: #selector(openSettings), keyEquivalent: ",")
+        appMenu.addItem(withTitle: L("설정…", "Settings…"), action: #selector(openSettings), keyEquivalent: ",")
         appMenu.addItem(.separator())
-        appMenu.addItem(withTitle: "ShotPark 종료", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
+        appMenu.addItem(withTitle: L("ShotPark 종료", "Quit ShotPark"), action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
         appMenuItem.submenu = appMenu
         main.addItem(appMenuItem)
 
         let editItem = NSMenuItem()
-        let edit = NSMenu(title: "편집")
-        edit.addItem(withTitle: "실행 취소", action: Selector(("undo:")), keyEquivalent: "z")
-        edit.addItem(withTitle: "잘라내기", action: #selector(NSText.cut(_:)), keyEquivalent: "x")
-        edit.addItem(withTitle: "복사", action: #selector(NSText.copy(_:)), keyEquivalent: "c")
-        edit.addItem(withTitle: "붙여넣기", action: #selector(NSText.paste(_:)), keyEquivalent: "v")
-        edit.addItem(withTitle: "전체 선택", action: #selector(NSText.selectAll(_:)), keyEquivalent: "a")
+        let edit = NSMenu(title: L("편집", "Edit"))
+        edit.addItem(withTitle: L("실행 취소", "Undo"), action: Selector(("undo:")), keyEquivalent: "z")
+        edit.addItem(withTitle: L("잘라내기", "Cut"), action: #selector(NSText.cut(_:)), keyEquivalent: "x")
+        edit.addItem(withTitle: L("복사", "Copy"), action: #selector(NSText.copy(_:)), keyEquivalent: "c")
+        edit.addItem(withTitle: L("붙여넣기", "Paste"), action: #selector(NSText.paste(_:)), keyEquivalent: "v")
+        edit.addItem(withTitle: L("전체 선택", "Select All"), action: #selector(NSText.selectAll(_:)), keyEquivalent: "a")
         editItem.submenu = edit
         main.addItem(editItem)
 
         let windowItem = NSMenuItem()
-        let windowMenu = NSMenu(title: "윈도우")
-        windowMenu.addItem(withTitle: "닫기", action: #selector(NSWindow.performClose(_:)), keyEquivalent: "w")
+        let windowMenu = NSMenu(title: L("윈도우", "Window"))
+        windowMenu.addItem(withTitle: L("닫기", "Close"), action: #selector(NSWindow.performClose(_:)), keyEquivalent: "w")
         windowItem.submenu = windowMenu
         main.addItem(windowItem)
 
@@ -142,32 +142,32 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
 
         let menu = NSMenu()
-        captureItem = NSMenuItem(title: "영역 캡처", action: #selector(captureAction), keyEquivalent: "")
+        captureItem = NSMenuItem(title: L("영역 캡처", "Capture Region"), action: #selector(captureAction), keyEquivalent: "")
         captureItem.target = self
         menu.addItem(captureItem)
         menu.addItem(.separator())
 
-        let settings = NSMenuItem(title: "설정… (단축키 · 저장 폴더)", action: #selector(openSettings), keyEquivalent: ",")
+        let settings = NSMenuItem(title: L("설정… (단축키 · 저장 폴더)", "Settings… (Hotkey · Save Folder)"), action: #selector(openSettings), keyEquivalent: ",")
         settings.target = self
         menu.addItem(settings)
 
-        let folder = NSMenuItem(title: "저장 폴더 열기", action: #selector(openSaveFolder), keyEquivalent: "")
+        let folder = NSMenuItem(title: L("저장 폴더 열기", "Open Save Folder"), action: #selector(openSaveFolder), keyEquivalent: "")
         folder.target = self
         menu.addItem(folder)
 
-        loginItem = NSMenuItem(title: "로그인 시 자동 실행", action: #selector(toggleLoginItem), keyEquivalent: "")
+        loginItem = NSMenuItem(title: L("로그인 시 자동 실행", "Launch at Login"), action: #selector(toggleLoginItem), keyEquivalent: "")
         loginItem.target = self
         menu.addItem(loginItem)
 
-        let perm = NSMenuItem(title: "화면 기록 권한 설정…", action: #selector(openPermission), keyEquivalent: "")
+        let perm = NSMenuItem(title: L("화면 기록 권한 설정…", "Screen Recording Permission…"), action: #selector(openPermission), keyEquivalent: "")
         perm.target = self
         menu.addItem(perm)
         menu.addItem(.separator())
 
-        let about = NSMenuItem(title: "ShotPark 정보", action: #selector(showAbout), keyEquivalent: "")
+        let about = NSMenuItem(title: L("ShotPark 정보", "About ShotPark"), action: #selector(showAbout), keyEquivalent: "")
         about.target = self
         menu.addItem(about)
-        let quit = NSMenuItem(title: "ShotPark 종료", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
+        let quit = NSMenuItem(title: L("ShotPark 종료", "Quit ShotPark"), action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
         menu.addItem(quit)
 
         menu.delegate = self
@@ -206,8 +206,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     @objc private func showAbout() {
         let alert = NSAlert()
         alert.messageText = "ShotPark"
-        alert.informativeText = """
-        Lightshot 스타일의 네이티브 Apple Silicon 캡처 도구
+        alert.informativeText = L10n.isKorean ? """
+        가벼운 네이티브 Apple Silicon 영역 캡처 도구
 
         \(Settings.hotKey.display)  영역 캡처 시작 (설정에서 변경 가능)
         드래그  영역 선택 · 핸들로 크기 조절 · 안쪽 드래그로 이동
@@ -216,8 +216,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         ⌘Z  실행 취소   Esc  취소
 
         저장 폴더: \((Settings.saveFolder.path as NSString).abbreviatingWithTildeInPath)
+        """ : """
+        A lightweight native Apple Silicon region capture tool — a Lightshot alternative for Mac
+
+        \(Settings.hotKey.display)  start a region capture (change it in Settings)
+        Drag to select · handles to resize · drag inside to move
+        P pen · L line · A arrow · R rectangle · E ellipse · M marker · T text · N number · S emoji stamp · V select
+        Enter / ⌘C  copy to clipboard   ⌘S  save PNG   ⌘⇧S  share (Claude · Slack · KakaoTalk)
+        ⌘Z  undo   Esc  cancel
+
+        Save folder: \((Settings.saveFolder.path as NSString).abbreviatingWithTildeInPath)
         """
-        alert.addButton(withTitle: "확인")
+        alert.addButton(withTitle: L("확인", "OK"))
         NSApp.activate(ignoringOtherApps: true)
         alert.runModal()
     }

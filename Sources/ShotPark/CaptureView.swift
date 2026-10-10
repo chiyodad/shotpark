@@ -304,7 +304,7 @@ final class CaptureView: NSView, NSTextViewDelegate {
         let menu = NSMenu()
         menu.autoenablesItems = false
         for target in ShareTarget.installed {
-            let item = NSMenuItem(title: "\(target.name)(으)로 보내기", action: #selector(shareToApp(_:)), keyEquivalent: "")
+            let item = NSMenuItem(title: L("\(target.name)(으)로 보내기", "Send to \(target.name)"), action: #selector(shareToApp(_:)), keyEquivalent: "")
             item.target = self
             item.representedObject = target.name
             if let icon = target.appURL.map({ NSWorkspace.shared.icon(forFile: $0.path) }) {
@@ -314,7 +314,7 @@ final class CaptureView: NSView, NSTextViewDelegate {
             menu.addItem(item)
         }
         if !ShareTarget.installed.isEmpty { menu.addItem(.separator()) }
-        let other = NSMenuItem(title: "다른 앱으로 공유… (메일 · 메시지 · AirDrop)", action: #selector(shareViaSystem), keyEquivalent: "")
+        let other = NSMenuItem(title: L("다른 앱으로 공유… (메일 · 메시지 · AirDrop)", "Share to another app… (Mail · Messages · AirDrop)"), action: #selector(shareViaSystem), keyEquivalent: "")
         other.target = self
         menu.addItem(other)
 
@@ -685,7 +685,7 @@ final class CaptureView: NSView, NSTextViewDelegate {
         }
         lm.ensureLayout(for: tc)
         let used = lm.usedRect(for: tc)
-        let minW = NSAttributedString(string: "텍스트 입력…", attributes: [.font: font]).size().width
+        let minW = NSAttributedString(string: L("텍스트 입력…", "Type text…"), attributes: [.font: font]).size().width
         let w = max(used.width, minW) + tc.lineFragmentPadding * 2 + textSize + 8
         let h = max(used.height, font.ascender - font.descender + font.leading) + 4
         tv.frame = NSRect(x: tv.frame.minX, y: tv.frame.maxY - h, width: w, height: h)
@@ -772,7 +772,7 @@ final class CaptureView: NSView, NSTextViewDelegate {
         if let c = currentShape { ShapeRenderer.draw(c, in: ctx) }
         if textEditor != nil, let o = editingTextOrigin {
             // preview of the exact area the background box will cover
-            let t = editingText.isEmpty ? "텍스트 입력…" : editingText
+            let t = editingText.isEmpty ? L("텍스트 입력…", "Type text…") : editingText
             let box = Shape.boxRect(text: t, fontSize: textSize, style: textStyle, origin: o)
             let r = Shape.boxCornerRadius(fontSize: textSize)
             if textStyle.contains(.box) {
@@ -787,7 +787,7 @@ final class CaptureView: NSView, NSTextViewDelegate {
             ctx.strokePath()
             ctx.setLineDash(phase: 0, lengths: [])
             if editingText.isEmpty {
-                let ph = NSAttributedString(string: "텍스트 입력…  (⇧↩ 줄바꿈)", attributes: [
+                let ph = NSAttributedString(string: L("텍스트 입력…  (⇧↩ 줄바꿈)", "Type text…  (⇧↩ new line)"), attributes: [
                     .font: NSFont.boldSystemFont(ofSize: textSize), .foregroundColor: color.withAlphaComponent(0.45)])
                 ph.draw(at: Shape.textRect(text: " ", fontSize: textSize, style: textStyle, origin: o).origin)
             }
@@ -842,7 +842,7 @@ final class CaptureView: NSView, NSTextViewDelegate {
     }
 
     private func drawIdleHint() {
-        let str = NSAttributedString(string: "드래그로 영역 선택  ·  클릭하면 창 선택  ·  ⌘A 전체 화면  ·  Esc 취소", attributes: [
+        let str = NSAttributedString(string: L("드래그로 영역 선택  ·  클릭하면 창 선택  ·  ⌘A 전체 화면  ·  Esc 취소", "Drag to select a region  ·  click a window to grab it  ·  ⌘A whole screen  ·  Esc cancel"), attributes: [
             .font: NSFont.systemFont(ofSize: 14, weight: .medium),
             .foregroundColor: NSColor.white.withAlphaComponent(0.95),
         ])
