@@ -190,7 +190,7 @@ docs/                   홈페이지(shotpark.site) + 스크린샷 + install.sh(
 
 ## 라이선스
 
-MIT © Suseok Park
+MIT © chiyodad
 
 ---
 
