@@ -1,49 +1,158 @@
-# ShotPark
+<p align="center">
+  <img src="docs/icon.png" width="128" alt="ShotPark icon">
+</p>
 
-Lightshot 스타일의 영역 캡처 + 주석 도구. Apple Silicon 네이티브 (Swift / AppKit, 외부 의존성 없음).
+<h1 align="center">ShotPark</h1>
 
-## 빌드 & 설치
+<p align="center">
+  Lightshot 스타일의 맥용 영역 캡처 · 주석 · 공유 도구<br>
+  <b>Apple Silicon 네이티브</b> · 외부 의존성 없음 · 메뉴 막대 상주
+</p>
+
+<p align="center">
+  <a href="https://github.com/suseokpark/shotpark/releases/latest"><img src="https://img.shields.io/github/v/release/suseokpark/shotpark?label=download&color=5b4bdb" alt="Download"></a>
+  <img src="https://img.shields.io/badge/macOS-13%2B-black" alt="macOS 13+">
+  <img src="https://img.shields.io/badge/arch-Apple%20Silicon-black" alt="arm64">
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-green" alt="MIT"></a>
+</p>
+
+<p align="center">
+  <a href="https://suseokpark.github.io/shotpark/">홈페이지</a> ·
+  <a href="https://github.com/suseokpark/shotpark/releases/latest">다운로드</a> ·
+  <a href="#english">English</a>
+</p>
+
+---
+
+## 왜 만들었나
+
+Lightshot for Mac은 2017년 이후 업데이트가 멈춘 Intel(x86_64) 전용 앱이라, Rosetta가 빠진 최신 macOS와 Apple Silicon 맥에서는 더 이상 실행되지 않습니다. ShotPark은 그 작업 흐름 — **단축키 → 드래그로 영역 선택 → 바로 주석 → 복사/저장/공유** — 을 그대로 가져와 Swift와 AppKit만으로 새로 만든 네이티브 앱입니다.
+
+## 기능
+
+**캡처**
+- 전역 단축키 한 번으로 화면이 어두워지고 드래그로 영역을 선택합니다. 기본 단축키는 `⌘⇧9`, 설정에서 자유롭게 변경.
+- 8방향 핸들로 크기 조절, 안쪽을 드래그해 이동, 픽셀 단위 크기 표시, `⌘A` 전체 화면.
+- 다중 모니터 지원. 각 디스플레이의 실제 해상도(Retina)로 캡처합니다.
+- ScreenCaptureKit 기반 (macOS 14+), 이전 버전은 자동 폴백.
+
+**주석**
+- 펜 · 선 · 화살표 · 사각형 · 타원 · 마커(형광펜) · 텍스트, 10색 팔레트, 실행 취소.
+- 화면에서 보이는 그대로 내보냅니다 (같은 렌더러 사용).
+
+**내보내기**
+- `⌘C` 또는 `Enter`로 클립보드에 복사하고 바로 닫힘.
+- `⌘S`로 PNG 저장 — 설정한 폴더에 확인 창 없이 바로 저장(기본)하거나 저장 창 표시. 저장 후 알림을 클릭하면 Finder에서 파일이 선택됩니다.
+- **공유** 버튼(`⌘⇧S`): Claude · Slack · 카카오톡으로 바로 보내기, 또는 macOS 공유 시트(메일 · 메시지 · AirDrop · 메모 등).
+
+**그 외**
+- 메뉴 막대에만 상주 (Dock에 안 뜸), 로그인 시 자동 실행 옵션.
+- 설정 창: 캡처 단축키, 저장 폴더, 바로 저장 여부.
+- 외부 라이브러리 0개. 소스 전체가 Swift 파일 9개.
+
+## 설치
+
+### 릴리즈 다운로드 (권장)
+
+1. [최신 릴리즈](https://github.com/suseokpark/shotpark/releases/latest)에서 `ShotPark-x.y.z.zip`을 받습니다.
+2. 압축을 풀고 `ShotPark.app`을 **응용 프로그램** 폴더로 옮깁니다.
+3. 앱이 ad-hoc 서명이라 처음 실행 시 Gatekeeper가 막습니다. 둘 중 하나로 열어 주세요.
+   - Finder에서 앱을 **우클릭 → 열기 → 열기**, 또는
+   - 터미널: `xattr -d com.apple.quarantine /Applications/ShotPark.app`
+4. 첫 캡처 때 **화면 기록 권한**을 요청합니다. 시스템 설정 → 개인정보 보호 및 보안 → **화면 및 시스템 오디오 기록**에서 ShotPark을 켠 뒤 앱을 한 번 종료했다가 다시 실행하세요.
+
+### 소스에서 빌드
+
+Xcode Command Line Tools만 있으면 됩니다 (`xcode-select --install`).
 
 ```sh
-./build.sh --install     # 빌드 → build/ShotPark.app → /Applications 에 복사 후 실행
+git clone https://github.com/suseokpark/shotpark.git
+cd shotpark
+./build.sh --install     # 빌드 → 앱 번들 생성 → /Applications 설치 → 실행
 ```
 
-요구 사항: macOS 13 이상, Xcode Command Line Tools (`xcode-select --install`).
+`./build.sh`만 실행하면 `build/ShotPark.app`만 만들고 설치는 하지 않습니다.
 
 ## 사용법
 
 | 동작 | 키 |
 |---|---|
-| 영역 캡처 시작 | **⌘⇧9** 기본값 — 설정(⌘,)에서 변경 가능 (메뉴 막대 아이콘 → 영역 캡처 도 가능) |
-| 전체 화면 선택 | ⌘A |
-| 펜 / 선 / 화살표 / 사각형 / 타원 / 마커 / 텍스트 | P / L / A / R / E / M / T |
-| 선택(이동·크기조절) 모드 | V (또는 활성 도구 다시 클릭) |
-| 클립보드로 복사 후 닫기 | ⌘C 또는 Enter |
-| PNG 로 저장 | ⌘S — 설정한 저장 폴더에 바로 저장(기본), 또는 저장 창 표시 |
-| 공유 (Claude · Slack · 카카오톡 · 시스템 공유 시트) | ⌘⇧S 또는 툴바 공유 버튼 |
-| 실행 취소 | ⌘Z |
-| 취소 | Esc (선택 중이면 선택만 해제, 한 번 더 누르면 종료) / 우클릭 |
+| 영역 캡처 시작 | `⌘⇧9` (기본값, 설정에서 변경) · 메뉴 막대 아이콘 → 영역 캡처 |
+| 전체 화면 선택 | `⌘A` |
+| 펜 / 선 / 화살표 / 사각형 / 타원 / 마커 / 텍스트 | `P` / `L` / `A` / `R` / `E` / `M` / `T` |
+| 선택(이동·크기조절) 모드 | `V` 또는 활성 도구를 다시 클릭 |
+| 클립보드로 복사 후 닫기 | `⌘C` 또는 `Enter` |
+| PNG 저장 | `⌘S` |
+| 공유 메뉴 | `⌘⇧S` |
+| 실행 취소 | `⌘Z` |
+| 취소 | `Esc` (선택 중이면 선택만 해제, 한 번 더 누르면 종료) · 우클릭 |
 
-첫 실행 시 **시스템 설정 → 개인정보 보호 및 보안 → 화면 및 시스템 오디오 기록** 에서 ShotPark 을 허용해야 합니다.
-허용 후 앱을 한 번 종료했다가 다시 실행하세요.
+텍스트 도구는 클릭한 자리에 입력 상자가 생기고 `Enter`로 확정, `Esc`로 취소합니다.
 
-## 설정
+### 설정 (`⌘,` 또는 메뉴 막대 → 설정…)
 
-메뉴 막대 아이콘 → **설정…** (또는 ⌘,)
+- **캡처 단축키** — 박스를 클릭하고 원하는 조합을 누르면 즉시 적용. `⌘`/`⌥`/`⌃` 중 하나가 포함되거나 F키여야 합니다.
+- **저장 폴더** — 기본은 데스크탑. 아무 폴더나 지정 가능.
+- **바로 저장** — 켜두면 `⌘S`가 확인 창 없이 저장. 끄면 저장 창이 뜹니다.
 
-- **캡처 단축키**: 박스를 클릭하고 원하는 조합을 누르면 즉시 적용됩니다 (⌘/⌥/⌃ 중 하나 포함 또는 F키).
-- **저장 폴더**: 기본은 데스크탑. "변경…"으로 아무 폴더나 지정할 수 있습니다.
-- **바로 저장**: 켜두면 ⌘S 가 확인 창 없이 지정 폴더에 저장하고 상단에 알림을 띄웁니다(알림 클릭 → Finder). 끄면 저장 창이 뜹니다.
+## 자주 묻는 질문
 
-공유 동작: 이미지를 클립보드에 복사한 뒤 해당 앱을 열어 파일을 넘깁니다. 앱이 파일을 받지 않으면 앱만 활성화되므로 ⌘V 로 붙여넣으면 됩니다.
+**단축키를 눌러도 아무 일도 안 일어나요.**
+화면 기록 권한이 아직 없는 경우입니다. 메뉴 막대 아이콘 → "화면 기록 권한 설정…"으로 설정 창을 열어 ShotPark을 켜고, 앱을 종료했다가 다시 실행하세요. 다른 앱이 같은 단축키를 전역으로 잡고 있다면 설정에서 다른 조합으로 바꿔 보세요.
 
-## 구조
+**"손상되었기 때문에 열 수 없습니다"라고 떠요.**
+Apple 개발자 서명이 없는 앱이라 다운로드한 파일에 격리 속성이 붙어서 그렇습니다. 위 설치 3번 항목대로 우클릭 → 열기 또는 `xattr -d com.apple.quarantine`로 해제하면 됩니다. 소스에서 직접 빌드하면 이 단계가 필요 없습니다.
 
-- `Sources/ShotPark/AppDelegate.swift` – 메뉴 막대 아이템, 메인 메뉴, 전역 단축키, 세션 시작
-- `HotKey.swift` – Carbon `RegisterEventHotKey` (손쉬운 사용 권한 불필요)
-- `ScreenCapture.swift` – ScreenCaptureKit (macOS 14+) / `CGDisplayCreateImage` 폴백
-- `CaptureSession.swift` – 모니터별 오버레이 창, 전역 ⌘C/Enter 처리, 클립보드/저장/공유
-- `CaptureView.swift` – 영역 선택, 핸들, 주석 캔버스, 키보드 처리, 결과 렌더링
-- `Shapes.swift` – 주석 모델 + 렌더러 (화면/내보내기 동일 코드)
-- `ToolbarView.swift` – 플로팅 툴바, 색상 팔레트
-- `Settings.swift` – 설정 저장(UserDefaults), 단축키 레코더, 설정 창, 저장 알림 토스트
+**"공유 → Slack/카카오톡"은 어떻게 동작하나요?**
+이미지를 클립보드에 복사한 뒤 해당 앱에 파일을 넘깁니다. Slack처럼 파일을 받는 앱은 바로 업로드 창이 뜨고, 받지 않는 앱은 앞으로 올라오기만 하므로 `⌘V`로 붙여넣으면 됩니다.
+
+**Intel 맥에서도 되나요?**
+빌드 스크립트가 arm64로 고정되어 있습니다. `build.sh`의 `--arch arm64`를 지우고 빌드하면 Intel에서도 돌아갑니다 (테스트는 안 했습니다).
+
+**온라인 업로드/링크 공유(prnt.sc 같은)는요?**
+없습니다. 의도적으로 모든 것이 로컬에서만 처리됩니다.
+
+## 프로젝트 구조
+
+```
+Sources/ShotPark/
+  main.swift            앱 진입점
+  AppDelegate.swift     메뉴 막대 아이템, 메인 메뉴, 전역 단축키 등록, 세션 시작
+  HotKey.swift          Carbon RegisterEventHotKey 래퍼 (손쉬운 사용 권한 불필요)
+  ScreenCapture.swift   ScreenCaptureKit / CGDisplayCreateImage 폴백
+  CaptureSession.swift  모니터별 오버레이 창, 전역 ⌘C/Enter, 클립보드 · 저장 · 공유
+  CaptureView.swift     영역 선택, 핸들, 주석 캔버스, 키보드, 결과 렌더링
+  Shapes.swift          주석 모델 + 렌더러 (화면/내보내기 동일 코드)
+  ToolbarView.swift     플로팅 툴바, 색상 팔레트
+  Settings.swift        설정(UserDefaults), 단축키 레코더, 설정 창, 저장 알림
+Info.plist              LSUIElement(메뉴 막대 전용), 권한 설명
+build.sh                빌드 → .app 번들 → 아이콘 → ad-hoc 서명 → 설치
+makeicon.swift          앱 아이콘 생성 스크립트
+docs/                   GitHub Pages 홈페이지
+```
+
+## 기여
+
+이슈와 PR 환영합니다. 큰 변경은 먼저 이슈로 이야기해 주세요. 코드 스타일은 기존 파일을 따르고, 새 기능은 `README`의 기능/단축키 표도 함께 갱신해 주세요.
+
+## 라이선스
+
+MIT © Suseok Park
+
+---
+
+<a id="english"></a>
+## English
+
+**ShotPark** is a Lightshot-style region screenshot tool for macOS, rewritten natively for Apple Silicon in Swift/AppKit with zero dependencies. Lightshot for Mac is an Intel-only binary that no longer runs on modern macOS without Rosetta; ShotPark keeps the same workflow: hotkey → drag a region → annotate → copy / save / share.
+
+- Global hotkey (default `⌘⇧9`, configurable), resizable/movable selection, multi-monitor, Retina-resolution capture via ScreenCaptureKit.
+- Annotations: pen, line, arrow, rectangle, ellipse, marker, text, 10-color palette, undo.
+- `⌘C`/`Enter` copies to clipboard, `⌘S` saves PNG directly to a folder of your choice, `⌘⇧S` shares to Claude / Slack / KakaoTalk or the macOS share sheet.
+- Menu-bar only, launch-at-login option, settings window.
+
+**Install:** grab `ShotPark-x.y.z.zip` from the [latest release](https://github.com/suseokpark/shotpark/releases/latest), move `ShotPark.app` to Applications, then right-click → Open (the app is ad-hoc signed, so Gatekeeper needs a one-time override — or run `xattr -d com.apple.quarantine /Applications/ShotPark.app`). Grant **Screen Recording** permission on first capture and relaunch.
+
+**Build from source:** `git clone https://github.com/suseokpark/shotpark.git && cd shotpark && ./build.sh --install` (needs Xcode Command Line Tools). Requires macOS 13+.
+
+The UI is currently Korean; the shortcut table above applies as-is. MIT licensed.

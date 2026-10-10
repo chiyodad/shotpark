@@ -1,0 +1,192 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ShotPark — 맥용 영역 캡처 · 주석 · 공유</title>
+<meta name="description" content="Lightshot 스타일의 Apple Silicon 네이티브 스크린샷 도구. 단축키 → 드래그 → 주석 → 복사/저장/공유.">
+<meta property="og:title" content="ShotPark">
+<meta property="og:description" content="Lightshot 스타일의 맥용 영역 캡처 · 주석 · 공유 도구. Apple Silicon 네이티브.">
+<meta property="og:image" content="https://suseokpark.github.io/shotpark/icon.png">
+<link rel="icon" href="icon.png">
+<style>
+  :root {
+    --bg: #ffffff; --fg: #111318; --muted: #5c6270; --line: #e6e8ee; --card: #f6f7fa;
+    --accent: #5b4bdb; --accent-2: #2a1fa3; --dot: #ff4545; --code: #eef0f5;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #0e0f13; --fg: #eef0f5; --muted: #9aa1b1; --line: #23262f; --card: #161820; --code: #1c1f29; }
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body { margin: 0; font: 16px/1.6 -apple-system, BlinkMacSystemFont, "SF Pro Text", "Apple SD Gothic Neo", "Pretendard", system-ui, sans-serif; background: var(--bg); color: var(--fg); -webkit-font-smoothing: antialiased; }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  .wrap { max-width: 980px; margin: 0 auto; padding: 0 20px; }
+  header.top { display: flex; align-items: center; justify-content: space-between; padding: 18px 0; }
+  header.top .brand { display: flex; align-items: center; gap: 10px; font-weight: 700; color: var(--fg); }
+  header.top .brand img { width: 28px; height: 28px; border-radius: 7px; }
+  header.top nav a { color: var(--muted); margin-left: 18px; font-size: 14px; }
+  .hero { padding: 56px 0 36px; text-align: center; }
+  .hero img { width: 120px; height: 120px; border-radius: 28px; box-shadow: 0 18px 50px rgba(91,75,219,.25); }
+  .hero h1 { font-size: 44px; letter-spacing: -0.02em; margin: 22px 0 10px; }
+  .hero p.lead { font-size: 19px; color: var(--muted); margin: 0 auto 26px; max-width: 620px; }
+  .cta { display: inline-flex; gap: 12px; flex-wrap: wrap; justify-content: center; }
+  .btn { display: inline-flex; align-items: center; gap: 8px; padding: 12px 20px; border-radius: 12px; font-weight: 600; font-size: 15px; border: 1px solid var(--line); background: var(--card); color: var(--fg); }
+  .btn.primary { background: linear-gradient(180deg, var(--accent), var(--accent-2)); color: #fff; border: none; box-shadow: 0 8px 24px rgba(91,75,219,.35); }
+  .btn:hover { text-decoration: none; transform: translateY(-1px); }
+  .meta { color: var(--muted); font-size: 13px; margin-top: 14px; }
+  .meta code { background: var(--code); padding: 2px 6px; border-radius: 5px; font-size: 12px; }
+
+  /* mock overlay */
+  .mock { margin: 36px auto 0; max-width: 760px; border-radius: 16px; overflow: hidden; border: 1px solid var(--line); background: #1d1f26; position: relative; aspect-ratio: 16/9; box-shadow: 0 30px 80px rgba(0,0,0,.35); }
+  .mock .wall { position: absolute; inset: 0; background:
+      radial-gradient(1200px 500px at 20% 0%, #4a3fb8 0%, transparent 60%),
+      radial-gradient(900px 500px at 90% 100%, #1c7ed6 0%, transparent 60%),
+      linear-gradient(160deg, #2a2d3a, #15161c); }
+  .mock .win { position: absolute; left: 8%; top: 12%; width: 60%; height: 70%; background: #f4f5f8; border-radius: 10px; box-shadow: 0 12px 40px rgba(0,0,0,.4); }
+  .mock .win i { position: absolute; left: 12px; top: 10px; width: 10px; height: 10px; border-radius: 50%; background: #ff5f57; box-shadow: 16px 0 0 #febc2e, 32px 0 0 #28c840; }
+  .mock .win b { position: absolute; left: 16px; right: 16px; height: 10px; border-radius: 5px; background: #d9dce6; }
+  .mock .dim { position: absolute; inset: 0; background: rgba(0,0,0,.48); }
+  .mock .sel { position: absolute; left: 22%; top: 24%; width: 44%; height: 46%; outline: 1px solid #fff; box-shadow: 0 0 0 9999px rgba(0,0,0,.48); background: #f4f5f8; }
+  .mock .sel .size { position: absolute; left: 0; top: -24px; background: rgba(20,20,20,.85); color: #fff; font: 500 11px/1 ui-monospace, SFMono-Regular, Menlo, monospace; padding: 5px 7px; border-radius: 4px; }
+  .mock .sel .h { position: absolute; width: 8px; height: 8px; border-radius: 50%; background: #fff; border: 1px solid rgba(0,0,0,.5); }
+  .mock .sel .arrow { position: absolute; left: 14%; top: 22%; width: 48%; height: 34%; }
+  .mock .sel .box { position: absolute; left: 58%; top: 30%; width: 30%; height: 42%; border: 3px solid #ec3836; border-radius: 2px; }
+  .mock .sel .txt { position: absolute; left: 12%; bottom: 10%; color: #ec3836; font-weight: 800; font-size: clamp(10px, 2vw, 16px); text-shadow: 0 1px 2px rgba(0,0,0,.4); }
+  .mock .tb { position: absolute; left: 22%; top: calc(24% + 46% + 10px); display: flex; gap: 2px; padding: 5px; background: rgba(30,30,30,.94); border: 1px solid rgba(255,255,255,.18); border-radius: 9px; box-shadow: 0 8px 20px rgba(0,0,0,.5); }
+  .mock .tb span { width: 26px; height: 26px; border-radius: 6px; display: grid; place-items: center; color: #fff; font-size: 13px; }
+  .mock .tb span.on { background: rgba(255,255,255,.28); }
+  .mock .tb span.dot::before { content: ""; width: 12px; height: 12px; border-radius: 50%; background: #ec3836; box-shadow: 0 0 0 1.5px #fff; }
+  .mock .tb em { width: 1px; background: rgba(255,255,255,.2); margin: 5px 3px; }
+  @media (max-width: 600px) { .mock .tb span { width: 20px; height: 20px; font-size: 11px; } }
+
+  section { padding: 48px 0 8px; }
+  h2 { font-size: 26px; letter-spacing: -0.01em; margin: 0 0 18px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 14px; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 18px 18px 16px; }
+  .card h3 { margin: 0 0 6px; font-size: 16px; }
+  .card p { margin: 0; color: var(--muted); font-size: 14.5px; }
+  .card .ic { font-size: 22px; margin-bottom: 8px; }
+  table { width: 100%; border-collapse: collapse; font-size: 15px; }
+  th, td { text-align: left; padding: 10px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { color: var(--muted); font-weight: 600; font-size: 13px; }
+  kbd { font: 500 13px ui-monospace, SFMono-Regular, Menlo, monospace; background: var(--code); border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 6px; padding: 2px 7px; white-space: nowrap; }
+  ol.steps { padding-left: 22px; }
+  ol.steps li { margin-bottom: 10px; }
+  pre { background: var(--code); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; overflow: auto; font-size: 13.5px; }
+  code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+  .note { border-left: 3px solid var(--accent); background: var(--card); padding: 12px 16px; border-radius: 0 10px 10px 0; color: var(--muted); font-size: 14.5px; }
+  details { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 12px 16px; margin-bottom: 10px; }
+  summary { cursor: pointer; font-weight: 600; }
+  details p { color: var(--muted); margin: 8px 0 0; font-size: 14.5px; }
+  footer { padding: 48px 0 40px; color: var(--muted); font-size: 13.5px; border-top: 1px solid var(--line); margin-top: 48px; }
+  .en { margin-top: 10px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <a class="brand" href="#"><img src="icon.png" alt="">ShotPark</a>
+    <nav>
+      <a href="#features">기능</a>
+      <a href="#keys">단축키</a>
+      <a href="#install">설치</a>
+      <a href="#faq">FAQ</a>
+      <a href="#english">English</a>
+      <a href="https://github.com/suseokpark/shotpark">GitHub</a>
+    </nav>
+  </header>
+
+  <section class="hero">
+    <img src="icon.png" alt="ShotPark 아이콘">
+    <h1>ShotPark</h1>
+    <p class="lead">Lightshot 스타일의 맥용 영역 캡처 · 주석 · 공유 도구.<br>Apple Silicon 네이티브, 외부 의존성 없음, 메뉴 막대에 조용히 상주.</p>
+    <div class="cta">
+      <a class="btn primary" href="https://github.com/suseokpark/shotpark/releases/latest">⬇ 다운로드 (macOS 13+ · Apple Silicon)</a>
+      <a class="btn" href="https://github.com/suseokpark/shotpark">소스 보기</a>
+    </div>
+    <div class="meta">무료 · MIT 라이선스 · 캡처는 모두 로컬에서 처리, 어디에도 업로드하지 않습니다</div>
+
+    <div class="mock" aria-hidden="true">
+      <div class="wall"></div>
+      <div class="win"><i></i><b style="top:36px"></b><b style="top:58px;width:60%"></b><b style="top:80px;width:72%"></b><b style="top:102px;width:40%"></b></div>
+      <div class="dim"></div>
+      <div class="sel">
+        <div class="size">1440 × 820</div>
+        <span class="h" style="left:-4px;top:-4px"></span><span class="h" style="left:calc(50% - 4px);top:-4px"></span><span class="h" style="right:-4px;top:-4px"></span>
+        <span class="h" style="right:-4px;top:calc(50% - 4px)"></span><span class="h" style="right:-4px;bottom:-4px"></span><span class="h" style="left:calc(50% - 4px);bottom:-4px"></span>
+        <span class="h" style="left:-4px;bottom:-4px"></span><span class="h" style="left:-4px;top:calc(50% - 4px)"></span>
+        <svg class="arrow" viewBox="0 0 100 60" preserveAspectRatio="none"><path d="M4 54 L80 12" stroke="#ec3836" stroke-width="4" stroke-linecap="round" fill="none"/><path d="M92 6 L72 10 L82 24 Z" fill="#ec3836"/></svg>
+        <div class="box"></div>
+        <div class="txt">여기 확인!</div>
+      </div>
+      <div class="tb">
+        <span>✎</span><span>╱</span><span class="on">➚</span><span>▭</span><span>◯</span><span>▮</span><span>T</span><span class="dot"></span>
+        <em></em><span>↶</span><em></em><span>⧉</span><span>⤓</span><span>⇪</span><span>✕</span>
+      </div>
+    </div>
+  </section>
+
+  <section id="features">
+    <h2>기능</h2>
+    <div class="grid">
+      <div class="card"><div class="ic">⌨️</div><h3>단축키 한 번, 드래그 한 번</h3><p>기본 <kbd>⌘⇧9</kbd>. 화면이 어두워지면 드래그로 영역을 잡고, 핸들로 크기 조절, 안쪽 드래그로 이동. 픽셀 크기가 실시간으로 표시됩니다.</p></div>
+      <div class="card"><div class="ic">✏️</div><h3>바로 주석</h3><p>펜 · 선 · 화살표 · 사각형 · 타원 · 마커 · 텍스트, 10색 팔레트, 실행 취소. 화면에 보이는 그대로 내보냅니다.</p></div>
+      <div class="card"><div class="ic">📋</div><h3>복사 · 저장 · 공유</h3><p><kbd>⌘C</kbd>로 클립보드, <kbd>⌘S</kbd>로 지정 폴더에 즉시 PNG 저장, <kbd>⌘⇧S</kbd>로 Claude · Slack · 카카오톡 또는 macOS 공유 시트.</p></div>
+      <div class="card"><div class="ic">🖥️</div><h3>Retina · 다중 모니터</h3><p>ScreenCaptureKit으로 각 디스플레이의 실제 해상도 그대로 캡처합니다. 모니터가 몇 대든 같은 방식.</p></div>
+      <div class="card"><div class="ic">⚙️</div><h3>내 맘대로 설정</h3><p>캡처 단축키, 저장 폴더, 바로 저장 여부를 설정 창에서 변경. 로그인 시 자동 실행 옵션.</p></div>
+      <div class="card"><div class="ic">🪶</div><h3>가볍고 투명하게</h3><p>Swift/AppKit 파일 9개, 외부 라이브러리 0개. Dock에 안 뜨고 메뉴 막대에만 있습니다. 온라인 업로드 없음.</p></div>
+    </div>
+  </section>
+
+  <section id="keys">
+    <h2>단축키</h2>
+    <table>
+      <tr><th>동작</th><th>키</th></tr>
+      <tr><td>영역 캡처 시작</td><td><kbd>⌘⇧9</kbd> (설정에서 변경) · 메뉴 막대 아이콘</td></tr>
+      <tr><td>전체 화면 선택</td><td><kbd>⌘A</kbd></td></tr>
+      <tr><td>펜 / 선 / 화살표 / 사각형 / 타원 / 마커 / 텍스트</td><td><kbd>P</kbd> <kbd>L</kbd> <kbd>A</kbd> <kbd>R</kbd> <kbd>E</kbd> <kbd>M</kbd> <kbd>T</kbd></td></tr>
+      <tr><td>선택(이동·크기조절) 모드</td><td><kbd>V</kbd> 또는 활성 도구 다시 클릭</td></tr>
+      <tr><td>클립보드로 복사 후 닫기</td><td><kbd>⌘C</kbd> 또는 <kbd>Enter</kbd></td></tr>
+      <tr><td>PNG 저장</td><td><kbd>⌘S</kbd></td></tr>
+      <tr><td>공유 메뉴</td><td><kbd>⌘⇧S</kbd></td></tr>
+      <tr><td>실행 취소</td><td><kbd>⌘Z</kbd></td></tr>
+      <tr><td>취소</td><td><kbd>Esc</kbd> · 우클릭</td></tr>
+    </table>
+  </section>
+
+  <section id="install">
+    <h2>설치</h2>
+    <ol class="steps">
+      <li><a href="https://github.com/suseokpark/shotpark/releases/latest">최신 릴리즈</a>에서 <code>ShotPark-x.y.z.zip</code>을 받아 압축을 풀고 <b>ShotPark.app</b>을 응용 프로그램 폴더로 옮깁니다.</li>
+      <li>처음 실행은 Finder에서 앱을 <b>우클릭 → 열기 → 열기</b>. (Apple 개발자 서명이 없어 Gatekeeper가 한 번 막습니다. 터미널로는 <code>xattr -d com.apple.quarantine /Applications/ShotPark.app</code>)</li>
+      <li>첫 캡처 때 <b>화면 기록 권한</b>을 요청합니다. 시스템 설정 → 개인정보 보호 및 보안 → 화면 및 시스템 오디오 기록에서 ShotPark을 켠 뒤 앱을 한 번 재실행하세요.</li>
+    </ol>
+    <p class="note">소스에서 직접 빌드하면 Gatekeeper 단계가 필요 없습니다. Xcode Command Line Tools만 있으면 됩니다.</p>
+    <pre><code>git clone https://github.com/suseokpark/shotpark.git
+cd shotpark
+./build.sh --install</code></pre>
+  </section>
+
+  <section id="faq">
+    <h2>자주 묻는 질문</h2>
+    <details><summary>단축키를 눌러도 아무 일도 안 일어나요</summary><p>화면 기록 권한이 아직 없는 경우입니다. 메뉴 막대 아이콘 → "화면 기록 권한 설정…"에서 ShotPark을 켜고 앱을 재실행하세요. 다른 앱이 같은 전역 단축키를 쓰고 있다면 설정에서 조합을 바꿔 보세요.</p></details>
+    <details><summary>"손상되었기 때문에 열 수 없습니다"라고 떠요</summary><p>다운로드한 파일에 붙는 격리 속성 때문입니다. 우클릭 → 열기, 또는 <code>xattr -d com.apple.quarantine /Applications/ShotPark.app</code>으로 해제하면 됩니다.</p></details>
+    <details><summary>Slack / 카카오톡 공유는 어떻게 동작하나요?</summary><p>이미지를 클립보드에 복사한 뒤 해당 앱에 파일을 넘깁니다. Slack처럼 파일을 받는 앱은 업로드 창이 바로 뜨고, 받지 않는 앱은 앞으로 올라오기만 하므로 ⌘V로 붙여넣으면 됩니다.</p></details>
+    <details><summary>Intel 맥은요?</summary><p>릴리즈 바이너리는 Apple Silicon 전용입니다. <code>build.sh</code>에서 <code>--arch arm64</code>를 지우고 직접 빌드하면 Intel에서도 돌아갑니다.</p></details>
+    <details><summary>Lightshot처럼 온라인 링크로 공유할 수 있나요?</summary><p>아니요. 의도적으로 모든 처리를 로컬에서만 합니다. 공유는 클립보드, 파일, macOS 공유 시트를 통해서만 이뤄집니다.</p></details>
+  </section>
+
+  <section id="english">
+    <h2>English</h2>
+    <p><b>ShotPark</b> is a Lightshot-style region screenshot tool for macOS, rewritten natively for Apple Silicon in Swift/AppKit with zero dependencies. Hotkey (default <kbd>⌘⇧9</kbd>) → drag a region → annotate (pen, line, arrow, rectangle, ellipse, marker, text) → <kbd>⌘C</kbd> to copy, <kbd>⌘S</kbd> to save PNG straight into your chosen folder, <kbd>⌘⇧S</kbd> to share to Claude / Slack / KakaoTalk or the macOS share sheet. Multi-monitor, Retina capture, menu-bar only, configurable hotkey and save folder.</p>
+    <p class="en"><b>Install:</b> download <code>ShotPark-x.y.z.zip</code> from the <a href="https://github.com/suseokpark/shotpark/releases/latest">latest release</a>, move the app to Applications, right-click → Open once (ad-hoc signed), and grant Screen Recording permission on first capture. Or build from source with <code>./build.sh --install</code>. Requires macOS 13+ on Apple Silicon. The UI is currently in Korean. MIT licensed.</p>
+  </section>
+
+  <footer>
+    ShotPark · MIT © Suseok Park · <a href="https://github.com/suseokpark/shotpark">GitHub</a> · <a href="https://github.com/suseokpark/shotpark/issues">이슈 남기기</a>
+  </footer>
+</div>
+</body>
+</html>
