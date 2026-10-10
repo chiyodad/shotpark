@@ -10,7 +10,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/suseokpark/shotpark/releases/latest"><img src="https://img.shields.io/github/v/release/suseokpark/shotpark?label=download&color=5b4bdb" alt="Download"></a>
+  <a href="https://github.com/chiyodad/shotpark/releases/latest"><img src="https://img.shields.io/github/v/release/chiyodad/shotpark?label=download&color=5b4bdb" alt="Download"></a>
   <img src="https://img.shields.io/badge/macOS-13%2B-black" alt="macOS 13+">
   <img src="https://img.shields.io/badge/arch-Apple%20Silicon-black" alt="arm64">
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-green" alt="MIT"></a>
@@ -18,9 +18,9 @@
 </p>
 
 <p align="center">
-  <a href="https://suseokpark.github.io/shotpark/">홈페이지</a> ·
-  <a href="https://github.com/suseokpark/shotpark/releases/latest">다운로드</a> ·
-  <a href="https://suseokpark.github.io/shotpark/en/">English page</a> ·
+  <a href="https://chiyodad.github.io/shotpark/">홈페이지</a> ·
+  <a href="https://github.com/chiyodad/shotpark/releases/latest">다운로드</a> ·
+  <a href="https://chiyodad.github.io/shotpark/en/">English page</a> ·
   <a href="#english">English</a>
 </p>
 
@@ -69,7 +69,7 @@
 
 ### 1. 다운로드
 
-[최신 릴리즈](https://github.com/suseokpark/shotpark/releases/latest)에서 `ShotPark-x.y.z.zip`을 받아 압축을 풀고 `ShotPark.app`을 **응용 프로그램** 폴더로 옮깁니다.
+[최신 릴리즈](https://github.com/chiyodad/shotpark/releases/latest)에서 `ShotPark-x.y.z.zip`을 받아 압축을 풀고 `ShotPark.app`을 **응용 프로그램** 폴더로 옮깁니다.
 
 ### 2. 처음 한 번, Gatekeeper 통과
 
@@ -93,7 +93,7 @@ Apple 개발자 서명이 없는 오픈소스 앱이라 처음 열 때 macOS가 
 Xcode Command Line Tools만 있으면 됩니다 (`xcode-select --install`). 직접 빌드하면 2단계는 필요 없습니다.
 
 ```sh
-git clone https://github.com/suseokpark/shotpark.git
+git clone https://github.com/chiyodad/shotpark.git
 cd shotpark
 ./build.sh --install     # 빌드 → 앱 번들 생성 → /Applications 설치 → 실행
 ```
@@ -180,7 +180,7 @@ MIT © Suseok Park
 <a id="english"></a>
 ## English
 
-> Full English page: https://suseokpark.github.io/shotpark/en/
+> Full English page: https://chiyodad.github.io/shotpark/en/
 
 **ShotPark** is a free, open-source **Lightshot alternative for Mac**: a region screenshot tool for macOS, built natively for Apple Silicon in Swift/AppKit with zero dependencies. Hotkey → drag a region → annotate → copy / save / share.
 
@@ -190,8 +190,8 @@ MIT © Suseok Park
 - `⌘C`/`Enter` copies to clipboard, `⌘S` saves `shotpark-yyyyMMdd-HHmmss.png` directly to a folder of your choice, `⌘⇧S` shares to Claude / Slack / KakaoTalk or the macOS share sheet.
 - Menu-bar only, launch-at-login option, settings window. English or Korean UI, following your macOS language.
 
-**Install:** grab `ShotPark-x.y.z.zip` from the [latest release](https://github.com/suseokpark/shotpark/releases/latest), move `ShotPark.app` to Applications, clear the quarantine flag once (`xattr -d com.apple.quarantine /Applications/ShotPark.app`, or allow it under System Settings → Privacy & Security → "Open Anyway"), then grant **Screen Recording** permission on first capture and relaunch.
+**Install:** grab `ShotPark-x.y.z.zip` from the [latest release](https://github.com/chiyodad/shotpark/releases/latest), move `ShotPark.app` to Applications, clear the quarantine flag once (`xattr -d com.apple.quarantine /Applications/ShotPark.app`, or allow it under System Settings → Privacy & Security → "Open Anyway"), then grant **Screen Recording** permission on first capture and relaunch.
 
-**Build from source:** `git clone https://github.com/suseokpark/shotpark.git && cd shotpark && ./build.sh --install` (needs Xcode Command Line Tools). Requires macOS 13+.
+**Build from source:** `git clone https://github.com/chiyodad/shotpark.git && cd shotpark && ./build.sh --install` (needs Xcode Command Line Tools). Requires macOS 13+.
 
 The UI follows your macOS language (English or Korean). MIT licensed.
