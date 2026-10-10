@@ -41,6 +41,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if env["SHOTPARK_SETTINGS"] == "1" {
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { self.openSettings() }
         }
+        if env["SHOTPARK_SELFTEST"] == "1" {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { self.startCapture() }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 2.5) { [weak self] in
+                guard let view = self?.session?.primaryView else { print("FAIL no capture view (permission?)"); exit(2) }
+                let results = view.runSelfTest()
+                results.forEach { print($0) }
+                let failed = results.filter { $0.hasPrefix("FAIL") }.count
+                print(failed == 0 ? "ALL PASS (\(results.count))" : "\(failed) FAILED")
+                self?.session?.cancel()
+                exit(failed == 0 ? 0 : 1)
+            }
+            return
+        }
         guard let spec = env["SHOTPARK_DEMO"] else { return }
         let nums = spec.split(separator: ",").compactMap { Double($0.trimmingCharacters(in: .whitespaces)) }
         guard nums.count == 4, let screen = NSScreen.main else { return }

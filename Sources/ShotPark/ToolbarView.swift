@@ -560,6 +560,8 @@ final class EmojiOptionsView: NSView, NSTextFieldDelegate {
     var onFocusReturn: (() -> Void)?
 
     private var choices: [String] = []
+    var choiceCount: Int { choices.count }
+    var firstChoice: String? { choices.first }
     private var hoverIndex: Int?
     private let receiver = NSTextField(string: "")   // hidden target for the Character Viewer
     private let cell: CGFloat = 30
@@ -582,9 +584,11 @@ final class EmojiOptionsView: NSView, NSTextFieldDelegate {
     required init?(coder: NSCoder) { fatalError() }
 
     private func rebuildChoices() {
+        // Fixed 10 slots: most recently used first, topped up with presets. A newly picked emoji
+        // (via "More…") enters at the front and the oldest slot drops off, so the bar never grows.
         var list = recents
         for e in Self.presets where !list.contains(e) { list.append(e) }
-        choices = Array(list.prefix(14))
+        choices = Array(list.prefix(10))
         let w = leading + CGFloat(choices.count) * cell + 12 + 64 + 10 + 3 * 46 + 8
         setFrameSize(NSSize(width: w, height: Self.height))
         receiver.frame = NSRect(x: 2, y: 2, width: 1, height: 1)

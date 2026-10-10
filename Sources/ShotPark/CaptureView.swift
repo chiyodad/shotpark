@@ -33,6 +33,8 @@ final class CaptureView: NSView, NSTextViewDelegate {
     /// Window frames (view coords, front to back) for click-to-select-window.
     var windowFrames: [CGRect] = []
     private var hoverWindowRect: CGRect?
+    /// True while a drag that began by clicking outside an existing selection is in progress.
+    private var clickOutsideSelection = false
 
     var tool: Tool = .move {
         didSet {
@@ -44,7 +46,7 @@ final class CaptureView: NSView, NSTextViewDelegate {
         }
     }
     var color: NSColor = Preferences.color {
-        didSet { toolbar.currentColor = color; palette.selected = color; strokeOptions.color = color; Preferences.color = color; applyTextFieldStyle() }
+        didSet { toolbar.currentColor = color; palette.selected = color; strokeOptions.color = color; Preferences.color = color; applyTextFieldStyle(); window?.invalidateCursorRects(for: self) }
     }
     var lineWidth: CGFloat = Preferences.lineWidth {
         didSet { strokeOptions.lineWidth = lineWidth; Preferences.lineWidth = lineWidth }
@@ -55,12 +57,12 @@ final class CaptureView: NSView, NSTextViewDelegate {
     private let textOptions = TextOptionsView()
     private let strokeOptions = StrokeOptionsView()
     private let emojiOptions = EmojiOptionsView()
-    var emoji: String = Preferences.emoji { didSet { emojiOptions.emoji = emoji; Preferences.emoji = emoji } }
-    var emojiSize: CGFloat = Preferences.emojiSize { didSet { emojiOptions.emojiSize = emojiSize; Preferences.emojiSize = emojiSize } }
+    var emoji: String = Preferences.emoji { didSet { emojiOptions.emoji = emoji; Preferences.emoji = emoji; window?.invalidateCursorRects(for: self) } }
+    var emojiSize: CGFloat = Preferences.emojiSize { didSet { emojiOptions.emojiSize = emojiSize; Preferences.emojiSize = emojiSize; window?.invalidateCursorRects(for: self) } }
     private var textEditor: AnnotationTextView?
 
     var textSize: CGFloat = Preferences.textSize {
-        didSet { textOptions.fontSize = textSize; Preferences.textSize = textSize; applyTextFieldStyle() }
+        didSet { textOptions.fontSize = textSize; Preferences.textSize = textSize; applyTextFieldStyle(); window?.invalidateCursorRects(for: self) }
     }
     var textStyle: TextStyles = Preferences.textStyle {
         didSet { textOptions.style = textStyle; Preferences.textStyle = textStyle; applyTextFieldStyle() }
@@ -124,7 +126,7 @@ final class CaptureView: NSView, NSTextViewDelegate {
             self.emoji = e
             var r = Preferences.recentEmojis.filter { $0 != e }
             r.insert(e, at: 0)
-            Preferences.recentEmojis = Array(r.prefix(8))
+            Preferences.recentEmojis = Array(r.prefix(10))
             self.emojiOptions.recents = Preferences.recentEmojis
             self.layoutToolbar()
         }
@@ -180,6 +182,11 @@ final class CaptureView: NSView, NSTextViewDelegate {
                 }
             } else if tool == .text {
                 addCursorRect(selection, cursor: .iBeam)
+            } else if tool == .emoji {
+                // The stamp itself is the cursor, so you see exactly what you're about to place.
+                addCursorRect(selection, cursor: emojiCursor())
+            } else if tool == .number {
+                addCursorRect(selection, cursor: numberCursor())
             }
             if tool == .move || tool == .text {
                 for r in textShapeRects() { addCursorRect(r.intersection(selection), cursor: .openHand) }
@@ -187,6 +194,50 @@ final class CaptureView: NSView, NSTextViewDelegate {
         } else {
             addCursorRect(bounds, cursor: .crosshair)
         }
+    }
+
+    private var emojiCursorCache: (key: String, cursor: NSCursor)?
+    /// A cursor showing the current emoji at (roughly) its stamp size, hotspot in the centre.
+    private func emojiCursor() -> NSCursor {
+        let side = min(max(emojiSize * 0.8, 24), 64)
+        let key = "\(emoji)@\(side)"
+        if let c = emojiCursorCache, c.key == key { return c.cursor }
+        let font = NSFont.systemFont(ofSize: side * 0.78)
+        let str = NSAttributedString(string: emoji, attributes: [.font: font])
+        let img = NSImage(size: NSSize(width: side, height: side), flipped: false) { rect in
+            NSGraphicsContext.current?.imageInterpolation = .high
+            let sz = str.size()
+            // soft shadow so the cursor stays visible on light backgrounds
+            let shadow = NSShadow(); shadow.shadowBlurRadius = 3; shadow.shadowOffset = NSSize(width: 0, height: -1)
+            shadow.shadowColor = NSColor.black.withAlphaComponent(0.45); shadow.set()
+            str.draw(at: NSPoint(x: (rect.width - sz.width) / 2, y: (rect.height - sz.height) / 2))
+            return true
+        }
+        let cursor = NSCursor(image: img, hotSpot: NSPoint(x: side / 2, y: side / 2))
+        emojiCursorCache = (key, cursor)
+        return cursor
+    }
+
+    private var numberCursorCache: (key: String, cursor: NSCursor)?
+    /// A cursor showing the next number stamp exactly as it will be drawn (same renderer), hotspot in the centre.
+    private func numberCursor() -> NSCursor {
+        let next = (shapes.filter { $0.tool == .number }.compactMap { Int($0.text) }.max() ?? 0) + 1
+        let probe = Shape(tool: .number, points: [.zero], color: color, lineWidth: lineWidth, text: "\(next)", fontSize: textSize)
+        let r = min(probe.stampRadius, 30)
+        let side = (r * 2 + 8).rounded()
+        let key = "\(next)@\(side)@\(color.hexString)"
+        if let c = numberCursorCache, c.key == key { return c.cursor }
+        let img = NSImage(size: NSSize(width: side, height: side), flipped: false) { rect in
+            guard let ctx = NSGraphicsContext.current?.cgContext else { return false }
+            var sh = probe
+            sh.points = [CGPoint(x: rect.midX, y: rect.midY)]
+            sh.fontSize = r / 0.7 // stampRadius = max(12, fontSize * 0.7)
+            ShapeRenderer.draw(sh, in: ctx)
+            return true
+        }
+        let cursor = NSCursor(image: img, hotSpot: NSPoint(x: side / 2, y: side / 2))
+        numberCursorCache = (key, cursor)
+        return cursor
     }
 
     private func cursor(for h: Handle) -> NSCursor {
@@ -419,6 +470,7 @@ final class CaptureView: NSView, NSTextViewDelegate {
         }
 
         // start a brand-new selection
+        clickOutsideSelection = state == .selected
         shapes = []
         currentShape = nil
         state = .selecting
@@ -475,12 +527,18 @@ final class CaptureView: NSView, NSTextViewDelegate {
         switch drag {
         case .select:
             if selection.width < 4 || selection.height < 4 {
-                if let r = hoverWindowRect, r.width >= 4, r.height >= 4 {
-                    selection = r.integral        // plain click → the window under the cursor
+                // A plain click. Outside an existing selection it just clears that selection;
+                // from the idle screen it grabs the window under the cursor (looked up fresh,
+                // never from a stale hover rect).
+                let p = clamp(convert(event.locationInWindow, from: nil))
+                let under = windowFrames.first { $0.contains(p) }?.intersection(bounds)
+                if !clickOutsideSelection, let r = under, r.width >= 4, r.height >= 4 {
+                    selection = r.integral
                     state = .selected
                 } else {
                     state = .idle
                     selection = .zero
+                    hoverWindowRect = under
                 }
             } else {
                 state = .selected
@@ -842,17 +900,39 @@ final class CaptureView: NSView, NSTextViewDelegate {
     }
 
     private func drawIdleHint() {
-        let str = NSAttributedString(string: L("드래그로 영역 선택  ·  클릭하면 창 선택  ·  ⌘A 전체 화면  ·  Esc 취소", "Drag to select a region  ·  click a window to grab it  ·  ⌘A whole screen  ·  Esc cancel"), attributes: [
-            .font: NSFont.systemFont(ofSize: 14, weight: .medium),
-            .foregroundColor: NSColor.white.withAlphaComponent(0.95),
-        ])
-        let size = str.size()
-        let pad: CGFloat = 12
-        let box = NSRect(x: (bounds.width - size.width) / 2 - pad, y: bounds.height * 0.5 - size.height / 2 - pad / 2,
-                         width: size.width + pad * 2, height: size.height + pad)
-        NSColor(calibratedWhite: 0.1, alpha: 0.8).setFill()
-        NSBezierPath(roundedRect: box, xRadius: 8, yRadius: 8).fill()
-        str.draw(at: CGPoint(x: box.minX + pad, y: box.minY + pad / 2))
+        // One line per action, each with an SF Symbol in front of it.
+        let rows: [(String, String)] = [
+            ("rectangle.dashed",       L("드래그로 영역 선택", "Drag to select a region")),
+            ("macwindow",              L("클릭하여 창 선택", "Click to grab a window")),
+            ("arrow.up.left.and.arrow.down.right", L("⌘A  전체 화면", "⌘A  whole screen")),
+            ("xmark.circle",           L("Esc  취소", "Esc  cancel")),
+        ]
+        let font = NSFont.systemFont(ofSize: 15, weight: .medium)
+        let attrs: [NSAttributedString.Key: Any] = [.font: font, .foregroundColor: NSColor.white.withAlphaComponent(0.95)]
+        let icon: CGFloat = 20, gap: CGFloat = 10, rowH: CGFloat = 28, pad: CGFloat = 16
+        let textW = rows.map { NSAttributedString(string: $0.1, attributes: attrs).size().width }.max() ?? 0
+        let boxW = pad + icon + gap + textW + pad
+        let boxH = pad + rowH * CGFloat(rows.count) + pad - 6
+        let box = NSRect(x: ((bounds.width - boxW) / 2).rounded(), y: ((bounds.height - boxH) / 2).rounded(), width: boxW, height: boxH)
+        NSColor(calibratedWhite: 0.1, alpha: 0.82).setFill()
+        NSBezierPath(roundedRect: box, xRadius: 12, yRadius: 12).fill()
+        NSColor.white.withAlphaComponent(0.12).setStroke()
+        NSBezierPath(roundedRect: box, xRadius: 12, yRadius: 12).stroke()
+
+        let config = NSImage.SymbolConfiguration(pointSize: 16, weight: .medium)
+            .applying(NSImage.SymbolConfiguration(paletteColors: [NSColor.white.withAlphaComponent(0.92)]))
+        for (i, row) in rows.enumerated() {
+            // top row first (view is non-flipped, so count down from the top of the box)
+            let y = box.maxY - pad - rowH * CGFloat(i + 1) + 6
+            if let img = NSImage(systemSymbolName: row.0, accessibilityDescription: nil)?.withSymbolConfiguration(config) {
+                let sz = img.size
+                let r = NSRect(x: box.minX + pad + (icon - sz.width) / 2, y: y + (rowH - sz.height) / 2, width: sz.width, height: sz.height)
+                img.draw(in: r, from: .zero, operation: .sourceOver, fraction: 1)
+            }
+            let str = NSAttributedString(string: row.1, attributes: attrs)
+            let th = str.size().height
+            str.draw(at: CGPoint(x: box.minX + pad + icon + gap, y: y + (rowH - th) / 2))
+        }
     }
 
     // MARK: demo / screenshots (used by `SHOTPARK_DEMO` env var only)
@@ -1005,5 +1085,91 @@ extension NSColor {
         if h.hasPrefix("#") { h.removeFirst() }
         guard h.count == 6, let v = UInt32(h, radix: 16) else { return nil }
         self.init(srgbRed: CGFloat((v >> 16) & 0xFF) / 255, green: CGFloat((v >> 8) & 0xFF) / 255, blue: CGFloat(v & 0xFF) / 255, alpha: 1)
+    }
+}
+
+// MARK: - self-test (SHOTPARK_SELFTEST=1): drives the real overlay with synthetic events
+
+extension CaptureView {
+    private func ev(_ type: NSEvent.EventType, _ p: CGPoint, clicks: Int = 1, flags: NSEvent.ModifierFlags = []) -> NSEvent {
+        NSEvent.mouseEvent(with: type, location: p, modifierFlags: flags, timestamp: ProcessInfo.processInfo.systemUptime,
+                           windowNumber: window?.windowNumber ?? 0, context: nil, eventNumber: 0, clickCount: clicks, pressure: 1)!
+    }
+    private func click(_ p: CGPoint, clicks: Int = 1) { mouseDown(with: ev(.leftMouseDown, p, clicks: clicks)); mouseUp(with: ev(.leftMouseUp, p, clicks: clicks)) }
+    private func dragFrom(_ a: CGPoint, to b: CGPoint) {
+        mouseDown(with: ev(.leftMouseDown, a))
+        let mid = CGPoint(x: (a.x + b.x) / 2, y: (a.y + b.y) / 2)
+        mouseDragged(with: ev(.leftMouseDragged, mid))
+        mouseDragged(with: ev(.leftMouseDragged, b))
+        mouseUp(with: ev(.leftMouseUp, b))
+    }
+    private func key(_ code: UInt16, flags: NSEvent.ModifierFlags = []) {
+        if let e = NSEvent.keyEvent(with: .keyDown, location: .zero, modifierFlags: flags, timestamp: 0, windowNumber: window?.windowNumber ?? 0,
+                                    context: nil, characters: "", charactersIgnoringModifiers: "", isARepeat: false, keyCode: code) { keyDown(with: e) }
+    }
+
+    /// Returns a list of "PASS …" / "FAIL …" lines.
+    func runSelfTest() -> [String] {
+        var out: [String] = []
+        func check(_ name: String, _ ok: Bool, _ detail: String = "") { out.append((ok ? "PASS " : "FAIL ") + name + (detail.isEmpty ? "" : "  [\(detail)]")) }
+        let H = bounds.height, W = bounds.width
+        let fakeWindow = CGRect(x: 0, y: 0, width: W, height: H) // a full-screen "window" under the cursor everywhere
+        windowFrames = [fakeWindow]
+
+        // 1. drag-select a region
+        dragFrom(CGPoint(x: 100, y: H - 100), to: CGPoint(x: 400, y: H - 300))
+        check("drag selects region", state == .selected && selection.width == 300 && selection.height == 200, "\(selection)")
+
+        // 2. BUG: click outside selection must clear it, not grab the (full-screen) window under the cursor
+        click(CGPoint(x: 50, y: H - 50))
+        check("click outside selection → idle (not whole-screen)", state == .idle && selection == .zero, "state=\(state) sel=\(selection)")
+
+        // 3. idle click grabs the window under the cursor (fresh lookup)
+        windowFrames = [CGRect(x: 200, y: 200, width: 300, height: 150)]
+        click(CGPoint(x: 250, y: 250))
+        check("idle click selects window under cursor", state == .selected && selection == CGRect(x: 200, y: 200, width: 300, height: 150), "\(selection)")
+        click(CGPoint(x: 10, y: 10))      // outside → idle again
+        check("click outside again → idle", state == .idle)
+        windowFrames = []
+        click(CGPoint(x: 10, y: 10))
+        check("idle click with no window stays idle", state == .idle)
+
+        // 4. number stamps: 1, 2, 3 and the cursor for the next one
+        dragFrom(CGPoint(x: 100, y: H - 100), to: CGPoint(x: 500, y: H - 400))
+        tool = .number
+        click(CGPoint(x: 150, y: H - 150)); click(CGPoint(x: 200, y: H - 150)); click(CGPoint(x: 250, y: H - 150))
+        check("number stamps 1,2,3", shapes.map(\.text) == ["1", "2", "3"], "\(shapes.map(\.text))")
+        let nc = numberCursor()
+        check("number cursor built", nc.image.size.width > 0 && nc.hotSpot.x > 0)
+        undoLast()
+        check("undo removes last stamp", shapes.map(\.text) == ["1", "2"])
+        click(CGPoint(x: 300, y: H - 150))
+        check("next number after undo is 3", shapes.last?.text == "3")
+        key(53) // Esc → tool back to move
+        check("Esc leaves tool → move", tool == .move && state == .selected)
+
+        // 5. emoji stamp + cursor + 10-slot bar
+        tool = .emoji
+        let before = emojiOptions.choiceCount
+        emojiOptions.onPick?("🦄")
+        emojiOptions.onPick?("🐙")
+        check("emoji bar stays at 10 slots", before == 10 && emojiOptions.choiceCount == 10, "before=\(before) after=\(emojiOptions.choiceCount)")
+        check("newest emoji is first", emojiOptions.firstChoice == "🐙", "\(emojiOptions.firstChoice ?? "-")")
+        check("current emoji follows pick", emoji == "🐙")
+        click(CGPoint(x: 400, y: H - 200))
+        check("emoji stamp placed", shapes.last?.tool == .emoji && shapes.last?.text == "🐙")
+        let ec = emojiCursor()
+        check("emoji cursor built", ec.image.size.width >= 24)
+        key(53)
+
+        // 6. click outside with annotations → idle and annotations cleared
+        click(CGPoint(x: 20, y: 20))
+        check("click outside clears selection + shapes", state == .idle && shapes.isEmpty)
+
+        // 7. stepped Esc from a fresh selection: idle → (session cancel is not exercised here)
+        dragFrom(CGPoint(x: 100, y: H - 100), to: CGPoint(x: 300, y: H - 200))
+        key(53)
+        check("Esc on selection → idle", state == .idle)
+        return out
     }
 }
