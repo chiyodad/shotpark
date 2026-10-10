@@ -79,6 +79,7 @@ final class ToolbarView: NSView {
         Item(symbol: "highlighter",          tip: "마커 (M)",    action: .selectTool(.marker)),
         Item(symbol: "character",            tip: "텍스트 (T) — ⇧↩ 줄바꿈, 크기·스타일은 아래 옵션 바", action: .selectTool(.text)),
         Item(symbol: "1.circle",             tip: "번호 스탬프 (N) — 클릭할 때마다 ①, ②, ③… 순서 표시", action: .selectTool(.number)),
+        Item(symbol: "face.smiling",         tip: "이모지 도장 (S) — 아래에서 이모지를 고르고 클릭해 찍기", action: .selectTool(.emoji)),
         Item(symbol: "paintpalette.fill",    tip: "색상",        action: .color),
         Item(symbol: "arrow.uturn.backward", tip: "실행 취소 (⌘Z)", action: .undo, separatorBefore: true),
         Item(symbol: "doc.on.doc",           tip: "클립보드로 복사 (⌘C / Enter)", action: .copy, separatorBefore: true),
@@ -537,6 +538,139 @@ final class TextOptionsView: NSView, NSTextFieldDelegate {
             boxColor = Shape.boxColors[i]
             onBoxColor?(boxColor)
         }
+    }
+    override func resetCursorRects() { addCursorRect(bounds, cursor: .arrow) }
+}
+
+/// Options bar for the emoji stamp: quick picks (recent + presets), size, and the system emoji picker.
+final class EmojiOptionsView: NSView, NSTextFieldDelegate {
+    static let presets = ["👍", "❤️", "🔥", "✅", "❌", "⭐️", "👀", "💡", "⚠️", "🎉", "😂", "🤔"]
+    static let sizes: [CGFloat] = [28, 44, 72]
+    static let sizeLabels = ["작게", "보통", "크게"]
+    static let height: CGFloat = 36
+
+    var emoji: String = "👍" { didSet { needsDisplay = true } }
+    var emojiSize: CGFloat = 44 { didSet { needsDisplay = true } }
+    var recents: [String] = [] { didSet { rebuildChoices(); needsDisplay = true } }
+    var onPick: ((String) -> Void)?
+    var onSize: ((CGFloat) -> Void)?
+    /// Called when the system picker inserted an emoji (also passed through onPick).
+    var onFocusReturn: (() -> Void)?
+
+    private var choices: [String] = []
+    private var hoverIndex: Int?
+    private let receiver = NSTextField(string: "")   // hidden target for the Character Viewer
+    private let cell: CGFloat = 30
+    private let leading: CGFloat = 6 + 40
+
+    init() {
+        super.init(frame: .zero)
+        receiver.isBezeled = false
+        receiver.drawsBackground = false
+        receiver.alphaValue = 0.01
+        receiver.delegate = self
+        addSubview(receiver)
+        rebuildChoices()
+        wantsLayer = true
+        layer?.shadowColor = NSColor.black.cgColor
+        layer?.shadowOpacity = 0.5
+        layer?.shadowRadius = 8
+        layer?.masksToBounds = false
+    }
+    required init?(coder: NSCoder) { fatalError() }
+
+    private func rebuildChoices() {
+        var list = recents
+        for e in Self.presets where !list.contains(e) { list.append(e) }
+        choices = Array(list.prefix(14))
+        let w = leading + CGFloat(choices.count) * cell + 12 + 64 + 10 + 3 * 46 + 8
+        setFrameSize(NSSize(width: w, height: Self.height))
+        receiver.frame = NSRect(x: 2, y: 2, width: 1, height: 1)
+    }
+
+    private func choiceRects() -> [NSRect] {
+        (0..<choices.count).map { NSRect(x: leading + CGFloat($0) * cell, y: 3, width: cell, height: Self.height - 6) }
+    }
+    private var moreRect: NSRect { NSRect(x: leading + CGFloat(choices.count) * cell + 12, y: 5, width: 64, height: Self.height - 10) }
+    private func sizeRects() -> [NSRect] {
+        let x0 = moreRect.maxX + 10
+        return (0..<3).map { NSRect(x: x0 + CGFloat($0) * 46, y: 4, width: 46, height: Self.height - 8) }
+    }
+
+    override func updateTrackingAreas() {
+        super.updateTrackingAreas()
+        trackingAreas.forEach(removeTrackingArea)
+        addTrackingArea(NSTrackingArea(rect: bounds, options: [.mouseMoved, .mouseEnteredAndExited, .activeAlways], owner: self, userInfo: nil))
+    }
+
+    override func draw(_ dirtyRect: NSRect) {
+        let bg = NSBezierPath(roundedRect: bounds, xRadius: 8, yRadius: 8)
+        NSColor(calibratedWhite: 0.12, alpha: 0.94).setFill()
+        bg.fill()
+        NSColor.white.withAlphaComponent(0.18).setStroke()
+        bg.stroke()
+        let labelAttrs: [NSAttributedString.Key: Any] = [.font: NSFont.systemFont(ofSize: 11, weight: .medium),
+                                                         .foregroundColor: NSColor.white.withAlphaComponent(0.6)]
+        NSAttributedString(string: "도장", attributes: labelAttrs).draw(at: NSPoint(x: 12, y: (bounds.height - 13) / 2))
+
+        for (i, r) in choiceRects().enumerated() {
+            let selected = choices[i] == emoji
+            if selected || hoverIndex == i {
+                NSColor.white.withAlphaComponent(selected ? 0.28 : 0.12).setFill()
+                NSBezierPath(roundedRect: r.insetBy(dx: 1, dy: 1), xRadius: 6, yRadius: 6).fill()
+            }
+            let str = NSAttributedString(string: choices[i], attributes: [.font: NSFont.systemFont(ofSize: 18)])
+            let sz = str.size()
+            str.draw(at: NSPoint(x: r.midX - sz.width / 2, y: r.midY - sz.height / 2))
+        }
+
+        let mr = moreRect
+        NSColor.white.withAlphaComponent(hoverIndex == 100 ? 0.2 : 0.1).setFill()
+        NSBezierPath(roundedRect: mr, xRadius: 6, yRadius: 6).fill()
+        let more = NSAttributedString(string: "더보기…", attributes: [.font: NSFont.systemFont(ofSize: 12, weight: .medium), .foregroundColor: NSColor.white])
+        more.draw(at: NSPoint(x: mr.midX - more.size().width / 2, y: mr.midY - more.size().height / 2))
+
+        for (i, r) in sizeRects().enumerated() {
+            let selected = Self.sizes[i] == emojiSize
+            if selected || hoverIndex == 200 + i {
+                NSColor.white.withAlphaComponent(selected ? 0.28 : 0.12).setFill()
+                NSBezierPath(roundedRect: r.insetBy(dx: 2, dy: 1), xRadius: 6, yRadius: 6).fill()
+            }
+            let str = NSAttributedString(string: Self.sizeLabels[i], attributes: [.font: NSFont.systemFont(ofSize: 12, weight: .medium), .foregroundColor: NSColor.white])
+            str.draw(at: NSPoint(x: r.midX - str.size().width / 2, y: r.midY - str.size().height / 2))
+        }
+    }
+
+    private func index(at p: NSPoint) -> Int? {
+        if let i = choiceRects().firstIndex(where: { $0.contains(p) }) { return i }
+        if moreRect.contains(p) { return 100 }
+        if let i = sizeRects().firstIndex(where: { $0.contains(p) }) { return 200 + i }
+        return nil
+    }
+
+    override func mouseMoved(with event: NSEvent) {
+        let idx = index(at: convert(event.locationInWindow, from: nil))
+        if idx != hoverIndex { hoverIndex = idx; needsDisplay = true }
+    }
+    override func mouseExited(with event: NSEvent) { hoverIndex = nil; needsDisplay = true }
+    override func mouseDown(with event: NSEvent) {
+        guard let idx = index(at: convert(event.locationInWindow, from: nil)) else { return }
+        if idx < 100 { emoji = choices[idx]; onPick?(emoji) }
+        else if idx == 100 {
+            // Character Viewer inserts into the first responder → our hidden field
+            receiver.stringValue = ""
+            window?.makeFirstResponder(receiver)
+            NSApp.orderFrontCharacterPalette(nil)
+        } else { emojiSize = Self.sizes[idx - 200]; onSize?(emojiSize) }
+    }
+
+    func controlTextDidChange(_ obj: Notification) {
+        let picked = receiver.stringValue
+        guard !picked.isEmpty else { return }
+        emoji = picked
+        receiver.stringValue = ""
+        onPick?(picked)
+        onFocusReturn?()
     }
     override func resetCursorRects() { addCursorRect(bounds, cursor: .arrow) }
 }

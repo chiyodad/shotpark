@@ -1,7 +1,7 @@
 import AppKit
 
 enum Tool: Int, CaseIterable {
-    case move, pen, line, arrow, rect, ellipse, marker, text, number
+    case move, pen, line, arrow, rect, ellipse, marker, text, number, emoji
 }
 
 /// How annotation text is set off from the background. Any combination can be on at once.
@@ -97,9 +97,17 @@ extension Shape {
     /// Radius of a number stamp (scales with the text size setting).
     var stampRadius: CGFloat { max(12, fontSize * 0.7) }
 
+    static func emojiAttributes(size: CGFloat) -> [NSAttributedString.Key: Any] {
+        [.font: NSFont.systemFont(ofSize: size)]
+    }
+
     /// Rough bounding box used for selection highlight.
     var bounds: CGRect {
         switch tool {
+        case .emoji:
+            guard let c = points.first else { return .zero }
+            let sz = NSAttributedString(string: text, attributes: Shape.emojiAttributes(size: fontSize)).size()
+            return CGRect(x: c.x - sz.width / 2, y: c.y - sz.height / 2, width: sz.width, height: sz.height)
         case .number:
             guard let c = points.first else { return .zero }
             return CGRect(x: c.x - stampRadius, y: c.y - stampRadius, width: stampRadius * 2, height: stampRadius * 2)
@@ -129,7 +137,7 @@ extension Shape {
         let tol = tolerance + effectiveWidth / 2
         switch tool {
         case .move: return false
-        case .text: return bounds.contains(p)
+        case .text, .emoji: return bounds.contains(p)
         case .number:
             guard let c = points.first else { return false }
             return hypot(p.x - c.x, p.y - c.y) <= stampRadius + 2
@@ -230,6 +238,14 @@ enum ShapeRenderer {
 
         case .ellipse:
             ctx.strokeEllipse(in: s.rect)
+
+        case .emoji:
+            guard let c = s.points.first, !s.text.isEmpty else { return }
+            let str = NSAttributedString(string: s.text, attributes: Shape.emojiAttributes(size: s.fontSize))
+            let sz = str.size()
+            ctx.setShadow(offset: CGSize(width: 0, height: -1), blur: 3, color: NSColor.black.withAlphaComponent(0.35).cgColor)
+            str.draw(at: CGPoint(x: c.x - sz.width / 2, y: c.y - sz.height / 2))
+            ctx.setShadow(offset: .zero, blur: 0, color: nil)
 
         case .number:
             guard let c = s.points.first else { return }

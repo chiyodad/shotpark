@@ -54,6 +54,9 @@ final class CaptureView: NSView, NSTextViewDelegate {
     private let palette = ColorPaletteView()
     private let textOptions = TextOptionsView()
     private let strokeOptions = StrokeOptionsView()
+    private let emojiOptions = EmojiOptionsView()
+    var emoji: String = Preferences.emoji { didSet { emojiOptions.emoji = emoji; Preferences.emoji = emoji } }
+    var emojiSize: CGFloat = Preferences.emojiSize { didSet { emojiOptions.emojiSize = emojiSize; Preferences.emojiSize = emojiSize } }
     private var textEditor: AnnotationTextView?
 
     var textSize: CGFloat = Preferences.textSize {
@@ -111,6 +114,26 @@ final class CaptureView: NSView, NSTextViewDelegate {
         strokeOptions.color = color
         strokeOptions.onChange = { [weak self] in self?.lineWidth = $0 }
         addSubview(strokeOptions)
+
+        emojiOptions.isHidden = true
+        emojiOptions.emoji = emoji
+        emojiOptions.emojiSize = emojiSize
+        emojiOptions.recents = Preferences.recentEmojis
+        emojiOptions.onPick = { [weak self] e in
+            guard let self else { return }
+            self.emoji = e
+            var r = Preferences.recentEmojis.filter { $0 != e }
+            r.insert(e, at: 0)
+            Preferences.recentEmojis = Array(r.prefix(8))
+            self.emojiOptions.recents = Preferences.recentEmojis
+            self.layoutToolbar()
+        }
+        emojiOptions.onSize = { [weak self] in self?.emojiSize = $0 }
+        emojiOptions.onFocusReturn = { [weak self] in
+            guard let self else { return }
+            self.window?.makeFirstResponder(self)
+        }
+        addSubview(emojiOptions)
     }
 
     required init?(coder: NSCoder) { fatalError() }
@@ -140,6 +163,7 @@ final class CaptureView: NSView, NSTextViewDelegate {
         palette.isHidden = true
         textOptions.isHidden = true
         strokeOptions.isHidden = true
+        emojiOptions.isHidden = true
         window?.invalidateCursorRects(for: self)
         needsDisplay = true
     }
@@ -213,7 +237,7 @@ final class CaptureView: NSView, NSTextViewDelegate {
     }
 
     private func layoutToolbar() {
-        guard state == .selected else { toolbar.isHidden = true; palette.isHidden = true; textOptions.isHidden = true; strokeOptions.isHidden = true; return }
+        guard state == .selected else { toolbar.isHidden = true; palette.isHidden = true; textOptions.isHidden = true; strokeOptions.isHidden = true; emojiOptions.isHidden = true; return }
         let size = toolbar.intrinsicContentSize
         let gap: CGFloat = 8
         var x = selection.minX
@@ -245,6 +269,8 @@ final class CaptureView: NSView, NSTextViewDelegate {
         let drawing: Set<Tool> = [.pen, .line, .arrow, .rect, .ellipse, .marker]
         strokeOptions.isHidden = !drawing.contains(tool)
         if drawing.contains(tool) { place(strokeOptions) }
+        emojiOptions.isHidden = tool != .emoji
+        if tool == .emoji { place(emojiOptions) }
         place(palette)
     }
 
@@ -366,6 +392,14 @@ final class CaptureView: NSView, NSTextViewDelegate {
             } else if selection.insetBy(dx: -2, dy: -2).contains(p) {
                 if tool == .text {
                     beginText(at: p)
+                    return
+                }
+                if tool == .emoji {
+                    shapes.append(Shape(tool: .emoji, points: [p], color: color, lineWidth: lineWidth,
+                                        text: emoji, fontSize: emojiSize))
+                    redoStack = []
+                    window?.invalidateCursorRects(for: self)
+                    needsDisplay = true
                     return
                 }
                 if tool == .number {
@@ -561,7 +595,7 @@ final class CaptureView: NSView, NSTextViewDelegate {
             return
         }
         guard state == .selected, flags.isEmpty || flags == .shift else { return }
-        let map: [Int: Tool] = [35: .pen, 37: .line, 0: .arrow, 15: .rect, 14: .ellipse, 46: .marker, 17: .text, 45: .number, 9: .move]
+        let map: [Int: Tool] = [35: .pen, 37: .line, 0: .arrow, 15: .rect, 14: .ellipse, 46: .marker, 17: .text, 45: .number, 1: .emoji, 9: .move]
         if let t = map[code] { tool = t }
     }
 
@@ -894,6 +928,21 @@ enum Preferences {
     static var lineWidth: CGFloat {
         get { let v = UserDefaults.standard.double(forKey: lineWidthKey); return v > 0 ? CGFloat(v) : 4 }
         set { UserDefaults.standard.set(Double(newValue), forKey: lineWidthKey) }
+    }
+    private static let emojiKey = "stampEmoji"
+    private static let emojiSizeKey = "stampEmojiSize"
+    private static let recentEmojisKey = "stampRecentEmojis"
+    static var emoji: String {
+        get { UserDefaults.standard.string(forKey: emojiKey) ?? "👍" }
+        set { UserDefaults.standard.set(newValue, forKey: emojiKey) }
+    }
+    static var emojiSize: CGFloat {
+        get { let v = UserDefaults.standard.double(forKey: emojiSizeKey); return v > 0 ? CGFloat(v) : 44 }
+        set { UserDefaults.standard.set(Double(newValue), forKey: emojiSizeKey) }
+    }
+    static var recentEmojis: [String] {
+        get { UserDefaults.standard.stringArray(forKey: recentEmojisKey) ?? [] }
+        set { UserDefaults.standard.set(newValue, forKey: recentEmojisKey) }
     }
     private static let boxColorKey = "annotationBoxColor"
     private static let boxAlphaKey = "annotationBoxAlpha"
