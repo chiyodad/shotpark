@@ -14,6 +14,7 @@
   <img src="https://img.shields.io/badge/macOS-13%2B-black" alt="macOS 13+">
   <img src="https://img.shields.io/badge/arch-Apple%20Silicon-black" alt="arm64">
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-green" alt="MIT"></a>
+  <a href="https://buymeacoffee.com/chiyodad"><img src="https://img.shields.io/badge/Buy%20me%20a%20coffee-%E2%98%95-FFDD00?logo=buymeacoffee&logoColor=black" alt="Buy me a coffee"></a>
 </p>
 
 <p align="center">
