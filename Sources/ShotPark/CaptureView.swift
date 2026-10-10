@@ -55,7 +55,6 @@ final class CaptureView: NSView, NSTextViewDelegate {
     private let textOptions = TextOptionsView()
     private let strokeOptions = StrokeOptionsView()
     private var textEditor: AnnotationTextView?
-    private var mouseLoc: CGPoint?
 
     var textSize: CGFloat = Preferences.textSize {
         didSet { textOptions.fontSize = textSize; Preferences.textSize = textSize; applyTextFieldStyle() }
@@ -397,7 +396,6 @@ final class CaptureView: NSView, NSTextViewDelegate {
 
     override func mouseDragged(with event: NSEvent) {
         let p = clamp(convert(event.locationInWindow, from: nil))
-        mouseLoc = p
         switch drag {
         case .none:
             return
@@ -477,9 +475,8 @@ final class CaptureView: NSView, NSTextViewDelegate {
     }
 
     override func mouseMoved(with event: NSEvent) {
-        let p = convert(event.locationInWindow, from: nil)
-        mouseLoc = p
         guard state == .idle else { return }
+        let p = convert(event.locationInWindow, from: nil)
         let r = windowFrames.first { $0.contains(p) }?.intersection(bounds)
         if r != hoverWindowRect { hoverWindowRect = r; needsDisplay = true }
     }
@@ -697,69 +694,6 @@ final class CaptureView: NSView, NSTextViewDelegate {
         return false
     }
 
-    // MARK: magnifier
-
-    /// Pixel loupe shown while choosing the region: 8× zoom around the cursor + exact coordinates.
-    private func drawMagnifier(at p: CGPoint) {
-        let s = pixelScale
-        let zoom: CGFloat = 8
-        let size: CGFloat = 132
-        let srcPts = size / zoom                       // points of screen shown
-        let px = Int((p.x * s).rounded()), py = Int(((bounds.height - p.y) * s).rounded())
-        let srcPx = Int((srcPts * s).rounded())
-        let crop = CGRect(x: px - srcPx / 2, y: py - srcPx / 2, width: srcPx, height: srcPx)
-
-        var origin = CGPoint(x: p.x + 24, y: p.y - 24 - size)
-        if origin.x + size > bounds.width { origin.x = p.x - 24 - size }
-        if origin.y < 0 { origin.y = p.y + 24 }
-        let frame = CGRect(origin: origin, size: CGSize(width: size, height: size))
-
-        guard let ctx = NSGraphicsContext.current?.cgContext else { return }
-        ctx.saveGState()
-        let clip = CGPath(roundedRect: frame, cornerWidth: 10, cornerHeight: 10, transform: nil)
-        ctx.addPath(clip); ctx.clip()
-        ctx.setFillColor(NSColor.black.cgColor); ctx.fill(frame)
-        ctx.interpolationQuality = .none
-        if let img = screenshot.cropping(to: crop.intersection(CGRect(x: 0, y: 0, width: screenshot.width, height: screenshot.height))) {
-            // keep the cursor pixel centred even when the crop was clipped at the screen edge
-            let inter = crop.intersection(CGRect(x: 0, y: 0, width: screenshot.width, height: screenshot.height))
-            let dx = (inter.minX - crop.minX) / s * zoom
-            let dyTop = (inter.minY - crop.minY) / s * zoom
-            let w = inter.width / s * zoom, h = inter.height / s * zoom
-            let dest = CGRect(x: frame.minX + dx, y: frame.maxY - dyTop - h, width: w, height: h)
-            ctx.draw(img, in: dest)
-        }
-        // crosshair on the centre pixel
-        let cell = zoom / s
-        let cx = frame.midX, cy = frame.midY
-        ctx.setStrokeColor(NSColor.systemRed.withAlphaComponent(0.9).cgColor)
-        ctx.setLineWidth(1)
-        ctx.stroke(CGRect(x: cx - cell / 2, y: cy - cell / 2, width: cell, height: cell))
-        ctx.setStrokeColor(NSColor.white.withAlphaComponent(0.35).cgColor)
-        ctx.move(to: CGPoint(x: frame.minX, y: cy)); ctx.addLine(to: CGPoint(x: frame.maxX, y: cy))
-        ctx.move(to: CGPoint(x: cx, y: frame.minY)); ctx.addLine(to: CGPoint(x: cx, y: frame.maxY))
-        ctx.strokePath()
-        ctx.restoreGState()
-
-        // border + readout
-        ctx.saveGState()
-        ctx.setStrokeColor(NSColor.white.withAlphaComponent(0.9).cgColor)
-        ctx.setLineWidth(1.5)
-        ctx.addPath(clip); ctx.strokePath()
-        var label = "\(px), \(py)"
-        if state == .selecting {
-            label += "   \(Int((selection.width * s).rounded())) × \(Int((selection.height * s).rounded()))"
-        }
-        let str = NSAttributedString(string: label, attributes: [
-            .font: NSFont.monospacedDigitSystemFont(ofSize: 11, weight: .medium), .foregroundColor: NSColor.white])
-        let sz = str.size()
-        let box = CGRect(x: frame.minX, y: frame.minY - sz.height - 10, width: max(size, sz.width + 12), height: sz.height + 6)
-        ctx.setFillColor(NSColor(calibratedWhite: 0.1, alpha: 0.85).cgColor)
-        ctx.addPath(CGPath(roundedRect: box, cornerWidth: 4, cornerHeight: 4, transform: nil)); ctx.fillPath()
-        str.draw(at: CGPoint(x: box.minX + 6, y: box.minY + 3))
-        ctx.restoreGState()
-    }
-
     // MARK: drawing
 
     override func draw(_ dirtyRect: NSRect) {
@@ -784,7 +718,6 @@ final class CaptureView: NSView, NSTextViewDelegate {
                 bounds.fill()
             }
             drawIdleHint()
-            if let m = mouseLoc { drawMagnifier(at: m) }
             return
         }
 
@@ -851,7 +784,6 @@ final class CaptureView: NSView, NSTextViewDelegate {
         }
 
         drawSizeLabel()
-        if state == .selecting, let m = mouseLoc { drawMagnifier(at: m) }
     }
 
     private func drawSizeLabel() {

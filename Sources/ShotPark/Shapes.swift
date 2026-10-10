@@ -54,12 +54,10 @@ struct Shape {
             attrs[.shadow] = shadow
         }
         if style.contains(.outline) {
-            // Negative stroke width = fill + stroke. Contrast the outline against the text colour
-            // (relative luminance, so red counts as dark and gets a white outline).
-            let c = color.usingColorSpace(.sRGB) ?? color
-            let lum = 0.2126 * c.redComponent + 0.7152 * c.greenComponent + 0.0722 * c.blueComponent
-            attrs[.strokeColor] = lum > 0.6 ? NSColor.black : NSColor.white
-            attrs[.strokeWidth] = -max(2.5, fontSize * 0.12)
+            // Thin black outline. NSAttributedString.strokeWidth is a PERCENTAGE of the font size
+            // (negative = fill + stroke), so it must not be scaled by the font size again.
+            attrs[.strokeColor] = NSColor.black
+            attrs[.strokeWidth] = -3.5
         }
         return attrs
     }
