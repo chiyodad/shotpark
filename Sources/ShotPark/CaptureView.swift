@@ -30,18 +30,27 @@ final class CaptureView: NSView, NSTextFieldDelegate {
     var tool: Tool = .move {
         didSet {
             toolbar.selectedTool = tool
+            layoutToolbar()
             window?.invalidateCursorRects(for: self)
             needsDisplay = true
         }
     }
     var color: NSColor = Preferences.color {
-        didSet { toolbar.currentColor = color; palette.selected = color; Preferences.color = color }
+        didSet { toolbar.currentColor = color; palette.selected = color; Preferences.color = color; applyTextFieldStyle() }
     }
     var lineWidth: CGFloat = 3
 
     private let toolbar = ToolbarView()
     private let palette = ColorPaletteView()
+    private let textOptions = TextOptionsView()
     private var textField: NSTextField?
+
+    var textSize: CGFloat = Preferences.textSize {
+        didSet { textOptions.fontSize = textSize; Preferences.textSize = textSize; applyTextFieldStyle() }
+    }
+    var textStyle: TextStyle = Preferences.textStyle {
+        didSet { textOptions.style = textStyle; Preferences.textStyle = textStyle; applyTextFieldStyle() }
+    }
 
     private var pixelScale: CGFloat { CGFloat(screenshot.width) / max(bounds.width, 1) }
 
@@ -67,6 +76,13 @@ final class CaptureView: NSView, NSTextFieldDelegate {
             if self.tool == .move { self.tool = .pen }
         }
         addSubview(palette)
+
+        textOptions.isHidden = true
+        textOptions.fontSize = textSize
+        textOptions.style = textStyle
+        textOptions.onSize = { [weak self] in self?.textSize = $0 }
+        textOptions.onStyle = { [weak self] in self?.textStyle = $0 }
+        addSubview(textOptions)
     }
 
     required init?(coder: NSCoder) { fatalError() }
@@ -91,6 +107,7 @@ final class CaptureView: NSView, NSTextFieldDelegate {
         drag = .none
         toolbar.isHidden = true
         palette.isHidden = true
+        textOptions.isHidden = true
         window?.invalidateCursorRects(for: self)
         needsDisplay = true
     }
@@ -145,7 +162,7 @@ final class CaptureView: NSView, NSTextFieldDelegate {
     }
 
     private func layoutToolbar() {
-        guard state == .selected else { toolbar.isHidden = true; palette.isHidden = true; return }
+        guard state == .selected else { toolbar.isHidden = true; palette.isHidden = true; textOptions.isHidden = true; return }
         let size = toolbar.intrinsicContentSize
         let gap: CGFloat = 8
         var x = selection.minX
@@ -163,11 +180,18 @@ final class CaptureView: NSView, NSTextFieldDelegate {
         toolbar.frame = NSRect(x: x.rounded(), y: y.rounded(), width: size.width, height: size.height)
         toolbar.isHidden = false
 
-        // palette directly under (or above) the toolbar
-        let pw = palette.frame.width, ph = palette.frame.height
-        var py = toolbar.frame.minY - 6 - ph
-        if py < 0 { py = toolbar.frame.maxY + 6 }
-        palette.frame = NSRect(x: toolbar.frame.minX, y: py, width: pw, height: ph)
+        // secondary bars stack under (or above) the toolbar: text options (when text tool), then palette
+        let below = toolbar.frame.minY - 6 - max(palette.frame.height, textOptions.frame.height) >= 0
+        var nextY = below ? toolbar.frame.minY - 6 : toolbar.frame.maxY + 6
+        func place(_ v: NSView) {
+            let w = v.frame.width, h = v.frame.height
+            let y = below ? nextY - h : nextY
+            v.frame = NSRect(x: min(toolbar.frame.minX, bounds.width - w - 4), y: y, width: w, height: h)
+            nextY = below ? y - 6 : y + h + 6
+        }
+        textOptions.isHidden = tool != .text
+        if tool == .text { place(textOptions) }
+        place(palette)
     }
 
     // MARK: toolbar actions
@@ -389,6 +413,8 @@ final class CaptureView: NSView, NSTextFieldDelegate {
                 }
             case "z": undoLast()
             case "a": selectWholeScreen()
+            case "=", "+": if tool == .text { stepTextSize(+1) }
+            case "-": if tool == .text { stepTextSize(-1) }
             default: break
             }
             return
@@ -411,31 +437,47 @@ final class CaptureView: NSView, NSTextFieldDelegate {
 
     // MARK: text tool
 
+    private func stepTextSize(_ dir: Int) {
+        let sizes = TextOptionsView.sizes
+        guard let i = sizes.firstIndex(of: textSize) else { textSize = sizes[1]; return }
+        let j = min(max(i + dir, 0), sizes.count - 1)
+        textSize = sizes[j]
+    }
+
     private func beginText(at p: CGPoint) {
-        let height: CGFloat = 30
-        let width = max(120, selection.maxX - p.x + 4)
-        let tf = NSTextField(frame: NSRect(x: p.x - 2, y: p.y - height + 6, width: width, height: height))
+        let height = textSize * 1.5
+        let width = max(140, selection.maxX - p.x + 4)
+        let tf = NSTextField(frame: NSRect(x: p.x - 2, y: p.y - height + textSize * 0.3, width: width, height: height))
         tf.isBezeled = false
         tf.isBordered = false
         tf.drawsBackground = false
         tf.focusRingType = .none
-        tf.font = NSFont.boldSystemFont(ofSize: 20)
-        tf.textColor = color
-        tf.placeholderAttributedString = NSAttributedString(string: "텍스트 입력…",
-            attributes: [.foregroundColor: color.withAlphaComponent(0.5), .font: NSFont.boldSystemFont(ofSize: 20)])
         tf.delegate = self
         tf.lineBreakMode = .byClipping
         addSubview(tf)
         textField = tf
+        applyTextFieldStyle()
         window?.makeFirstResponder(tf)
+    }
+
+    /// Live-preview the current size/colour in the editing field.
+    private func applyTextFieldStyle() {
+        guard let tf = textField else { return }
+        tf.font = NSFont.boldSystemFont(ofSize: textSize)
+        tf.textColor = color
+        tf.placeholderAttributedString = NSAttributedString(string: "텍스트 입력…",
+            attributes: [.foregroundColor: color.withAlphaComponent(0.5), .font: NSFont.boldSystemFont(ofSize: textSize)])
+        let height = textSize * 1.5
+        tf.frame = NSRect(x: tf.frame.minX, y: tf.frame.maxY - height, width: tf.frame.width, height: height)
     }
 
     private func commitText() {
         guard let tf = textField else { return }
         let text = tf.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
         if !text.isEmpty {
-            let origin = CGPoint(x: tf.frame.minX + 2, y: tf.frame.maxY - 4)
-            shapes.append(Shape(tool: .text, points: [origin], color: color, lineWidth: lineWidth, text: text, fontSize: 20))
+            let origin = CGPoint(x: tf.frame.minX + 2, y: tf.frame.maxY - textSize * 0.2)
+            shapes.append(Shape(tool: .text, points: [origin], color: color, lineWidth: lineWidth,
+                                text: text, fontSize: textSize, textStyle: textStyle))
         }
         tf.removeFromSuperview()
         textField = nil
@@ -588,6 +630,18 @@ final class CaptureView: NSView, NSTextFieldDelegate {
 
 enum Preferences {
     private static let colorKey = "annotationColor"
+    private static let textSizeKey = "annotationTextSize"
+    private static let textStyleKey = "annotationTextStyle"
+
+    static var textSize: CGFloat {
+        get { let v = UserDefaults.standard.double(forKey: textSizeKey); return v > 0 ? CGFloat(v) : 20 }
+        set { UserDefaults.standard.set(Double(newValue), forKey: textSizeKey) }
+    }
+    static var textStyle: TextStyle {
+        get { TextStyle(rawValue: UserDefaults.standard.integer(forKey: textStyleKey)) ?? .shadow }
+        set { UserDefaults.standard.set(newValue.rawValue, forKey: textStyleKey) }
+    }
+
     static var color: NSColor {
         get {
             if let data = UserDefaults.standard.data(forKey: colorKey),

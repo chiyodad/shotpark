@@ -69,8 +69,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 case "line" where v.count >= 4:
                     shapes.append(Shape(tool: .line, points: [pt(v[0], v[1]), pt(v[2], v[3])], color: color, lineWidth: 3))
                 case "text" where v.count >= 2 && args.count >= 3:
+                    // text:x,y,label[,size]
+                    let size = (args.count >= 4 ? Double(args[args.count - 1]) : nil) ?? 20
+                    let label = args.count >= 4 && Double(args[args.count - 1]) != nil ? args[2..<(args.count - 1)].joined(separator: ",") : args[2...].joined(separator: ",")
                     shapes.append(Shape(tool: .text, points: [pt(v[0], v[1])], color: color, lineWidth: 3,
-                                        text: args[2...].joined(separator: ","), fontSize: 20))
+                                        text: label, fontSize: CGFloat(size), textStyle: Preferences.textStyle))
                 default: break
                 }
             }

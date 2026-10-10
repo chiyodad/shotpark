@@ -4,6 +4,19 @@ enum Tool: Int, CaseIterable {
     case move, pen, line, arrow, rect, ellipse, marker, text
 }
 
+/// How annotation text is set off from the background.
+enum TextStyle: Int, CaseIterable {
+    case shadow, outline, plain
+
+    var label: String {
+        switch self {
+        case .shadow: return "그림자"
+        case .outline: return "외곽선"
+        case .plain: return "없음"
+        }
+    }
+}
+
 struct Shape {
     var tool: Tool
     var points: [CGPoint]
@@ -11,6 +24,7 @@ struct Shape {
     var lineWidth: CGFloat
     var text: String = ""
     var fontSize: CGFloat = 20
+    var textStyle: TextStyle = .shadow
 
     var rect: CGRect {
         guard points.count >= 2 else { return .zero }
@@ -19,16 +33,27 @@ struct Shape {
                       width: abs(b.x - a.x), height: abs(b.y - a.y))
     }
 
-    static func textAttributes(color: NSColor, fontSize: CGFloat) -> [NSAttributedString.Key: Any] {
-        let shadow = NSShadow()
-        shadow.shadowColor = NSColor.black.withAlphaComponent(0.6)
-        shadow.shadowBlurRadius = 2
-        shadow.shadowOffset = NSSize(width: 0, height: -1)
-        return [
+    static func textAttributes(color: NSColor, fontSize: CGFloat, style: TextStyle = .shadow) -> [NSAttributedString.Key: Any] {
+        var attrs: [NSAttributedString.Key: Any] = [
             .font: NSFont.boldSystemFont(ofSize: fontSize),
             .foregroundColor: color,
-            .shadow: shadow,
         ]
+        switch style {
+        case .shadow:
+            let shadow = NSShadow()
+            shadow.shadowColor = NSColor.black.withAlphaComponent(0.6)
+            shadow.shadowBlurRadius = max(2, fontSize * 0.1)
+            shadow.shadowOffset = NSSize(width: 0, height: -max(1, fontSize * 0.05))
+            attrs[.shadow] = shadow
+        case .outline:
+            // Negative stroke width = fill + stroke. Contrast the outline against the text colour.
+            let light = (color.usingColorSpace(.sRGB)?.brightnessComponent ?? 0) > 0.6
+            attrs[.strokeColor] = light ? NSColor.black : NSColor.white
+            attrs[.strokeWidth] = -max(2.5, fontSize * 0.12)
+        case .plain:
+            break
+        }
+        return attrs
     }
 }
 
@@ -105,7 +130,7 @@ enum ShapeRenderer {
 
         case .text:
             guard let origin = s.points.first, !s.text.isEmpty else { return }
-            let attrs = Shape.textAttributes(color: s.color, fontSize: s.fontSize)
+            let attrs = Shape.textAttributes(color: s.color, fontSize: s.fontSize, style: s.textStyle)
             let str = NSAttributedString(string: s.text, attributes: attrs)
             let size = str.size()
             // `origin` is the top-left corner of the text box.

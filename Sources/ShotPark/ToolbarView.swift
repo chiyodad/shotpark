@@ -45,7 +45,7 @@ final class ToolbarView: NSView {
         Item(symbol: "rectangle",            tip: "사각형 (R)",  action: .selectTool(.rect)),
         Item(symbol: "circle",               tip: "타원 (E)",    action: .selectTool(.ellipse)),
         Item(symbol: "highlighter",          tip: "마커 (M)",    action: .selectTool(.marker)),
-        Item(symbol: "textformat",           tip: "텍스트 (T)",  action: .selectTool(.text)),
+        Item(symbol: "character",            tip: "텍스트 (T) — 크기·스타일은 아래 옵션 바 / ⌘+ ⌘-", action: .selectTool(.text)),
         Item(symbol: "paintpalette.fill",    tip: "색상",        action: .color),
         Item(symbol: "arrow.uturn.backward", tip: "실행 취소 (⌘Z)", action: .undo, separatorBefore: true),
         Item(symbol: "doc.on.doc",           tip: "클립보드로 복사 (⌘C / Enter)", action: .copy, separatorBefore: true),
@@ -301,6 +301,101 @@ final class ColorPaletteView: NSView {
         if let idx = rects().firstIndex(where: { $0.insetBy(dx: -3, dy: -3).contains(p) }) {
             onPick?(Self.colors[idx])
         }
+    }
+    override func resetCursorRects() { addCursorRect(bounds, cursor: .arrow) }
+}
+
+/// Options bar shown while the text tool is active: font size + style (shadow / outline / plain).
+final class TextOptionsView: NSView {
+    static let sizes: [CGFloat] = [14, 20, 28, 40, 56]
+    static let height: CGFloat = 34
+
+    var fontSize: CGFloat = 20 { didSet { needsDisplay = true } }
+    var style: TextStyle = .shadow { didSet { needsDisplay = true } }
+    var onSize: ((CGFloat) -> Void)?
+    var onStyle: ((TextStyle) -> Void)?
+
+    private struct Item { let label: String; let width: CGFloat; let size: CGFloat?; let style: TextStyle?; let sepBefore: Bool }
+    private var items: [Item] = []
+    private var hoverIndex: Int?
+
+    init() {
+        super.init(frame: .zero)
+        items = Self.sizes.map { Item(label: "\(Int($0))", width: 38, size: $0, style: nil, sepBefore: false) }
+        for (i, st) in TextStyle.allCases.enumerated() {
+            items.append(Item(label: st.label, width: 54, size: nil, style: st, sepBefore: i == 0))
+        }
+        var w: CGFloat = 6 + 50 // leading "크기" label
+        for it in items { w += it.width + (it.sepBefore ? 10 : 0) }
+        setFrameSize(NSSize(width: w + 6, height: Self.height))
+        wantsLayer = true
+        layer?.shadowColor = NSColor.black.cgColor
+        layer?.shadowOpacity = 0.5
+        layer?.shadowRadius = 8
+        layer?.masksToBounds = false
+    }
+    required init?(coder: NSCoder) { fatalError() }
+
+    private func rects() -> [NSRect] {
+        var out: [NSRect] = []
+        var x: CGFloat = 6 + 50
+        for it in items {
+            if it.sepBefore { x += 10 }
+            out.append(NSRect(x: x, y: 4, width: it.width, height: Self.height - 8))
+            x += it.width
+        }
+        return out
+    }
+
+    override func updateTrackingAreas() {
+        super.updateTrackingAreas()
+        trackingAreas.forEach(removeTrackingArea)
+        addTrackingArea(NSTrackingArea(rect: bounds, options: [.mouseMoved, .mouseEnteredAndExited, .activeAlways], owner: self, userInfo: nil))
+    }
+
+    override func draw(_ dirtyRect: NSRect) {
+        let bg = NSBezierPath(roundedRect: bounds, xRadius: 8, yRadius: 8)
+        NSColor(calibratedWhite: 0.12, alpha: 0.94).setFill()
+        bg.fill()
+        NSColor.white.withAlphaComponent(0.18).setStroke()
+        bg.stroke()
+
+        let labelAttrs: [NSAttributedString.Key: Any] = [.font: NSFont.systemFont(ofSize: 11, weight: .medium),
+                                                         .foregroundColor: NSColor.white.withAlphaComponent(0.6)]
+        NSAttributedString(string: "텍스트", attributes: labelAttrs).draw(at: NSPoint(x: 12, y: (bounds.height - 13) / 2))
+
+        for (i, r) in rects().enumerated() {
+            let it = items[i]
+            if it.sepBefore {
+                NSColor.white.withAlphaComponent(0.18).setFill()
+                NSRect(x: r.minX - 5.5, y: r.minY + 4, width: 1, height: r.height - 8).fill()
+            }
+            let selected = (it.size != nil && it.size == fontSize) || (it.style != nil && it.style == style)
+            if selected || hoverIndex == i {
+                NSColor.white.withAlphaComponent(selected ? 0.28 : 0.12).setFill()
+                NSBezierPath(roundedRect: r.insetBy(dx: 2, dy: 1), xRadius: 6, yRadius: 6).fill()
+            }
+            let font: NSFont = it.size != nil
+                ? NSFont.boldSystemFont(ofSize: min(15, 9 + it.size! * 0.12))
+                : NSFont.systemFont(ofSize: 12, weight: .medium)
+            let str = NSAttributedString(string: it.label, attributes: [.font: font, .foregroundColor: NSColor.white])
+            let sz = str.size()
+            str.draw(at: NSPoint(x: r.midX - sz.width / 2, y: r.midY - sz.height / 2))
+        }
+    }
+
+    override func mouseMoved(with event: NSEvent) {
+        let p = convert(event.locationInWindow, from: nil)
+        let idx = rects().firstIndex { $0.contains(p) }
+        if idx != hoverIndex { hoverIndex = idx; needsDisplay = true }
+    }
+    override func mouseExited(with event: NSEvent) { hoverIndex = nil; needsDisplay = true }
+    override func mouseDown(with event: NSEvent) {
+        let p = convert(event.locationInWindow, from: nil)
+        guard let idx = rects().firstIndex(where: { $0.contains(p) }) else { return }
+        let it = items[idx]
+        if let sz = it.size { fontSize = sz; onSize?(sz) }
+        if let st = it.style { style = st; onStyle?(st) }
     }
     override func resetCursorRects() { addCursorRect(bounds, cursor: .arrow) }
 }
