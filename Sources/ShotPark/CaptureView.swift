@@ -15,6 +15,7 @@ final class CaptureView: NSView, NSTextFieldDelegate {
         case move(startRect: CGRect, start: CGPoint)
         case resize(Handle, startRect: CGRect)
         case draw
+        case moveShape(Int, startPoints: [CGPoint], start: CGPoint)
     }
 
     weak var session: CaptureSession?
@@ -136,6 +137,9 @@ final class CaptureView: NSView, NSTextFieldDelegate {
             } else if tool == .text {
                 addCursorRect(selection, cursor: .iBeam)
             }
+            if tool == .move || tool == .text {
+                for r in textShapeRects() { addCursorRect(r.intersection(selection), cursor: .openHand) }
+            }
         } else {
             addCursorRect(bounds, cursor: .crosshair)
         }
@@ -161,6 +165,23 @@ final class CaptureView: NSView, NSTextFieldDelegate {
             (.right, rect(r.maxX, r.midY)), (.bottomRight, rect(r.maxX, r.minY)), (.bottom, rect(r.midX, r.minY)),
             (.bottomLeft, rect(r.minX, r.minY)), (.left, rect(r.minX, r.midY)),
         ]
+    }
+
+    /// Index of the topmost text annotation whose box contains `p` (hit area is the padded box).
+    private func textShapeIndex(at p: CGPoint) -> Int? {
+        for (i, sh) in shapes.enumerated().reversed() where sh.tool == .text {
+            guard let o = sh.points.first else { continue }
+            let r = Shape.boxRect(text: sh.text, fontSize: sh.fontSize, style: sh.textStyle, origin: o)
+            if r.contains(p) { return i }
+        }
+        return nil
+    }
+
+    private func textShapeRects() -> [CGRect] {
+        shapes.compactMap { sh in
+            guard sh.tool == .text, let o = sh.points.first else { return nil }
+            return Shape.boxRect(text: sh.text, fontSize: sh.fontSize, style: sh.textStyle, origin: o)
+        }
     }
 
     private func clamp(_ p: CGPoint) -> CGPoint {
@@ -287,6 +308,14 @@ final class CaptureView: NSView, NSTextFieldDelegate {
             return
         }
 
+        // Existing text annotation: drag to move, double-click to edit again.
+        if state == .selected, tool == .move || tool == .text, let i = textShapeIndex(at: p) {
+            if event.clickCount == 2 { editTextShape(at: i); return }
+            drag = .moveShape(i, startPoints: shapes[i].points, start: p)
+            NSCursor.closedHand.push()
+            return
+        }
+
         if state == .selected {
             if tool == .move {
                 if let hit = handleRects().first(where: { $0.1.insetBy(dx: -4, dy: -4).contains(p) }) {
@@ -347,6 +376,9 @@ final class CaptureView: NSView, NSTextFieldDelegate {
             }
             selection = rect(from: CGPoint(x: minX, y: minY), to: CGPoint(x: maxX, y: maxY))
             layoutToolbar()
+        case .moveShape(let i, let startPoints, let start):
+            guard i < shapes.count else { return }
+            shapes[i].points = startPoints.map { CGPoint(x: $0.x + p.x - start.x, y: $0.y + p.y - start.y) }
         case .draw:
             guard var s = currentShape else { return }
             switch s.tool {
@@ -381,6 +413,8 @@ final class CaptureView: NSView, NSTextFieldDelegate {
         case .draw:
             if let s = currentShape { shapes.append(s) }
             currentShape = nil
+        case .moveShape:
+            NSCursor.pop()
         case .none:
             break
         }
@@ -453,45 +487,73 @@ final class CaptureView: NSView, NSTextFieldDelegate {
         textSize = sizes[j]
     }
 
-    private func beginText(at p: CGPoint) {
+    private func beginText(at p: CGPoint, initialText: String = "") {
         let height = textSize * 1.5
-        let width = max(140, selection.maxX - p.x + 4)
-        let tf = NSTextField(frame: NSRect(x: p.x - 2, y: p.y - height + textSize * 0.3, width: width, height: height))
+        let tf = NSTextField(frame: NSRect(x: p.x - 2, y: p.y - height + textSize * 0.3, width: 140, height: height))
         tf.isBezeled = false
         tf.isBordered = false
         tf.drawsBackground = false
         tf.focusRingType = .none
         tf.delegate = self
         tf.lineBreakMode = .byClipping
+        tf.stringValue = initialText
         addSubview(tf)
         textField = tf
         applyTextFieldStyle()
         window?.makeFirstResponder(tf)
+        if !initialText.isEmpty, let editor = tf.currentEditor() {
+            editor.selectedRange = NSRange(location: (initialText as NSString).length, length: 0)
+        }
+        needsDisplay = true
     }
 
-    /// Live-preview the current size / colour / box in the editing field.
+    /// Re-open an existing text annotation for editing (double-click). Its own size/colour/style
+    /// become the current settings so the options bar reflects them.
+    private func editTextShape(at i: Int) {
+        guard i < shapes.count, shapes[i].tool == .text, let o = shapes[i].points.first else { return }
+        let sh = shapes.remove(at: i)
+        color = sh.color
+        textSize = sh.fontSize
+        textStyle = sh.textStyle
+        boxColor = sh.boxColor
+        boxAlpha = sh.boxAlpha
+        tool = .text
+        // inverse of the origin maths in commitText()
+        beginText(at: CGPoint(x: o.x, y: o.y - textSize * 0.1), initialText: sh.text)
+    }
+
+    /// Top-left text origin the current editing field will commit to.
+    private var editingTextOrigin: CGPoint? {
+        guard let tf = textField else { return nil }
+        return CGPoint(x: tf.frame.minX + 2, y: tf.frame.maxY - textSize * 0.2)
+    }
+
+    private var editingText: String { textField?.stringValue ?? "" }
+
+    /// Live-preview the current size / colour in the editing field and grow it with the text.
     /// While editing, the field is drawn by the shared field editor (an NSTextView), so its
     /// attributes have to be updated too — changing only the NSTextField does nothing visible.
     private func applyTextFieldStyle() {
         guard let tf = textField else { return }
         let font = NSFont.boldSystemFont(ofSize: textSize)
-        let bg: NSColor? = textStyle == .box ? boxColor.withAlphaComponent(boxAlpha) : nil
 
         tf.font = font
         tf.textColor = color
-        tf.drawsBackground = bg != nil
-        tf.backgroundColor = bg ?? .clear
+        tf.drawsBackground = false
         tf.placeholderAttributedString = NSAttributedString(string: "텍스트 입력…",
             attributes: [.foregroundColor: color.withAlphaComponent(0.5), .font: font])
+
         let height = textSize * 1.5
-        tf.frame = NSRect(x: tf.frame.minX, y: tf.frame.maxY - height, width: tf.frame.width, height: height)
+        let textW = NSAttributedString(string: editingText.isEmpty ? "텍스트 입력…" : editingText,
+                                       attributes: [.font: font]).size().width
+        let width = textW + textSize + 24
+        tf.frame = NSRect(x: tf.frame.minX, y: tf.frame.maxY - height, width: width, height: height)
 
         if let editor = tf.currentEditor() as? NSTextView {
             editor.font = font
             editor.textColor = color
             editor.insertionPointColor = color
-            editor.drawsBackground = bg != nil
-            editor.backgroundColor = bg ?? .clear
+            editor.drawsBackground = false
             editor.typingAttributes = [.font: font, .foregroundColor: color]
             if let storage = editor.textStorage, storage.length > 0 {
                 storage.addAttributes([.font: font, .foregroundColor: color], range: NSRange(location: 0, length: storage.length))
@@ -499,6 +561,11 @@ final class CaptureView: NSView, NSTextFieldDelegate {
             editor.needsDisplay = true
         }
         tf.needsDisplay = true
+        needsDisplay = true // the box preview is drawn by this view, behind the field
+    }
+
+    func controlTextDidChange(_ obj: Notification) {
+        applyTextFieldStyle()
     }
 
     private func commitText() {
@@ -513,6 +580,7 @@ final class CaptureView: NSView, NSTextFieldDelegate {
         tf.removeFromSuperview()
         textField = nil
         window?.makeFirstResponder(self)
+        window?.invalidateCursorRects(for: self)
         needsDisplay = true
     }
 
@@ -553,6 +621,23 @@ final class CaptureView: NSView, NSTextFieldDelegate {
         ctx.clip(to: selection)
         ShapeRenderer.draw(shapes, in: ctx)
         if let c = currentShape { ShapeRenderer.draw(c, in: ctx) }
+        if textField != nil, let o = editingTextOrigin {
+            // preview of the exact area the background box will cover
+            let t = editingText.isEmpty ? "텍스트 입력…" : editingText
+            let box = Shape.boxRect(text: t, fontSize: textSize, style: textStyle, origin: o)
+            let r = Shape.boxCornerRadius(fontSize: textSize)
+            if textStyle == .box {
+                ctx.setFillColor(boxColor.withAlphaComponent(boxAlpha).cgColor)
+                ctx.addPath(CGPath(roundedRect: box, cornerWidth: r, cornerHeight: r, transform: nil))
+                ctx.fillPath()
+            }
+            ctx.setStrokeColor(NSColor.white.withAlphaComponent(0.8).cgColor)
+            ctx.setLineWidth(1)
+            ctx.setLineDash(phase: 0, lengths: [4, 3])
+            ctx.addPath(CGPath(roundedRect: box, cornerWidth: r, cornerHeight: r, transform: nil))
+            ctx.strokePath()
+            ctx.setLineDash(phase: 0, lengths: [])
+        }
         ctx.restoreGState()
 
         // selection border

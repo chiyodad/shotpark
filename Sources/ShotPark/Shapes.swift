@@ -59,7 +59,25 @@ struct Shape {
         return attrs
     }
 
-    static let boxPadding = CGSize(width: 8, height: 4)
+    /// Padding of the `.box` background, proportional to the font size.
+    static func boxPadding(fontSize: CGFloat) -> CGSize {
+        CGSize(width: max(12, (fontSize * 0.55).rounded()), height: max(8, (fontSize * 0.4).rounded()))
+    }
+
+    /// Text rectangle for a text shape whose `origin` is the top-left corner of the glyph box.
+    static func textRect(text: String, fontSize: CGFloat, style: TextStyle, origin: CGPoint) -> CGRect {
+        let attrs = textAttributes(color: .black, fontSize: fontSize, style: style)
+        let size = NSAttributedString(string: text.isEmpty ? " " : text, attributes: attrs).size()
+        return CGRect(x: origin.x, y: origin.y - size.height, width: size.width, height: size.height)
+    }
+
+    /// Background box rectangle (text rect + padding). Used for drawing, live preview and hit-testing.
+    static func boxRect(text: String, fontSize: CGFloat, style: TextStyle, origin: CGPoint) -> CGRect {
+        let pad = boxPadding(fontSize: fontSize)
+        return textRect(text: text, fontSize: fontSize, style: style, origin: origin).insetBy(dx: -pad.width, dy: -pad.height)
+    }
+
+    static func boxCornerRadius(fontSize: CGFloat) -> CGFloat { min(10, fontSize * 0.3) }
     static let boxColors: [NSColor] = [
         .white, .black,
         NSColor(srgbRed: 1.00, green: 0.93, blue: 0.35, alpha: 1), // yellow
@@ -144,15 +162,12 @@ enum ShapeRenderer {
             guard let origin = s.points.first, !s.text.isEmpty else { return }
             let attrs = Shape.textAttributes(color: s.color, fontSize: s.fontSize, style: s.textStyle)
             let str = NSAttributedString(string: s.text, attributes: attrs)
-            let size = str.size()
             // `origin` is the top-left corner of the text box.
-            let textOrigin = CGPoint(x: origin.x, y: origin.y - size.height)
+            let textOrigin = Shape.textRect(text: s.text, fontSize: s.fontSize, style: s.textStyle, origin: origin).origin
             if s.textStyle == .box {
-                let pad = Shape.boxPadding
-                let box = CGRect(x: textOrigin.x - pad.width, y: textOrigin.y - pad.height,
-                                 width: size.width + pad.width * 2, height: size.height + pad.height * 2)
+                let box = Shape.boxRect(text: s.text, fontSize: s.fontSize, style: s.textStyle, origin: origin)
                 ctx.setFillColor(s.boxColor.withAlphaComponent(s.boxAlpha).cgColor)
-                let r = min(6, s.fontSize * 0.25)
+                let r = Shape.boxCornerRadius(fontSize: s.fontSize)
                 ctx.addPath(CGPath(roundedRect: box, cornerWidth: r, cornerHeight: r, transform: nil))
                 ctx.fillPath()
             }
