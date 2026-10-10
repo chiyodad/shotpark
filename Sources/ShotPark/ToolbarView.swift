@@ -257,7 +257,9 @@ final class ToolbarView: NSView {
 
 /// Small palette that pops below the toolbar when the color button is clicked.
 final class ColorPaletteView: NSView {
-    static let colors: [NSColor] = [
+    /// The user's palette (Settings → 주석 색상). Falls back to `defaultColors`.
+    static var colors: [NSColor] { Preferences.palette }
+    static let defaultColors: [NSColor] = [
         NSColor(srgbRed: 0.93, green: 0.22, blue: 0.21, alpha: 1), // red
         NSColor(srgbRed: 1.00, green: 0.58, blue: 0.00, alpha: 1), // orange
         NSColor(srgbRed: 1.00, green: 0.84, blue: 0.04, alpha: 1), // yellow

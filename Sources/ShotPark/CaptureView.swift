@@ -909,6 +909,19 @@ final class CaptureView: NSView, NSTextViewDelegate {
 }
 
 enum Preferences {
+    private static let paletteKey = "annotationPalette"
+    /// 10 annotation colours shown in the palette, stored as hex strings. Default: `ColorPaletteView.defaultColors`.
+    static var palette: [NSColor] {
+        get {
+            let defaults = ColorPaletteView.defaultColors
+            guard let hex = UserDefaults.standard.stringArray(forKey: paletteKey), hex.count == defaults.count else { return defaults }
+            let parsed = hex.compactMap(NSColor.init(hex:))
+            return parsed.count == defaults.count ? parsed : defaults
+        }
+        set { UserDefaults.standard.set(newValue.map { $0.hexString }, forKey: paletteKey) }
+    }
+    static func resetPalette() { UserDefaults.standard.removeObject(forKey: paletteKey) }
+
     private static let colorKey = "annotationColor"
     private static let textSizeKey = "annotationTextSize"
     private static let textStyleKey = "annotationTextStyles"
@@ -976,5 +989,21 @@ enum Preferences {
                 UserDefaults.standard.set(data, forKey: colorKey)
             }
         }
+    }
+}
+
+
+extension NSColor {
+    /// "#RRGGBB" in sRGB.
+    var hexString: String {
+        let c = usingColorSpace(.sRGB) ?? self
+        let r = Int(round(c.redComponent * 255)), g = Int(round(c.greenComponent * 255)), b = Int(round(c.blueComponent * 255))
+        return String(format: "#%02X%02X%02X", r, g, b)
+    }
+    convenience init?(hex: String) {
+        var h = hex.trimmingCharacters(in: .whitespaces)
+        if h.hasPrefix("#") { h.removeFirst() }
+        guard h.count == 6, let v = UInt32(h, radix: 16) else { return nil }
+        self.init(srgbRed: CGFloat((v >> 16) & 0xFF) / 255, green: CGFloat((v >> 8) & 0xFF) / 255, blue: CGFloat(v & 0xFF) / 255, alpha: 1)
     }
 }

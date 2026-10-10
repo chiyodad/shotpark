@@ -34,7 +34,8 @@
 
 ## 특징
 
-단축키 한 번으로 영역을 선택하여 캡처하고, 바로 표시하여, 공유할 수 있습니다.
+단축키 한 번으로 영역을 선택하여 캡처하고, 바로 표시하여, 빠르게 공유하세요!
+Apple Silicon 네이티브로 개발하였습니다.
 
 ## 기능
 
@@ -46,7 +47,7 @@
 - ScreenCaptureKit 기반 (macOS 14+), 이전 버전은 자동 폴백.
 
 **주석**
-- 펜 · 선 · 화살표 · 사각형 · 타원 · 마커(형광펜) · 텍스트(여러 줄) · 번호 스탬프 · 이모지 도장, 10색 팔레트, 선 굵기 3단계, 실행 취소/다시 실행.
+- 펜 · 선 · 화살표 · 사각형 · 타원 · 마커(형광펜) · 텍스트(여러 줄) · 번호 스탬프 · 이모지 도장, 10색 팔레트(설정에서 내 색으로 변경 가능), 선 굵기 3단계, 실행 취소/다시 실행.
 - 넣은 주석은 선택(V) 도구로 드래그해 옮기고, 방향키로 미세 이동, Delete로 지울 수 있습니다. 텍스트는 더블클릭해 다시 편집.
 - 텍스트는 크기(16 / 24 / 40 또는 8–200 직접 입력)와 스타일 토글(그림자 · 외곽선 · 배경, 동시 선택 가능)을 옵션 바에서 고르고, 색은 팔레트를 따릅니다. `⌘+` / `⌘-`로 크기 조절.
 - 화면에서 보이는 그대로 내보냅니다 (같은 렌더러 사용).
@@ -58,7 +59,7 @@
 
 **그 외**
 - 메뉴 막대에만 상주 (Dock에 안 뜸), 로그인 시 자동 실행 옵션. UI는 macOS 언어에 따라 한국어 · 영어 자동 선택.
-- 설정 창: 캡처 단축키, 저장 폴더, 바로 저장 여부.
+- 설정 창: 캡처 단축키, 저장 폴더, 바로 저장 여부, 주석 색상 팔레트.
 - 외부 라이브러리 0개. 소스 전체가 Swift 파일 10개.
 
 <p align="center">
@@ -139,7 +140,7 @@ cd shotpark
 - 이모지 도장(`S`)은 옵션 바에서 이모지(최근 사용 + 기본 12개, "더보기…"로 시스템 이모지 선택기)와 크기를 고른 뒤 클릭해 찍습니다.
 - 텍스트 도구가 켜져 있으면 툴바 아래에 옵션 바가 나타나 **크기(16 / 24 / 40 프리셋 또는 8–200 직접 입력)** 와 **스타일 토글(그림자 · 외곽선 · 배경 — 여러 개 동시에 켤 수 있음)** 을 바꿀 수 있고, 입력 중에도 바로 반영됩니다.
 - "배경"은 글자 뒤에 상자를 깔아 복잡한 화면 위에서도 또렷하게 보이게 하며, 배경색(흰·검·노랑·연두·하늘·분홍)과 투명도(슬라이더)를 고를 수 있습니다.
-- 글자 색은 팔레트(색상 버튼)로 바꿉니다.
+- 글자 색은 팔레트(색상 버튼)로 바꿉니다. 팔레트의 10색은 설정에서 원하는 색으로 바꿀 수 있습니다.
 - 이미 넣은 텍스트는 선택(V)·텍스트(T) 도구에서 드래그해 옮기고, 더블클릭하면 다시 편집할 수 있습니다.
 
 ### 설정 (`⌘,` 또는 메뉴 막대 → 설정…)
@@ -148,6 +149,7 @@ cd shotpark
 - **저장 폴더** — 기본은 데스크탑. 아무 폴더나 지정 가능.
 - **바로 저장** — 켜두면 `⌘S`가 확인 창 없이 저장. 끄면 저장 창이 뜹니다.
 - **저장할 때 클립보드에도 복사** (기본 켜짐) / **복사할 때 저장 폴더에도 PNG 저장** (기본 꺼짐).
+- **주석 색상** — 캡처 화면 팔레트의 10색. 색 원을 클릭해 원하는 색으로 바꾸면 바로 저장되고, "기본값"으로 되돌릴 수 있습니다.
 
 ## 자주 묻는 질문
 
@@ -211,7 +213,7 @@ MIT © chiyodad
 
 - Global hotkey (default `⌘⇧9`, configurable), resizable/movable selection, multi-monitor, Retina-resolution capture via ScreenCaptureKit.
 - Click a window to select it, or drag a region; resize with handles, nudge with arrow keys.
-- Annotations: pen, line, arrow, rectangle, ellipse, marker, multi-line text (shadow / outline / background box), numbered stamps, emoji stamps; 10-color palette, 3 stroke widths, undo/redo; move or delete any annotation afterwards.
+- Annotations: pen, line, arrow, rectangle, ellipse, marker, multi-line text (shadow / outline / background box), numbered stamps, emoji stamps; 10-color palette (customizable in Settings), 3 stroke widths, undo/redo; move or delete any annotation afterwards.
 - `⌘C`/`Enter` copies to clipboard, `⌘S` saves `shotpark-yyyyMMdd-HHmmss.png` directly to a folder of your choice, `⌘⇧S` shares to Claude / Slack / KakaoTalk or the macOS share sheet.
 - Menu-bar only, launch-at-login option, settings window. English or Korean UI, following your macOS language.
 

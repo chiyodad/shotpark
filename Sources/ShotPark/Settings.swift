@@ -229,9 +229,10 @@ final class SettingsWindowController: NSWindowController {
     private let directCheckbox = NSButton(checkboxWithTitle: L("⌘S 저장 시 확인 창 없이 지정 폴더에 바로 저장", "⌘S saves straight to the folder, no dialog"), target: nil, action: nil)
     private let saveCopiesCheckbox = NSButton(checkboxWithTitle: L("⌘S 저장할 때 클립보드에도 복사", "⌘S also copies to the clipboard"), target: nil, action: nil)
     private let copySavesCheckbox = NSButton(checkboxWithTitle: L("⌘C 복사할 때 저장 폴더에도 PNG 저장", "⌘C also saves a PNG to the folder"), target: nil, action: nil)
+    private var colorWells: [NSColorWell] = []
 
     private init() {
-        let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: L10n.isKorean ? 480 : 520, height: 290),
+        let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: L10n.isKorean ? 480 : 520, height: 344),
                               styleMask: [.titled, .closable], backing: .buffered, defer: false)
         window.title = L("ShotPark 설정", "ShotPark Settings")
         window.isReleasedWhenClosed = false
@@ -294,6 +295,31 @@ final class SettingsWindowController: NSWindowController {
         copySavesCheckbox.action = #selector(toggleCopySaves)
         copySavesCheckbox.font = .systemFont(ofSize: 12)
 
+        // annotation palette row: 10 colour wells + reset
+        colorWells = (0..<ColorPaletteView.defaultColors.count).map { i in
+            let well: NSColorWell
+            if #available(macOS 13.0, *) { well = NSColorWell(style: .minimal) } else { well = NSColorWell() }
+            well.tag = i
+            well.target = self
+            well.action = #selector(paletteChanged(_:))
+            well.isBordered = true
+            well.widthAnchor.constraint(equalToConstant: 26).isActive = true
+            well.heightAnchor.constraint(equalToConstant: 24).isActive = true
+            well.toolTip = L("클릭해서 색 바꾸기", "Click to change this colour")
+            return well
+        }
+        let paletteStack = NSStackView(views: colorWells)
+        paletteStack.spacing = 3
+        let paletteReset = NSButton(title: L("기본값", "Default"), target: self, action: #selector(resetPalette))
+        paletteReset.bezelStyle = .rounded
+        paletteReset.controlSize = .small
+        let paletteRow = NSStackView(views: [paletteStack, paletteReset])
+        paletteRow.spacing = 10
+        let paletteHint = NSTextField(wrappingLabelWithString: L("캡처 화면의 색상 팔레트에 보이는 10가지 색입니다. 클릭해서 원하는 색으로 바꾸면 바로 저장됩니다.", "The 10 colours shown in the capture palette. Click one to change it; it's saved immediately."))
+        paletteHint.font = .systemFont(ofSize: 11)
+        paletteHint.textColor = .secondaryLabelColor
+        paletteHint.preferredMaxLayoutWidth = L10n.isKorean ? 330 : 340
+
         let grid = NSGridView(views: [
             [label(L("캡처 단축키", "Capture hotkey")), hotkeyRow],
             [NSGridCell.emptyContentView, hotkeyHint],
@@ -301,6 +327,8 @@ final class SettingsWindowController: NSWindowController {
             [NSGridCell.emptyContentView, directCheckbox],
             [NSGridCell.emptyContentView, saveCopiesCheckbox],
             [NSGridCell.emptyContentView, copySavesCheckbox],
+            [label(L("주석 색상", "Palette")), paletteRow],
+            [NSGridCell.emptyContentView, paletteHint],
         ])
         grid.rowSpacing = 10
         grid.columnSpacing = 12
@@ -310,6 +338,8 @@ final class SettingsWindowController: NSWindowController {
         grid.rowAlignment = .firstBaseline
         grid.row(at: 0).yPlacement = .center
         grid.row(at: 2).yPlacement = .center
+        grid.row(at: 6).yPlacement = .center
+        grid.row(at: 6).topPadding = 6
         grid.translatesAutoresizingMaskIntoConstraints = false
         content.addSubview(grid)
 
@@ -343,6 +373,21 @@ final class SettingsWindowController: NSWindowController {
         directCheckbox.state = Settings.saveDirectly ? .on : .off
         saveCopiesCheckbox.state = Settings.saveAlsoCopies ? .on : .off
         copySavesCheckbox.state = Settings.copyAlsoSaves ? .on : .off
+        let palette = Preferences.palette
+        for (i, well) in colorWells.enumerated() where i < palette.count { well.color = palette[i] }
+    }
+
+    @objc private func paletteChanged(_ sender: NSColorWell) {
+        var palette = Preferences.palette
+        guard sender.tag < palette.count else { return }
+        palette[sender.tag] = sender.color.usingColorSpace(.sRGB) ?? sender.color
+        Preferences.palette = palette
+    }
+
+    @objc private func resetPalette() {
+        Preferences.resetPalette()
+        NSColorPanel.shared.close()
+        refresh()
     }
 
     @objc private func toggleSaveCopies() { Settings.saveAlsoCopies = saveCopiesCheckbox.state == .on }
