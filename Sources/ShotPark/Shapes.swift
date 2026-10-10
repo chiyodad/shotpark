@@ -6,12 +6,13 @@ enum Tool: Int, CaseIterable {
 
 /// How annotation text is set off from the background.
 enum TextStyle: Int, CaseIterable {
-    case shadow, outline, plain
+    case shadow, outline, box, plain
 
     var label: String {
         switch self {
         case .shadow: return "그림자"
         case .outline: return "외곽선"
+        case .box: return "배경"
         case .plain: return "없음"
         }
     }
@@ -50,11 +51,19 @@ struct Shape {
             let light = (color.usingColorSpace(.sRGB)?.brightnessComponent ?? 0) > 0.6
             attrs[.strokeColor] = light ? NSColor.black : NSColor.white
             attrs[.strokeWidth] = -max(2.5, fontSize * 0.12)
-        case .plain:
+        case .box, .plain:
             break
         }
         return attrs
     }
+
+    /// Background colour for the `.box` style — dark behind light text, white behind dark text.
+    static func boxColor(for color: NSColor) -> NSColor {
+        let light = (color.usingColorSpace(.sRGB)?.brightnessComponent ?? 0) > 0.6
+        return light ? NSColor.black.withAlphaComponent(0.78) : NSColor.white.withAlphaComponent(0.9)
+    }
+
+    static let boxPadding = CGSize(width: 8, height: 4)
 }
 
 /// Draws shapes in a non-flipped (bottom-left origin) CoreGraphics context.
@@ -134,7 +143,17 @@ enum ShapeRenderer {
             let str = NSAttributedString(string: s.text, attributes: attrs)
             let size = str.size()
             // `origin` is the top-left corner of the text box.
-            str.draw(at: CGPoint(x: origin.x, y: origin.y - size.height))
+            let textOrigin = CGPoint(x: origin.x, y: origin.y - size.height)
+            if s.textStyle == .box {
+                let pad = Shape.boxPadding
+                let box = CGRect(x: textOrigin.x - pad.width, y: textOrigin.y - pad.height,
+                                 width: size.width + pad.width * 2, height: size.height + pad.height * 2)
+                ctx.setFillColor(Shape.boxColor(for: s.color).cgColor)
+                let r = min(6, s.fontSize * 0.25)
+                ctx.addPath(CGPath(roundedRect: box, cornerWidth: r, cornerHeight: r, transform: nil))
+                ctx.fillPath()
+            }
+            str.draw(at: textOrigin)
         }
     }
 }

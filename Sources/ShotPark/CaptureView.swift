@@ -391,37 +391,35 @@ final class CaptureView: NSView, NSTextFieldDelegate {
     // MARK: keyboard
 
     override func keyDown(with event: NSEvent) {
+        // Virtual key codes are layout-independent, so everything works with a Korean input source too.
         let flags = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
-        let key = event.charactersIgnoringModifiers?.lowercased() ?? ""
+        let code = Int(event.keyCode)
 
-        if event.keyCode == 53 { // esc
+        if code == 53 { // esc
             if textField != nil { cancelText() }
             else if state != .idle { reset() }
             else { session?.cancel() }
             return
         }
-        if event.keyCode == 36 || event.keyCode == 76 { // return / enter
+        if code == 36 || code == 76 { // return / enter
             if state == .selected { copyToClipboard() }
             return
         }
         if flags.contains(.command) {
-            switch key {
-            case "c": if state == .selected { copyToClipboard() }
-            case "s":
-                if state == .selected {
-                    if flags.contains(.shift) { showShareMenu() } else { saveToFile() }
-                }
-            case "z": undoLast()
-            case "a": selectWholeScreen()
-            case "=", "+": if tool == .text { stepTextSize(+1) }
-            case "-": if tool == .text { stepTextSize(-1) }
+            switch code {
+            case 8:  if state == .selected { copyToClipboard() }                       // C
+            case 1:  if state == .selected { flags.contains(.shift) ? showShareMenu() : saveToFile() } // S
+            case 6:  undoLast()                                                        // Z
+            case 0:  selectWholeScreen()                                               // A
+            case 24, 69: if tool == .text { stepTextSize(+1) }                         // = / keypad +
+            case 27, 78: if tool == .text { stepTextSize(-1) }                         // - / keypad -
             default: break
             }
             return
         }
-        guard state == .selected else { return }
-        let map: [String: Tool] = ["p": .pen, "l": .line, "a": .arrow, "r": .rect, "e": .ellipse, "m": .marker, "t": .text, "v": .move]
-        if let t = map[key] { tool = t }
+        guard state == .selected, flags.isEmpty || flags == .shift else { return }
+        let map: [Int: Tool] = [35: .pen, 37: .line, 0: .arrow, 15: .rect, 14: .ellipse, 46: .marker, 17: .text, 9: .move]
+        if let t = map[code] { tool = t }
     }
 
     /// ⌘A arrives as the Edit-menu `selectAll:` action when a main menu exists.
@@ -465,6 +463,12 @@ final class CaptureView: NSView, NSTextFieldDelegate {
         guard let tf = textField else { return }
         tf.font = NSFont.boldSystemFont(ofSize: textSize)
         tf.textColor = color
+        if textStyle == .box {
+            tf.drawsBackground = true
+            tf.backgroundColor = Shape.boxColor(for: color)
+        } else {
+            tf.drawsBackground = false
+        }
         tf.placeholderAttributedString = NSAttributedString(string: "텍스트 입력…",
             attributes: [.foregroundColor: color.withAlphaComponent(0.5), .font: NSFont.boldSystemFont(ofSize: textSize)])
         let height = textSize * 1.5

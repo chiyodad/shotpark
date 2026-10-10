@@ -71,10 +71,10 @@ final class CaptureSession {
         keyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
             guard let self, !self.ended else { return event }
             if let fr = event.window?.firstResponder, fr is NSTextView { return event } // typing a text annotation
+            // Key codes, not characters: with a Korean input source ⌘C reports "ㅊ", not "c".
             let flags = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
-            let key = event.charactersIgnoringModifiers?.lowercased() ?? ""
             if let view = self.views.first(where: { $0.state == .selected }) {
-                if flags == .command && key == "c" { view.copyToClipboard(); return nil }
+                if flags == .command && event.keyCode == 8 /* C */ { view.copyToClipboard(); return nil }
                 if flags.isEmpty && (event.keyCode == 36 || event.keyCode == 76) { view.copyToClipboard(); return nil }
             }
             return event

@@ -323,7 +323,7 @@ final class TextOptionsView: NSView {
         super.init(frame: .zero)
         items = Self.sizes.map { Item(label: "\(Int($0))", width: 38, size: $0, style: nil, sepBefore: false) }
         for (i, st) in TextStyle.allCases.enumerated() {
-            items.append(Item(label: st.label, width: 54, size: nil, style: st, sepBefore: i == 0))
+            items.append(Item(label: st.label, width: 50, size: nil, style: st, sepBefore: i == 0))
         }
         var w: CGFloat = 6 + 50 // leading "크기" label
         for it in items { w += it.width + (it.sepBefore ? 10 : 0) }
