@@ -39,7 +39,7 @@
 **캡처**
 - 전역 단축키 한 번으로 화면이 어두워지고 드래그로 영역을 선택합니다. 기본 단축키는 `⌘⇧9`, 설정에서 자유롭게 변경.
 - 8방향 핸들로 크기 조절, 안쪽을 드래그해 이동, 방향키로 1px(⇧ 10px) 미세 조정, 픽셀 단위 크기 표시, `⌘A` 전체 화면.
-- 드래그 대신 **클릭하면 커서 아래 창이 통째로 선택**됩니다(마우스를 올리면 창이 미리 강조됨).
+- 드래그 대신 **클릭하면 커서 아래 창이 통째로 선택**됩니다(마우스를 올리면 창 테두리가 점선으로 표시됨).
 - 다중 모니터 지원. 각 디스플레이의 실제 해상도(Retina)로 캡처합니다.
 - ScreenCaptureKit 기반 (macOS 14+), 이전 버전은 자동 폴백.
 
@@ -181,8 +181,9 @@ MIT © Suseok Park
 **ShotPark** is a region screenshot tool for macOS, built natively for Apple Silicon in Swift/AppKit with zero dependencies. Hotkey → drag a region → annotate → copy / save / share.
 
 - Global hotkey (default `⌘⇧9`, configurable), resizable/movable selection, multi-monitor, Retina-resolution capture via ScreenCaptureKit.
-- Annotations: pen, line, arrow, rectangle, ellipse, marker, text, 10-color palette, undo.
-- `⌘C`/`Enter` copies to clipboard, `⌘S` saves PNG directly to a folder of your choice, `⌘⇧S` shares to Claude / Slack / KakaoTalk or the macOS share sheet.
+- Click a window to select it, or drag a region; resize with handles, nudge with arrow keys.
+- Annotations: pen, line, arrow, rectangle, ellipse, marker, multi-line text (shadow / outline / background box), numbered stamps, emoji stamps; 10-color palette, 3 stroke widths, undo/redo; move or delete any annotation afterwards.
+- `⌘C`/`Enter` copies to clipboard, `⌘S` saves `shotpark-yyyyMMdd-HHmmss.png` directly to a folder of your choice, `⌘⇧S` shares to Claude / Slack / KakaoTalk or the macOS share sheet.
 - Menu-bar only, launch-at-login option, settings window.
 
 **Install:** grab `ShotPark-x.y.z.zip` from the [latest release](https://github.com/suseokpark/shotpark/releases/latest), move `ShotPark.app` to Applications, clear the quarantine flag once (`xattr -d com.apple.quarantine /Applications/ShotPark.app`, or allow it under System Settings → Privacy & Security → "Open Anyway"), then grant **Screen Recording** permission on first capture and relaunch.
