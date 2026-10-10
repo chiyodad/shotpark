@@ -27,23 +27,33 @@ final class CaptureView: NSView, NSTextFieldDelegate {
 
     private(set) var shapes: [Shape] = []
     private var currentShape: Shape?
+    private var redoStack: [Shape] = []
+    /// Index of the annotation highlighted for move / delete (selection tool).
+    private var selectedShape: Int? { didSet { needsDisplay = true } }
+    /// Window frames (view coords, front to back) for click-to-select-window.
+    var windowFrames: [CGRect] = []
+    private var hoverWindowRect: CGRect?
 
     var tool: Tool = .move {
         didSet {
             toolbar.selectedTool = tool
+            if tool != .move { selectedShape = nil }
             layoutToolbar()
             window?.invalidateCursorRects(for: self)
             needsDisplay = true
         }
     }
     var color: NSColor = Preferences.color {
-        didSet { toolbar.currentColor = color; palette.selected = color; Preferences.color = color; applyTextFieldStyle() }
+        didSet { toolbar.currentColor = color; palette.selected = color; strokeOptions.color = color; Preferences.color = color; applyTextFieldStyle() }
     }
-    var lineWidth: CGFloat = 3
+    var lineWidth: CGFloat = Preferences.lineWidth {
+        didSet { strokeOptions.lineWidth = lineWidth; Preferences.lineWidth = lineWidth }
+    }
 
     private let toolbar = ToolbarView()
     private let palette = ColorPaletteView()
     private let textOptions = TextOptionsView()
+    private let strokeOptions = StrokeOptionsView()
     private var textField: NSTextField?
 
     var textSize: CGFloat = Preferences.textSize {
@@ -95,6 +105,12 @@ final class CaptureView: NSView, NSTextFieldDelegate {
         textOptions.onBoxAlpha = { [weak self] in self?.boxAlpha = $0 }
         textOptions.onResize = { [weak self] in self?.layoutToolbar() }
         addSubview(textOptions)
+
+        strokeOptions.isHidden = true
+        strokeOptions.lineWidth = lineWidth
+        strokeOptions.color = color
+        strokeOptions.onChange = { [weak self] in self?.lineWidth = $0 }
+        addSubview(strokeOptions)
     }
 
     required init?(coder: NSCoder) { fatalError() }
@@ -115,11 +131,15 @@ final class CaptureView: NSView, NSTextFieldDelegate {
         state = .idle
         selection = .zero
         shapes = []
+        redoStack = []
+        selectedShape = nil
+        hoverWindowRect = nil
         currentShape = nil
         drag = .none
         toolbar.isHidden = true
         palette.isHidden = true
         textOptions.isHidden = true
+        strokeOptions.isHidden = true
         window?.invalidateCursorRects(for: self)
         needsDisplay = true
     }
@@ -167,12 +187,11 @@ final class CaptureView: NSView, NSTextFieldDelegate {
         ]
     }
 
-    /// Index of the topmost text annotation whose box contains `p` (hit area is the padded box).
-    private func textShapeIndex(at p: CGPoint) -> Int? {
-        for (i, sh) in shapes.enumerated().reversed() where sh.tool == .text {
-            guard let o = sh.points.first else { continue }
-            let r = Shape.boxRect(text: sh.text, fontSize: sh.fontSize, style: sh.textStyle, origin: o)
-            if r.contains(p) { return i }
+    /// Index of the topmost annotation under `p`. Selection tool grabs any shape, text tool only text.
+    private func shapeIndex(at p: CGPoint) -> Int? {
+        for (i, sh) in shapes.enumerated().reversed() {
+            if tool == .text && sh.tool != .text { continue }
+            if sh.hitTest(p) { return i }
         }
         return nil
     }
@@ -194,7 +213,7 @@ final class CaptureView: NSView, NSTextFieldDelegate {
     }
 
     private func layoutToolbar() {
-        guard state == .selected else { toolbar.isHidden = true; palette.isHidden = true; textOptions.isHidden = true; return }
+        guard state == .selected else { toolbar.isHidden = true; palette.isHidden = true; textOptions.isHidden = true; strokeOptions.isHidden = true; return }
         let size = toolbar.intrinsicContentSize
         let gap: CGFloat = 8
         var x = selection.minX
@@ -223,6 +242,9 @@ final class CaptureView: NSView, NSTextFieldDelegate {
         }
         textOptions.isHidden = tool != .text
         if tool == .text { place(textOptions) }
+        let drawing: Set<Tool> = [.pen, .line, .arrow, .rect, .ellipse, .marker]
+        strokeOptions.isHidden = !drawing.contains(tool)
+        if drawing.contains(tool) { place(strokeOptions) }
         place(palette)
     }
 
@@ -293,7 +315,19 @@ final class CaptureView: NSView, NSTextFieldDelegate {
 
     func undoLast() {
         if textField != nil { cancelText(); return }
-        if !shapes.isEmpty { shapes.removeLast(); needsDisplay = true }
+        if !shapes.isEmpty {
+            redoStack.append(shapes.removeLast())
+            selectedShape = nil
+            window?.invalidateCursorRects(for: self)
+            needsDisplay = true
+        }
+    }
+
+    func redoLast() {
+        guard let sh = redoStack.popLast() else { return }
+        shapes.append(sh)
+        window?.invalidateCursorRects(for: self)
+        needsDisplay = true
     }
 
     // MARK: mouse
@@ -308,13 +342,15 @@ final class CaptureView: NSView, NSTextFieldDelegate {
             return
         }
 
-        // Existing text annotation: drag to move, double-click to edit again.
-        if state == .selected, tool == .move || tool == .text, let i = textShapeIndex(at: p) {
-            if event.clickCount == 2 { editTextShape(at: i); return }
+        // Existing annotation: drag to move, double-click a text to edit it again, Delete removes.
+        if state == .selected, tool == .move || tool == .text, let i = shapeIndex(at: p) {
+            if event.clickCount == 2, shapes[i].tool == .text { editTextShape(at: i); return }
+            selectedShape = i
             drag = .moveShape(i, startPoints: shapes[i].points, start: p)
             NSCursor.closedHand.push()
             return
         }
+        selectedShape = nil
 
         if state == .selected {
             if tool == .move {
@@ -396,8 +432,13 @@ final class CaptureView: NSView, NSTextFieldDelegate {
         switch drag {
         case .select:
             if selection.width < 4 || selection.height < 4 {
-                state = .idle
-                selection = .zero
+                if let r = hoverWindowRect, r.width >= 4, r.height >= 4 {
+                    selection = r.integral        // plain click → the window under the cursor
+                    state = .selected
+                } else {
+                    state = .idle
+                    selection = .zero
+                }
             } else {
                 state = .selected
                 selection = selection.integral
@@ -411,7 +452,7 @@ final class CaptureView: NSView, NSTextFieldDelegate {
                 state = .idle; selection = .zero; shapes = []
             }
         case .draw:
-            if let s = currentShape { shapes.append(s) }
+            if let s = currentShape { shapes.append(s); redoStack = [] }
             currentShape = nil
         case .moveShape:
             NSCursor.pop()
@@ -425,7 +466,14 @@ final class CaptureView: NSView, NSTextFieldDelegate {
     }
 
     override func mouseMoved(with event: NSEvent) {
-        if state == .idle { needsDisplay = true }
+        guard state == .idle else { return }
+        let p = convert(event.locationInWindow, from: nil)
+        let r = windowFrames.first { $0.contains(p) }?.intersection(bounds)
+        if r != hoverWindowRect { hoverWindowRect = r; needsDisplay = true }
+    }
+
+    override func mouseExited(with event: NSEvent) {
+        if hoverWindowRect != nil { hoverWindowRect = nil; needsDisplay = true }
     }
 
     override func rightMouseDown(with event: NSEvent) {
@@ -440,10 +488,43 @@ final class CaptureView: NSView, NSTextFieldDelegate {
         let flags = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
         let code = Int(event.keyCode)
 
-        if code == 53 { // esc
+        if code == 53 { // esc: text edit → tool → shape selection → selection → close
             if textField != nil { cancelText() }
+            else if state == .selected && tool != .move { tool = .move; palette.isHidden = true }
+            else if selectedShape != nil { selectedShape = nil }
             else if state != .idle { reset() }
             else { session?.cancel() }
+            return
+        }
+        if code == 51 || code == 117 { // delete / forward delete
+            if let i = selectedShape, i < shapes.count {
+                redoStack.append(shapes.remove(at: i))
+                selectedShape = nil
+                window?.invalidateCursorRects(for: self)
+                needsDisplay = true
+            }
+            return
+        }
+        if (123...126).contains(code), state == .selected { // arrows nudge selection or the selected shape
+            let step: CGFloat = flags.contains(.shift) ? 10 : 1
+            let d: CGPoint
+            switch code {
+            case 123: d = CGPoint(x: -step, y: 0)
+            case 124: d = CGPoint(x: step, y: 0)
+            case 125: d = CGPoint(x: 0, y: -step)
+            default:  d = CGPoint(x: 0, y: step)
+            }
+            if let i = selectedShape, i < shapes.count {
+                shapes[i] = shapes[i].translated(by: d)
+            } else {
+                var r = selection.offsetBy(dx: d.x, dy: d.y)
+                r.origin.x = min(max(r.origin.x, 0), bounds.width - r.width)
+                r.origin.y = min(max(r.origin.y, 0), bounds.height - r.height)
+                selection = r
+                layoutToolbar()
+            }
+            window?.invalidateCursorRects(for: self)
+            needsDisplay = true
             return
         }
         if code == 36 || code == 76 { // return / enter
@@ -454,7 +535,7 @@ final class CaptureView: NSView, NSTextFieldDelegate {
             switch code {
             case 8:  if state == .selected { copyToClipboard() }                       // C
             case 1:  if state == .selected { flags.contains(.shift) ? showShareMenu() : saveToFile() } // S
-            case 6:  undoLast()                                                        // Z
+            case 6:  flags.contains(.shift) ? redoLast() : undoLast()                  // Z / ⇧Z
             case 0:  selectWholeScreen()                                               // A
             case 24, 69: if tool == .text { stepTextSize(+1) }                         // = / keypad +
             case 27, 78: if tool == .text { stepTextSize(-1) }                         // - / keypad -
@@ -590,6 +671,7 @@ final class CaptureView: NSView, NSTextFieldDelegate {
             shapes.append(Shape(tool: .text, points: [origin], color: color, lineWidth: lineWidth,
                                 text: text, fontSize: textSize, textStyle: textStyle,
                                 boxColor: boxColor, boxAlpha: boxAlpha))
+            redoStack = []
         }
         tf.removeFromSuperview()
         textField = nil
@@ -618,7 +700,21 @@ final class CaptureView: NSView, NSTextFieldDelegate {
         let dim = NSColor.black.withAlphaComponent(0.45)
         if state == .idle {
             dim.setFill()
-            bounds.fill()
+            if let r = hoverWindowRect {
+                // lighten the window under the cursor and outline it: a click selects it
+                let path = NSBezierPath(rect: bounds)
+                path.append(NSBezierPath(rect: r))
+                path.windingRule = .evenOdd
+                path.fill()
+                NSColor.black.withAlphaComponent(0.18).setFill()
+                r.fill()
+                let o = NSBezierPath(rect: r.insetBy(dx: 1, dy: 1))
+                o.lineWidth = 2
+                NSColor.white.withAlphaComponent(0.9).setStroke()
+                o.stroke()
+            } else {
+                bounds.fill()
+            }
             drawIdleHint()
             return
         }
@@ -653,6 +749,16 @@ final class CaptureView: NSView, NSTextFieldDelegate {
             ctx.setLineDash(phase: 0, lengths: [])
         }
         ctx.restoreGState()
+
+        // highlighted annotation (selection tool)
+        if let i = selectedShape, i < shapes.count {
+            let b = shapes[i].bounds.insetBy(dx: -3, dy: -3)
+            let hl = NSBezierPath(roundedRect: b, xRadius: 4, yRadius: 4)
+            hl.lineWidth = 1
+            hl.setLineDash([4, 3], count: 2, phase: 0)
+            NSColor.white.setStroke()
+            hl.stroke()
+        }
 
         // selection border
         let border = NSBezierPath(rect: selection.insetBy(dx: -0.5, dy: -0.5))
@@ -692,7 +798,7 @@ final class CaptureView: NSView, NSTextFieldDelegate {
     }
 
     private func drawIdleHint() {
-        let str = NSAttributedString(string: "드래그하여 캡처할 영역을 선택하세요  ·  ⌘A 전체 화면  ·  Esc 취소", attributes: [
+        let str = NSAttributedString(string: "드래그로 영역 선택  ·  클릭하면 창 선택  ·  ⌘A 전체 화면  ·  Esc 취소", attributes: [
             .font: NSFont.systemFont(ofSize: 14, weight: .medium),
             .foregroundColor: NSColor.white.withAlphaComponent(0.95),
         ])
@@ -773,6 +879,11 @@ enum Preferences {
             return TextStyles(rawValue: UserDefaults.standard.integer(forKey: textStyleKey))
         }
         set { UserDefaults.standard.set(newValue.rawValue, forKey: textStyleKey) }
+    }
+    private static let lineWidthKey = "annotationLineWidth"
+    static var lineWidth: CGFloat {
+        get { let v = UserDefaults.standard.double(forKey: lineWidthKey); return v > 0 ? CGFloat(v) : 4 }
+        set { UserDefaults.standard.set(Double(newValue), forKey: lineWidthKey) }
     }
     private static let boxColorKey = "annotationBoxColor"
     private static let boxAlphaKey = "annotationBoxAlpha"

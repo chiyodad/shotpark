@@ -92,6 +92,67 @@ struct Shape {
     ]
 }
 
+extension Shape {
+    /// Stroke width actually used on screen (marker is a wide translucent band).
+    var effectiveWidth: CGFloat { tool == .marker ? lineWidth * 5 : lineWidth }
+
+    /// Rough bounding box used for selection highlight.
+    var bounds: CGRect {
+        switch tool {
+        case .text:
+            guard let o = points.first else { return .zero }
+            return Shape.boxRect(text: text, fontSize: fontSize, style: textStyle, origin: o)
+        default:
+            guard let f = points.first else { return .zero }
+            var minX = f.x, maxX = f.x, minY = f.y, maxY = f.y
+            for q in points { minX = min(minX, q.x); maxX = max(maxX, q.x); minY = min(minY, q.y); maxY = max(maxY, q.y) }
+            let pad = effectiveWidth / 2 + (tool == .arrow ? max(14, lineWidth * 4.5) * 0.6 : 0)
+            return CGRect(x: minX, y: minY, width: maxX - minX, height: maxY - minY).insetBy(dx: -pad, dy: -pad)
+        }
+    }
+
+    private static func distance(_ p: CGPoint, toSegment a: CGPoint, _ b: CGPoint) -> CGFloat {
+        let dx = b.x - a.x, dy = b.y - a.y
+        let len2 = dx * dx + dy * dy
+        if len2 < 0.0001 { return hypot(p.x - a.x, p.y - a.y) }
+        let t = max(0, min(1, ((p.x - a.x) * dx + (p.y - a.y) * dy) / len2))
+        return hypot(p.x - (a.x + t * dx), p.y - (a.y + t * dy))
+    }
+
+    /// True when `p` is on / very near the drawn marks (so clicks inside an empty rectangle still
+    /// start a new shape instead of grabbing the rectangle).
+    func hitTest(_ p: CGPoint, tolerance: CGFloat = 7) -> Bool {
+        let tol = tolerance + effectiveWidth / 2
+        switch tool {
+        case .move: return false
+        case .text: return bounds.contains(p)
+        case .rect:
+            let r = rect
+            return r.insetBy(dx: -tol, dy: -tol).contains(p) && !r.insetBy(dx: tol, dy: tol).contains(p)
+        case .ellipse:
+            let r = rect
+            guard r.width > 0, r.height > 0 else { return false }
+            let nx = (p.x - r.midX) / (r.width / 2), ny = (p.y - r.midY) / (r.height / 2)
+            let d = sqrt(nx * nx + ny * ny) // 1 == on the ellipse
+            let band = tol / max(1, min(r.width, r.height) / 2)
+            return abs(d - 1) <= band
+        case .line, .arrow:
+            guard points.count >= 2 else { return false }
+            return Shape.distance(p, toSegment: points[0], points[1]) <= tol
+        case .pen, .marker:
+            if points.count == 1 { return hypot(p.x - points[0].x, p.y - points[0].y) <= tol }
+            for i in 1..<points.count where Shape.distance(p, toSegment: points[i - 1], points[i]) <= tol { return true }
+            return false
+        }
+    }
+
+    func translated(by d: CGPoint) -> Shape {
+        var c = self
+        c.points = points.map { CGPoint(x: $0.x + d.x, y: $0.y + d.y) }
+        return c
+    }
+}
+
 /// Draws shapes in a non-flipped (bottom-left origin) CoreGraphics context.
 /// The same routine is used on screen and when exporting, so output matches preview.
 enum ShapeRenderer {
@@ -115,7 +176,7 @@ enum ShapeRenderer {
         case .pen, .marker:
             guard let first = s.points.first else { return }
             if s.tool == .marker {
-                ctx.setLineWidth(s.lineWidth * 6)
+                ctx.setLineWidth(s.effectiveWidth)
                 ctx.setLineCap(.square)
                 ctx.setBlendMode(.multiply)
                 ctx.setStrokeColor(s.color.withAlphaComponent(0.45).cgColor)

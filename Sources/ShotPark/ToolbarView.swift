@@ -508,6 +508,78 @@ final class TextOptionsView: NSView, NSTextFieldDelegate {
     override func resetCursorRects() { addCursorRect(bounds, cursor: .arrow) }
 }
 
+/// Options bar for the drawing tools: stroke width presets.
+final class StrokeOptionsView: NSView {
+    static let widths: [CGFloat] = [2, 4, 7]
+    static let labels = ["얇게", "보통", "굵게"]
+    static let height: CGFloat = 34
+
+    var lineWidth: CGFloat = 4 { didSet { needsDisplay = true } }
+    var color: NSColor = .systemRed { didSet { needsDisplay = true } }
+    var onChange: ((CGFloat) -> Void)?
+    private var hoverIndex: Int?
+
+    init() {
+        super.init(frame: NSRect(x: 0, y: 0, width: 6 + 44 + 3 * 64 + 6, height: Self.height))
+        wantsLayer = true
+        layer?.shadowColor = NSColor.black.cgColor
+        layer?.shadowOpacity = 0.5
+        layer?.shadowRadius = 8
+        layer?.masksToBounds = false
+    }
+    required init?(coder: NSCoder) { fatalError() }
+
+    private func rects() -> [NSRect] {
+        (0..<3).map { NSRect(x: 50 + CGFloat($0) * 64, y: 4, width: 64, height: Self.height - 8) }
+    }
+
+    override func updateTrackingAreas() {
+        super.updateTrackingAreas()
+        trackingAreas.forEach(removeTrackingArea)
+        addTrackingArea(NSTrackingArea(rect: bounds, options: [.mouseMoved, .mouseEnteredAndExited, .activeAlways], owner: self, userInfo: nil))
+    }
+
+    override func draw(_ dirtyRect: NSRect) {
+        let bg = NSBezierPath(roundedRect: bounds, xRadius: 8, yRadius: 8)
+        NSColor(calibratedWhite: 0.12, alpha: 0.94).setFill()
+        bg.fill()
+        NSColor.white.withAlphaComponent(0.18).setStroke()
+        bg.stroke()
+        let labelAttrs: [NSAttributedString.Key: Any] = [.font: NSFont.systemFont(ofSize: 11, weight: .medium),
+                                                         .foregroundColor: NSColor.white.withAlphaComponent(0.6)]
+        NSAttributedString(string: "굵기", attributes: labelAttrs).draw(at: NSPoint(x: 12, y: (bounds.height - 13) / 2))
+        for (i, r) in rects().enumerated() {
+            let w = Self.widths[i]
+            let selected = w == lineWidth
+            if selected || hoverIndex == i {
+                NSColor.white.withAlphaComponent(selected ? 0.28 : 0.12).setFill()
+                NSBezierPath(roundedRect: r.insetBy(dx: 2, dy: 1), xRadius: 6, yRadius: 6).fill()
+            }
+            // sample dot + label
+            let d = w + 3
+            color.setFill()
+            NSBezierPath(ovalIn: NSRect(x: r.minX + 10, y: r.midY - d / 2, width: d, height: d)).fill()
+            let str = NSAttributedString(string: Self.labels[i], attributes: [.font: NSFont.systemFont(ofSize: 12, weight: .medium), .foregroundColor: NSColor.white])
+            str.draw(at: NSPoint(x: r.minX + 26, y: r.midY - str.size().height / 2))
+        }
+    }
+
+    override func mouseMoved(with event: NSEvent) {
+        let p = convert(event.locationInWindow, from: nil)
+        let idx = rects().firstIndex { $0.contains(p) }
+        if idx != hoverIndex { hoverIndex = idx; needsDisplay = true }
+    }
+    override func mouseExited(with event: NSEvent) { hoverIndex = nil; needsDisplay = true }
+    override func mouseDown(with event: NSEvent) {
+        let p = convert(event.locationInWindow, from: nil)
+        if let i = rects().firstIndex(where: { $0.contains(p) }) {
+            lineWidth = Self.widths[i]
+            onChange?(lineWidth)
+        }
+    }
+    override func resetCursorRects() { addCursorRect(bounds, cursor: .arrow) }
+}
+
 extension NSColor {
     func isClose(to other: NSColor) -> Bool {
         guard let a = usingColorSpace(.sRGB), let b = other.usingColorSpace(.sRGB) else { return false }

@@ -73,6 +73,20 @@ enum Settings {
         static let display = "hotKeyDisplay"
         static let folder = "saveFolderPath"
         static let direct = "saveDirectly"
+        static let copyAlsoSaves = "copyAlsoSaves"
+        static let saveAlsoCopies = "saveAlsoCopies"
+    }
+
+    /// ⌘C also writes a PNG into the save folder.
+    static var copyAlsoSaves: Bool {
+        get { d.bool(forKey: K.copyAlsoSaves) }
+        set { d.set(newValue, forKey: K.copyAlsoSaves) }
+    }
+
+    /// ⌘S also puts the image on the clipboard.
+    static var saveAlsoCopies: Bool {
+        get { d.object(forKey: K.saveAlsoCopies) == nil ? true : d.bool(forKey: K.saveAlsoCopies) }
+        set { d.set(newValue, forKey: K.saveAlsoCopies) }
     }
 
     static var hotKey: HotKeySpec {
@@ -189,9 +203,11 @@ final class SettingsWindowController: NSWindowController {
     private let recorder = HotKeyRecorderView()
     private let folderLabel = NSTextField(labelWithString: "")
     private let directCheckbox = NSButton(checkboxWithTitle: "⌘S 저장 시 확인 창 없이 지정 폴더에 바로 저장", target: nil, action: nil)
+    private let saveCopiesCheckbox = NSButton(checkboxWithTitle: "⌘S 저장할 때 클립보드에도 복사", target: nil, action: nil)
+    private let copySavesCheckbox = NSButton(checkboxWithTitle: "⌘C 복사할 때 저장 폴더에도 PNG 저장", target: nil, action: nil)
 
     private init() {
-        let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 480, height: 230),
+        let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 480, height: 290),
                               styleMask: [.titled, .closable], backing: .buffered, defer: false)
         window.title = "ShotPark 설정"
         window.isReleasedWhenClosed = false
@@ -247,12 +263,20 @@ final class SettingsWindowController: NSWindowController {
         directCheckbox.target = self
         directCheckbox.action = #selector(toggleDirect)
         directCheckbox.font = .systemFont(ofSize: 12)
+        saveCopiesCheckbox.target = self
+        saveCopiesCheckbox.action = #selector(toggleSaveCopies)
+        saveCopiesCheckbox.font = .systemFont(ofSize: 12)
+        copySavesCheckbox.target = self
+        copySavesCheckbox.action = #selector(toggleCopySaves)
+        copySavesCheckbox.font = .systemFont(ofSize: 12)
 
         let grid = NSGridView(views: [
             [label("캡처 단축키"), hotkeyRow],
             [NSGridCell.emptyContentView, hotkeyHint],
             [label("저장 폴더"), folderRow],
             [NSGridCell.emptyContentView, directCheckbox],
+            [NSGridCell.emptyContentView, saveCopiesCheckbox],
+            [NSGridCell.emptyContentView, copySavesCheckbox],
         ])
         grid.rowSpacing = 10
         grid.columnSpacing = 12
@@ -293,7 +317,12 @@ final class SettingsWindowController: NSWindowController {
         folderLabel.stringValue = (path as NSString).abbreviatingWithTildeInPath
         folderLabel.toolTip = path
         directCheckbox.state = Settings.saveDirectly ? .on : .off
+        saveCopiesCheckbox.state = Settings.saveAlsoCopies ? .on : .off
+        copySavesCheckbox.state = Settings.copyAlsoSaves ? .on : .off
     }
+
+    @objc private func toggleSaveCopies() { Settings.saveAlsoCopies = saveCopiesCheckbox.state == .on }
+    @objc private func toggleCopySaves() { Settings.copyAlsoSaves = copySavesCheckbox.state == .on }
 
     @objc private func resetHotKey() {
         Settings.hotKey = .default

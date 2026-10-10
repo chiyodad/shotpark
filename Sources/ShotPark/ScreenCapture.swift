@@ -104,6 +104,27 @@ enum ScreenCapture {
         }
     }
 
+    /// Frames of normal on-screen windows (front to back), in AppKit screen coordinates.
+    /// Used so a plain click on the overlay selects the window under the cursor.
+    static func onScreenWindowFrames() -> [CGRect] {
+        guard let primary = NSScreen.screens.first,
+              let list = CGWindowListCopyWindowInfo([.optionOnScreenOnly, .excludeDesktopElements], kCGNullWindowID) as? [[String: Any]]
+        else { return [] }
+        let myPID = ProcessInfo.processInfo.processIdentifier
+        let h0 = primary.frame.height
+        var out: [CGRect] = []
+        for w in list {
+            guard (w[kCGWindowLayer as String] as? Int ?? 1) == 0,
+                  (w[kCGWindowOwnerPID as String] as? Int32) != myPID,
+                  (w[kCGWindowAlpha as String] as? Double ?? 1) > 0.05,
+                  let b = w[kCGWindowBounds as String] as? [String: Double],
+                  let x = b["X"], let y = b["Y"], let wd = b["Width"], let ht = b["Height"],
+                  wd >= 40, ht >= 40 else { continue }
+            out.append(CGRect(x: x, y: h0 - y - ht, width: wd, height: ht))
+        }
+        return out
+    }
+
     private static func legacyCapture(_ displayID: CGDirectDisplayID) -> CGImage? {
         CGDisplayCreateImage(displayID)
     }

@@ -48,6 +48,7 @@ final class CaptureSession {
             return
         }
 
+        let windowFrames = ScreenCapture.onScreenWindowFrames()
         for (screen, img) in captured {
             let win = OverlayWindow(screen: screen)
             win.onPerformClose = { [weak self] in self?.cancel() }
@@ -60,6 +61,7 @@ final class CaptureSession {
             let view = CaptureView(frame: container.bounds, screenshot: img)
             view.autoresizingMask = [.width, .height]
             view.session = self
+            view.windowFrames = windowFrames.map { $0.offsetBy(dx: -screen.frame.minX, dy: -screen.frame.minY) }
             container.addSubview(view)
 
             win.contentView = container
@@ -113,6 +115,12 @@ final class CaptureSession {
         switch mode {
         case .copy:
             Exporter.copy(image)
+            if Settings.copyAlsoSaves, let url = Exporter.saveDirect(image) {
+                Toast.show("클립보드에 복사됨 · 저장됨", subtitle: url.lastPathComponent, duration: 1.6,
+                           onClick: { NSWorkspace.shared.activateFileViewerSelecting([url]) })
+            } else {
+                Toast.show("클립보드에 복사됨", duration: 1.1)
+            }
         case .save:
             Exporter.save(image)
         case .shareApp(let target):
@@ -244,22 +252,32 @@ enum Exporter {
         }
     }
 
+    /// Writes straight into the configured folder with a unique name. Silent; returns the URL.
+    @discardableResult
+    static func saveDirect(_ image: NSImage) -> URL? {
+        guard let data = pngData(image) else { return nil }
+        let folder = Settings.saveFolder
+        try? FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        let url = uniqueURL(in: folder, name: Settings.fileName())
+        do { try data.write(to: url, options: .atomic); return url } catch {
+            NSLog("Direct save failed: \(error.localizedDescription)")
+            return nil
+        }
+    }
+
     static func save(_ image: NSImage) {
         guard let data = pngData(image) else { return }
         let folder = Settings.saveFolder
+        if Settings.saveAlsoCopies { copy(image) }
 
         if Settings.saveDirectly {
-            try? FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
-            let url = uniqueURL(in: folder, name: Settings.fileName())
-            do {
-                try data.write(to: url, options: .atomic)
-                Toast.show("저장됨 — \(url.lastPathComponent)",
+            if let url = saveDirect(image) {
+                Toast.show(Settings.saveAlsoCopies ? "저장됨 · 클립보드에 복사됨 — \(url.lastPathComponent)" : "저장됨 — \(url.lastPathComponent)",
                            subtitle: (folder.path as NSString).abbreviatingWithTildeInPath + "  ·  클릭하면 Finder에서 열림",
                            onClick: { NSWorkspace.shared.activateFileViewerSelecting([url]) })
                 return
-            } catch {
-                NSLog("Direct save failed (\(error.localizedDescription)); falling back to save panel")
             }
+            NSLog("falling back to save panel")
         }
 
         let panel = NSSavePanel()
