@@ -485,6 +485,14 @@ final class CaptureView: NSView, NSTextViewDelegate {
         if hoverWindowRect != nil { hoverWindowRect = nil; needsDisplay = true }
     }
 
+    /// Compute the hovered window from the current mouse position (called once the overlay is up).
+    func refreshHover() {
+        guard state == .idle, let win = window else { return }
+        let p = convert(win.mouseLocationOutsideOfEventStream, from: nil)
+        hoverWindowRect = bounds.contains(p) ? windowFrames.first { $0.contains(p) }?.intersection(bounds) : nil
+        needsDisplay = true
+    }
+
     override func rightMouseDown(with event: NSEvent) {
         // Lightshot: right-click cancels
         if state == .idle { session?.cancel() } else { reset() }
@@ -702,20 +710,15 @@ final class CaptureView: NSView, NSTextViewDelegate {
         let dim = NSColor.black.withAlphaComponent(0.45)
         if state == .idle {
             dim.setFill()
+            bounds.fill()
             if let r = hoverWindowRect {
-                // lighten the window under the cursor and outline it: a click selects it
-                let path = NSBezierPath(rect: bounds)
-                path.append(NSBezierPath(rect: r))
-                path.windingRule = .evenOdd
-                path.fill()
-                NSColor.black.withAlphaComponent(0.18).setFill()
-                r.fill()
+                // outline the window under the cursor (a click selects it) — the dim stays uniform
+                // so nothing flashes when the overlay appears
                 let o = NSBezierPath(rect: r.insetBy(dx: 1, dy: 1))
                 o.lineWidth = 2
-                NSColor.white.withAlphaComponent(0.9).setStroke()
+                o.setLineDash([6, 4], count: 2, phase: 0)
+                NSColor.white.withAlphaComponent(0.85).setStroke()
                 o.stroke()
-            } else {
-                bounds.fill()
             }
             drawIdleHint()
             return

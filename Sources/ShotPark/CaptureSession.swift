@@ -94,6 +94,7 @@ final class CaptureSession {
         } else if let win = windows.first, let view = win.contentView?.subviews.first {
             win.makeFirstResponder(view)
         }
+        views.forEach { $0.refreshHover() }
     }
 
     var primaryView: CaptureView? { views.first }
