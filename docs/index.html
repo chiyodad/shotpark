@@ -171,7 +171,8 @@
       <div class="n">2</div>
       <div>
         <h3>Gatekeeper 통과하기 (최초 1회)</h3>
-        <p>ShotPark은 Apple 개발자 서명이 없는 오픈소스 앱이라 처음 열 때 macOS가 "확인할 수 없는 개발자"라며 막습니다. 아래 둘 중 편한 방법으로 한 번만 열어 주면 그 뒤로는 묻지 않습니다. CLI·Homebrew로 설치했다면 이미 처리되어 있습니다.</p>
+        <p><b>3) 다운로드로 설치한 경우에만 해당합니다.</b> 1) CLI · 2) Homebrew로 설치했다면 이 단계는 자동 처리되므로 건너뛰세요.</p>
+        <p>ShotPark은 Apple 개발자 서명이 없는 오픈소스 앱이라 처음 열 때 macOS가 "확인할 수 없는 개발자"라며 막습니다. 아래 둘 중 편한 방법으로 한 번만 열어 주면 그 뒤로는 묻지 않습니다.</p>
         <p><b>방법 A — 터미널 한 줄</b> (가장 확실):</p>
         <pre><code>xattr -d com.apple.quarantine /Applications/ShotPark.app</code></pre>
         <p><b>방법 B — 설정에서 허용</b>: 앱을 한 번 더블클릭해 경고를 닫은 뒤, <b>시스템 설정 → 개인정보 보호 및 보안</b> 맨 아래에 나타나는 <b>"그래도 열기"</b>를 누릅니다.</p>

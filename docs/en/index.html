@@ -183,7 +183,8 @@
       <div class="n">2</div>
       <div>
         <h3>Get past Gatekeeper once <span style="font-weight:400;color:var(--muted)">(only if you installed via download)</span></h3>
-        <p>ShotPark is an open-source app without an Apple Developer signature, so the first launch is blocked as coming from an "unidentified developer". Use either method once; macOS won't ask again. The CLI and Homebrew installs already take care of this.</p>
+        <p><b>Only if you installed via 3) Download.</b> The 1) CLI and 2) Homebrew installs handle this automatically — skip this step.</p>
+        <p>ShotPark is an open-source app without an Apple Developer signature, so the first launch is blocked as coming from an "unidentified developer". Use either method once; macOS won't ask again.</p>
         <p><b>Method A — one line in Terminal</b> (most reliable):</p>
         <pre><code>xattr -d com.apple.quarantine /Applications/ShotPark.app</code></pre>
         <p><b>Method B — allow in settings</b>: double-click the app once more to dismiss the warning, then open <b>System Settings → Privacy &amp; Security</b>, scroll to the bottom and click <b>"Open Anyway"</b>.</p>
