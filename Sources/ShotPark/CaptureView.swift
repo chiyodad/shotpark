@@ -631,12 +631,18 @@ final class CaptureView: NSView, NSTextViewDelegate {
     private func applyTextFieldStyle() {
         guard let tv = textEditor, let lm = tv.layoutManager, let tc = tv.textContainer else { return }
         let font = NSFont.boldSystemFont(ofSize: textSize)
+        // Same attributes the final rendering uses (shadow / outline included) so the preview matches.
+        let attrs = Shape.textAttributes(color: color, fontSize: textSize, style: textStyle)
         tv.font = font
         tv.textColor = color
         tv.insertionPointColor = color
-        tv.typingAttributes = [.font: font, .foregroundColor: color]
+        tv.typingAttributes = attrs
         if let storage = tv.textStorage, storage.length > 0 {
-            storage.addAttributes([.font: font, .foregroundColor: color], range: NSRange(location: 0, length: storage.length))
+            let all = NSRange(location: 0, length: storage.length)
+            storage.removeAttribute(.shadow, range: all)
+            storage.removeAttribute(.strokeColor, range: all)
+            storage.removeAttribute(.strokeWidth, range: all)
+            storage.addAttributes(attrs, range: all)
         }
         lm.ensureLayout(for: tc)
         let used = lm.usedRect(for: tc)
