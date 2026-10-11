@@ -695,7 +695,7 @@ final class EmojiOptionsView: NSView, NSTextFieldDelegate {
                 ring.lineWidth = 2; ring.stroke()
             }
         }
-        if images.count < ImageStamps.maxCount {
+        do { // always available: a new image pushes out the oldest
             let ar = imageAddRect
             NSColor.white.withAlphaComponent(hoverIndex == 400 ? 0.2 : 0.1).setFill()
             NSBezierPath(roundedRect: ar, xRadius: 6, yRadius: 6).fill()
@@ -711,7 +711,7 @@ final class EmojiOptionsView: NSView, NSTextFieldDelegate {
         if minusRect.contains(p) { return 210 }
         if plusRect.contains(p) { return 211 }
         if let i = imageRects().firstIndex(where: { $0.contains(p) }) { return 300 + i }
-        if images.count < ImageStamps.maxCount, imageAddRect.contains(p) { return 400 }
+        if imageAddRect.contains(p) { return 400 }
         return nil
     }
 

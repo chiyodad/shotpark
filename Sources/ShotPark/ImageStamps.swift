@@ -3,7 +3,7 @@ import AppKit
 /// User images (signatures, logos, stamps) usable with the stamp tool.
 /// Stored as PNG copies in ~/Library/Application Support/ShotPark/Stamps, newest first, at most `maxCount`.
 enum ImageStamps {
-    static let maxCount = 6
+    static let maxCount = 3
     private static let namesKey = "stampImages"
     private static var cache: [String: NSImage] = [:]
 
@@ -16,8 +16,13 @@ enum ImageStamps {
 
     static var names: [String] {
         get {
-            (UserDefaults.standard.stringArray(forKey: namesKey) ?? [])
+            var list = (UserDefaults.standard.stringArray(forKey: namesKey) ?? [])
                 .filter { FileManager.default.fileExists(atPath: dir.appendingPathComponent($0).path) }
+            if list.count > maxCount { // older versions kept more; drop the oldest
+                while list.count > maxCount { remove(list.removeLast(), updatingList: false) }
+                UserDefaults.standard.set(list, forKey: namesKey)
+            }
+            return list
         }
         set { UserDefaults.standard.set(newValue, forKey: namesKey) }
     }
@@ -62,7 +67,7 @@ enum ImageStamps {
     static func remove(_ name: String) { remove(name, updatingList: true) }
 
     private static func remove(_ name: String, updatingList: Bool) {
-        cache[name] = nil
+        // Keep the cached image: annotations already placed in this capture may still use it.
         try? FileManager.default.removeItem(at: dir.appendingPathComponent(name))
         if updatingList { names = names.filter { $0 != name } }
     }

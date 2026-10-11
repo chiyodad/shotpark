@@ -1480,34 +1480,39 @@ extension CaptureView {
             check("image stamp placed", placed?.tool == .emoji && placed?.imageName == name)
             if let r = placed?.imageRect { check("image stamp keeps aspect", abs(r.width / r.height - 200.0 / 60.0) < 0.05, "\(r)") }
             else { check("image stamp keeps aspect", false, "no rect") }
-            if let i = shapes.indices.last {
-                selectedShape = i
-                let savedSize = emojiSize
-                defer { emojiSize = savedSize }
-                let before = shapes[i].fontSize
-                stepStampSize(+1)
-                check("stamp resize (⌘+)", shapes[i].fontSize > before, "\(before) → \(shapes[i].fontSize)")
-                stepStampSize(-1); stepStampSize(-1)
-                check("stamp resize (⌘−)", shapes[i].fontSize < before)
-            }
-            if let i = shapes.indices.last, let c = shapes[i].points.first {
-                selectedShape = i
-                rotateSelected(1)
-                check("rotate stamp ↻ 15°", abs(shapes[i].rotation + .pi / 12) < 0.001, "\(shapes[i].rotation)")
-                check("rotated stamp still hit at centre", shapes[i].hitTest(c))
-                check("rotate buttons shown (with reset)", rotateButtonRects().count == 3)
-                let r1 = rotateButtonRects().first?.1
-                rotateSelected(1)
-                check("rotate buttons stay put while rotating", rotateButtonRects().first?.1 == r1)
-                rotateSelected(0)
-                check("rotation reset", shapes[i].rotation == 0)
-            }
             emojiOptions.onPick?("👍")
             check("picking an emoji leaves image mode", stampImage == nil)
             emojiOptions.onRemoveImage?(name)
             check("image stamp removed", !ImageStamps.names.contains(name))
             key(53)
         } else { check("image stamp saved", false, "add failed") }
+
+        // 5d. resize + rotate a freshly placed emoji stamp
+        tool = .emoji
+        click(CGPoint(x: 360, y: H - 300))
+        if let i = shapes.indices.last {
+            selectedShape = i
+            let savedSize = emojiSize
+            defer { emojiSize = savedSize }
+            let before = shapes[i].fontSize
+            stepStampSize(+1)
+            check("stamp resize (⌘+)", shapes[i].fontSize > before, "\(before) → \(shapes[i].fontSize)")
+            stepStampSize(-1); stepStampSize(-1)
+            check("stamp resize (⌘−)", shapes[i].fontSize < before)
+        }
+        if let i = shapes.indices.last, let c = shapes[i].points.first {
+            selectedShape = i
+            rotateSelected(1)
+            check("rotate stamp ↻ 15°", abs(shapes[i].rotation + .pi / 12) < 0.001, "\(shapes[i].rotation)")
+            check("rotated stamp still hit at centre", shapes[i].hitTest(c))
+            check("rotate buttons shown (with reset)", rotateButtonRects().count == 3)
+            let r1 = rotateButtonRects().first?.1
+            rotateSelected(1)
+            check("rotate buttons stay put while rotating", rotateButtonRects().first?.1 == r1)
+            rotateSelected(0)
+            check("rotation reset", shapes[i].rotation == 0)
+        }
+        key(53)
 
         // 6. click outside with annotations → idle and annotations cleared
         click(CGPoint(x: 20, y: 20))
