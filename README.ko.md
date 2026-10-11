@@ -38,7 +38,7 @@
 단축키 한 번으로 영역을 선택하여 캡처하고, 바로 표시하여, 빠르게 공유하세요!
 Apple Silicon · Intel 모두에서 돌아가는 맥 네이티브 앱입니다.
 
-Windows에서 **픽픽(PicPick)**이나 **라이트샷(Lightshot)**을 쓰셨다면, 맥에서는 ShotPark — 같은 조작감입니다. 픽픽은 맥 버전이 없고 라이트샷의 맥 앱은 Intel 전용이라, 그 "단축키 → 드래그 → 바로 주석 → 복사" 흐름을 맥 네이티브로 옮겼습니다. 자세한 비교는 [홈페이지](https://shotpark.site/#compare)에.
+Windows에서 **PicPick**·**Lightshot**을 쓰셨다면, macOS에서는 ShotPark. PicPick은 macOS 버전이 없고 Lightshot의 macOS 앱은 Intel 전용이라, 그 "단축키 → 드래그 → 바로 주석 → 복사" 흐름을 맥 네이티브로 옮겼습니다. 자세한 비교는 [홈페이지](https://shotpark.site/#compare)에.
 
 ## 기능
 
