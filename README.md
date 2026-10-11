@@ -48,7 +48,7 @@ If you used Lightshot or PicPick on Windows, you already know how it works: hotk
 - Multi-monitor, Retina-resolution capture via ScreenCaptureKit (macOS 14+, automatic fallback below).
 
 **Annotate**
-- Pen · line · arrow · rectangle · ellipse · marker (highlighter) · multi-line text · numbered stamps · emoji stamps; 10-color palette (customizable in Settings), 3 stroke widths plus a **dashed** toggle, arrow heads as a **triangle or a circle** "pointer", undo/redo.
+- Pen · line · arrow · rectangle · ellipse · marker (highlighter) · multi-line text · numbered stamps · emoji stamps; 10-color palette (customizable in Settings), 3 stroke widths plus a **dashed** toggle, arrow heads as an open **chevron (>)** or a **circle** "pointer", undo/redo.
 - Drag any annotation to move it, nudge with arrow keys, Delete to remove; double-click text to edit it again.
 - Text: 3 size presets or 8–200 free entry, togglable shadow / outline / background box (any combination), box color and opacity. `⌘+` / `⌘-` to resize.
 - What you see is exactly what gets exported (same renderer).
@@ -131,7 +131,7 @@ Needs only the Xcode Command Line Tools (`xcode-select --install`). `./build.sh`
 - Text tool (`T`): click to open an input box, `Enter` to commit, `⇧Enter` for a new line, `Esc` to cancel. With the text tool active an options bar offers size presets and style toggles; changes apply while typing.
 - Number tool (`N`): each click places ①, ②, ③…; size follows the text size. The cursor shows the next stamp.
 - Emoji stamp (`S`): pick an emoji (10 slots — most recent first, "More…" opens the system picker) and a size, then click. The cursor shows the emoji.
-- Stroke bar (drawing tools): width, **Dash** toggle (line / arrow / rect / ellipse) and, for arrows, **Head** ▶ / ●.
+- Stroke bar (drawing tools): width, **Dash** toggle (line / arrow / rect / ellipse) and, for arrows, **Head** > / ●.
 - Existing annotations can be dragged (select or text tool) and text can be double-clicked to edit.
 
 ### Settings (`⌘,` or menu bar → Settings…)

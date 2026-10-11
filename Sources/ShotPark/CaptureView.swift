@@ -1036,7 +1036,7 @@ enum Preferences {
         set { UserDefaults.standard.set(newValue, forKey: dashedKey) }
     }
     static var arrowHead: ArrowHead {
-        get { ArrowHead(rawValue: UserDefaults.standard.integer(forKey: arrowHeadKey)) ?? .triangle }
+        get { ArrowHead(rawValue: UserDefaults.standard.integer(forKey: arrowHeadKey)) ?? .chevron }
         set { UserDefaults.standard.set(newValue.rawValue, forKey: arrowHeadKey) }
     }
     private static let lineWidthKey = "annotationLineWidth"
@@ -1199,7 +1199,7 @@ extension CaptureView {
         tool = .rect
         dragFrom(CGPoint(x: 150, y: H - 380), to: CGPoint(x: 250, y: H - 420))
         check("dashed rect placed", shapes.last?.tool == .rect && shapes.last?.dashed == true)
-        dashed = false; arrowHead = .triangle
+        dashed = false; arrowHead = .chevron
         tool = .line
         dragFrom(CGPoint(x: 300, y: H - 300), to: CGPoint(x: 450, y: H - 350))
         check("solid line after toggling off", shapes.last?.tool == .line && shapes.last?.dashed == false)

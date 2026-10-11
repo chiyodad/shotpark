@@ -684,13 +684,13 @@ final class EmojiOptionsView: NSView, NSTextFieldDelegate {
 /// Options bar for the drawing tools: stroke width presets.
 final class StrokeOptionsView: NSView {
     static let widths: [CGFloat] = [2, 4, 7]
-    static let labels = [L("얇게", "Thin"), L("보통", "Normal"), L("굵게", "Thick")]
+    static let labels = [L("가늘게", "Thin"), L("보통", "Normal"), L("굵게", "Thick")]
     static let height: CGFloat = 34
 
     var lineWidth: CGFloat = 4 { didSet { needsDisplay = true } }
     var color: NSColor = .systemRed { didSet { needsDisplay = true } }
     var dashed: Bool = false { didSet { needsDisplay = true } }
-    var arrowHead: ArrowHead = .triangle { didSet { needsDisplay = true } }
+    var arrowHead: ArrowHead = .chevron { didSet { needsDisplay = true } }
     /// Which extra controls to show: dash toggle (line/arrow/rect/ellipse) and head picker (arrow only).
     var showsDash: Bool = true { didSet { relayout() } }
     var showsHead: Bool = false { didSet { relayout() } }
@@ -789,7 +789,9 @@ final class StrokeOptionsView: NSView {
                 NSColor.white.setFill()
                 if i == 0 {
                     let t = NSBezierPath()
-                    t.move(to: NSPoint(x: r.midX + 7, y: r.midY)); t.line(to: NSPoint(x: r.midX - 6, y: r.midY + 6)); t.line(to: NSPoint(x: r.midX - 6, y: r.midY - 6)); t.close(); t.fill()
+                    t.move(to: NSPoint(x: r.midX - 4, y: r.midY + 7)); t.line(to: NSPoint(x: r.midX + 4, y: r.midY)); t.line(to: NSPoint(x: r.midX - 4, y: r.midY - 7))
+                    t.lineWidth = 2.4; t.lineCapStyle = .round; t.lineJoinStyle = .round
+                    NSColor.white.setStroke(); t.stroke()
                 } else {
                     NSBezierPath(ovalIn: NSRect(x: r.midX - 6, y: r.midY - 6, width: 12, height: 12)).fill()
                 }
@@ -814,7 +816,7 @@ final class StrokeOptionsView: NSView {
         switch i {
         case 0...2: lineWidth = Self.widths[i]; onChange?(lineWidth)
         case 10: dashed.toggle(); onDashed?(dashed)
-        case 20, 21: arrowHead = ArrowHead(rawValue: i - 20) ?? .triangle; onArrowHead?(arrowHead)
+        case 20, 21: arrowHead = ArrowHead(rawValue: i - 20) ?? .chevron; onArrowHead?(arrowHead)
         default: break
         }
     }
