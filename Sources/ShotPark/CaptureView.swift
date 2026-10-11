@@ -33,7 +33,13 @@ final class CaptureView: NSView, NSTextViewDelegate {
     /// Index of the annotation highlighted for move / delete (selection tool).
     /// Rotation of a text annotation being re-edited (the editor itself is always upright).
     private var editingRotation: CGFloat = 0
-    private var selectedShape: Int? { didSet { needsDisplay = true; window?.invalidateCursorRects(for: self) } }
+    private var selectedShape: Int? {
+        didSet {
+            needsDisplay = true
+            window?.invalidateCursorRects(for: self)
+            if oldValue != selectedShape { syncOptionBars(); layoutToolbar() }
+        }
+    }
     /// Window frames (view coords, front to back) for click-to-select-window.
     var windowFrames: [CGRect] = []
     private var hoverWindowRect: CGRect?
@@ -109,6 +115,7 @@ final class CaptureView: NSView, NSTextViewDelegate {
             guard let self else { return }
             self.color = c
             self.palette.isHidden = true
+            if self.applyToSelection({ $0.color = c }) { return }   // recolour the selected annotation
             if self.tool == .move { self.tool = .pen }
         }
         addSubview(palette)
@@ -118,21 +125,21 @@ final class CaptureView: NSView, NSTextViewDelegate {
         textOptions.style = textStyle
         textOptions.boxColor = boxColor
         textOptions.boxAlpha = boxAlpha
-        textOptions.onSize = { [weak self] in self?.textSize = $0 }
-        textOptions.onStyle = { [weak self] in self?.textStyle = $0 }
-        textOptions.onBoxColor = { [weak self] in self?.boxColor = $0 }
-        textOptions.onBoxAlpha = { [weak self] in self?.boxAlpha = $0 }
+        textOptions.onSize = { [weak self] v in self?.textSize = v; self?.applyToSelection { if $0.tool == .text || $0.tool == .number { $0.fontSize = v } } }
+        textOptions.onStyle = { [weak self] v in self?.textStyle = v; self?.applyToSelection { if $0.tool == .text { $0.textStyle = v } } }
+        textOptions.onBoxColor = { [weak self] v in self?.boxColor = v; self?.applyToSelection { if $0.tool == .text { $0.boxColor = v } } }
+        textOptions.onBoxAlpha = { [weak self] v in self?.boxAlpha = v; self?.applyToSelection { if $0.tool == .text { $0.boxAlpha = v } } }
         textOptions.onResize = { [weak self] in self?.layoutToolbar() }
         addSubview(textOptions)
 
         strokeOptions.isHidden = true
         strokeOptions.lineWidth = lineWidth
         strokeOptions.color = color
-        strokeOptions.onChange = { [weak self] in self?.lineWidth = $0 }
+        strokeOptions.onChange = { [weak self] v in self?.lineWidth = v; self?.applyToSelection { if Self.strokeTools.contains($0.tool) { $0.lineWidth = v } } }
         strokeOptions.dashed = dashed
         strokeOptions.arrowHead = arrowHead
-        strokeOptions.onDashed = { [weak self] in self?.dashed = $0 }
-        strokeOptions.onArrowHead = { [weak self] in self?.arrowHead = $0 }
+        strokeOptions.onDashed = { [weak self] v in self?.dashed = v; self?.applyToSelection { if Self.strokeTools.contains($0.tool) { $0.dashed = v } } }
+        strokeOptions.onArrowHead = { [weak self] v in self?.arrowHead = v; self?.applyToSelection { if $0.tool == .arrow { $0.arrowHead = v } } }
         addSubview(strokeOptions)
 
         emojiOptions.isHidden = true
@@ -424,16 +431,71 @@ final class CaptureView: NSView, NSTextViewDelegate {
             v.frame = NSRect(x: min(toolbar.frame.minX, bounds.width - w - 4), y: y, width: w, height: h)
             nextY = below ? y - 6 : y + h + 6
         }
-        textOptions.isHidden = !(tool == .text || tool == .number)
-        if tool == .text || tool == .number { place(textOptions) }
-        let drawing: Set<Tool> = [.pen, .line, .arrow, .rect, .ellipse, .marker]
-        strokeOptions.isHidden = !drawing.contains(tool)
-        strokeOptions.showsDash = [.line, .arrow, .rect, .ellipse].contains(tool)
-        strokeOptions.showsHead = tool == .arrow
-        if drawing.contains(tool) { place(strokeOptions) }
+        // With an annotation selected, the bars show (and edit) that annotation's settings.
+        let ot = optionsTool
+        textOptions.isHidden = !(ot == .text || ot == .number)
+        if ot == .text || ot == .number { place(textOptions) }
+        let drawing = Self.strokeTools
+        strokeOptions.isHidden = !drawing.contains(ot)
+        strokeOptions.showsDash = [.line, .arrow, .rect, .ellipse].contains(ot)
+        strokeOptions.showsHead = ot == .arrow
+        if drawing.contains(ot) { place(strokeOptions) }
         emojiOptions.isHidden = tool != .emoji
         if tool == .emoji { place(emojiOptions) }
         place(palette)
+    }
+
+    static let strokeTools: Set<Tool> = [.pen, .line, .arrow, .rect, .ellipse, .marker]
+
+    /// The selected annotation, when the options bars should edit it (select or text tool).
+    private var editableSelection: Int? {
+        guard tool == .move || tool == .text, let i = selectedShape, i < shapes.count else { return nil }
+        return i
+    }
+
+    /// Which tool's option bars to show: the selected annotation's kind, otherwise the current tool.
+    private var optionsTool: Tool {
+        if let i = editableSelection { return shapes[i].tool }
+        return tool
+    }
+
+    /// Applies a change to the selected annotation. Returns false when nothing is selected.
+    @discardableResult
+    private func applyToSelection(_ change: (inout Shape) -> Void) -> Bool {
+        guard let i = editableSelection else { return false }
+        change(&shapes[i])
+        needsDisplay = true
+        return true
+    }
+
+    /// Show the selected annotation's own width / dash / head / colour / text settings in the bars,
+    /// or the current defaults when nothing is selected.
+    private func syncOptionBars() {
+        if let i = editableSelection {
+            let sh = shapes[i]
+            strokeOptions.lineWidth = sh.lineWidth
+            strokeOptions.dashed = sh.dashed
+            strokeOptions.arrowHead = sh.arrowHead
+            strokeOptions.color = sh.color
+            if sh.tool == .text || sh.tool == .number { textOptions.fontSize = sh.fontSize }
+            if sh.tool == .text {
+                textOptions.style = sh.textStyle
+                textOptions.boxColor = sh.boxColor
+                textOptions.boxAlpha = sh.boxAlpha
+            }
+            if sh.tool != .emoji { palette.selected = sh.color; toolbar.currentColor = sh.color }
+        } else {
+            strokeOptions.lineWidth = lineWidth
+            strokeOptions.dashed = dashed
+            strokeOptions.arrowHead = arrowHead
+            strokeOptions.color = color
+            textOptions.fontSize = textSize
+            textOptions.style = textStyle
+            textOptions.boxColor = boxColor
+            textOptions.boxAlpha = boxAlpha
+            palette.selected = color
+            toolbar.currentColor = color
+        }
     }
 
     // MARK: toolbar actions
@@ -1394,6 +1456,13 @@ extension CaptureView {
     /// Returns a list of "PASS …" / "FAIL …" lines.
     func runSelfTest() -> [String] {
         var out: [String] = []
+        // The test drives the real UI, which saves tool settings; put the user's settings back afterwards.
+        let ud = UserDefaults.standard
+        let savedPrefs = ud.dictionaryRepresentation().filter { $0.key.hasPrefix("annotation") || $0.key.hasPrefix("stamp") || $0.key.hasPrefix("text") || $0.key.hasPrefix("recent") }
+        defer {
+            for (k, _) in ud.dictionaryRepresentation() where (k.hasPrefix("annotation") || k.hasPrefix("stamp") || k.hasPrefix("text") || k.hasPrefix("recent")) && savedPrefs[k] == nil { ud.removeObject(forKey: k) }
+            for (k, v) in savedPrefs { ud.set(v, forKey: k) }
+        }
         func check(_ name: String, _ ok: Bool, _ detail: String = "") { out.append((ok ? "PASS " : "FAIL ") + name + (detail.isEmpty ? "" : "  [\(detail)]")) }
         let H = bounds.height, W = bounds.width
         let fakeWindow = CGRect(x: 0, y: 0, width: W, height: H) // a full-screen "window" under the cursor everywhere
@@ -1518,6 +1587,26 @@ extension CaptureView {
             check("rotation reset", shapes[i].rotation == 0)
         }
         key(53)
+
+        // 5e. edit a placed rectangle's width / dash / colour through the option bars
+        tool = .rect
+        dragFrom(CGPoint(x: 150, y: H - 150), to: CGPoint(x: 260, y: H - 230))
+        if let i = shapes.indices.last, shapes[i].tool == .rect {
+            tool = .move
+            selectedShape = i
+            check("selected shape shows stroke bar", !strokeOptions.isHidden)
+            let saved = (color, lineWidth, dashed)
+            defer { color = saved.0; lineWidth = saved.1; dashed = saved.2 }
+            let target = shapes[i].lineWidth == 7 ? CGFloat(2) : 7
+            let wasDashed = shapes[i].dashed
+            strokeOptions.onChange?(target)
+            strokeOptions.onDashed?(!wasDashed)
+            palette.onPick?(.systemGreen)
+            check("width applies to selected shape", shapes[i].lineWidth == target)
+            check("dash applies to selected shape", shapes[i].dashed != wasDashed)
+            check("colour applies to selected shape (tool stays select)", shapes[i].color == .systemGreen && tool == .move)
+        } else { check("rect for option-bar test", false) }
+        selectedShape = nil
 
         // 6. click outside with annotations → idle and annotations cleared
         click(CGPoint(x: 20, y: 20))
