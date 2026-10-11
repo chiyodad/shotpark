@@ -57,6 +57,7 @@ If you used Lightshot or PicPick on Windows, you already know how it works: hotk
 - `⌘C` or `Enter` copies to the clipboard and closes.
 - `⌘S` saves a PNG (`shotpark-yyyyMMdd-HHmmss.png`) straight into your chosen folder (or shows a save dialog); click the toast to reveal it in Finder. Optionally also copy on save / also save on copy.
 - **Share** (`⌘⇧S`): straight to Claude · ChatGPT · Gemini · Slack · KakaoTalk (ChatGPT / Gemini fall back to the web app when the desktop app isn't installed), or the macOS share sheet (Mail, Messages, AirDrop, Notes…).
+- **Clipboard images** (`⌘⇧8`): the last 30 images you copied — from ShotPark or any other app — in a thumbnail grid. Click or `↩` to copy one again, drag it into another app, right-click to save / show in Finder / remove. Stored only on your Mac; items marked as concealed (password managers) are skipped; turn it off or clear it in Settings.
 
 **And**
 - Menu-bar only (no Dock icon), optional launch at login, English or Korean UI following your macOS language.
@@ -116,6 +117,7 @@ Needs only the Xcode Command Line Tools (`xcode-select --install`). `./build.sh`
 | Action | Keys |
 |---|---|
 | Start a region capture | `⌘⇧9` (default, change in Settings) · menu bar icon → Capture Region |
+| Clipboard images | `⌘⇧8` · menu bar icon → Clipboard Images |
 | Select the whole screen | `⌘A` |
 | Pen / line / arrow / rectangle / ellipse / marker / text / number / emoji / eraser | `P` / `L` / `A` / `R` / `E` / `M` / `T` / `N` / `S` / `X` |
 | Select (move / resize) mode | `V` or click the active tool again |

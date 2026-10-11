@@ -230,9 +230,10 @@ final class SettingsWindowController: NSWindowController {
     private let saveCopiesCheckbox = NSButton(checkboxWithTitle: L("⌘S 저장할 때 클립보드에도 복사", "⌘S also copies to the clipboard"), target: nil, action: nil)
     private let copySavesCheckbox = NSButton(checkboxWithTitle: L("⌘C 복사할 때 저장 폴더에도 PNG 저장", "⌘C also saves a PNG to the folder"), target: nil, action: nil)
     private var colorWells: [NSColorWell] = []
+    private let historyCheckbox = NSButton(checkboxWithTitle: L("복사한 이미지 기록 (최근 30개, ⌘⇧8로 보기)", "Keep copied images (last 30, open with ⌘⇧8)"), target: nil, action: nil)
 
     private init() {
-        let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: L10n.isKorean ? 480 : 520, height: 344),
+        let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: L10n.isKorean ? 480 : 520, height: 420),
                               styleMask: [.titled, .closable], backing: .buffered, defer: false)
         window.title = L("ShotPark 설정", "ShotPark Settings")
         window.isReleasedWhenClosed = false
@@ -320,6 +321,20 @@ final class SettingsWindowController: NSWindowController {
         paletteHint.textColor = .secondaryLabelColor
         paletteHint.preferredMaxLayoutWidth = L10n.isKorean ? 330 : 340
 
+        historyCheckbox.target = self
+        historyCheckbox.action = #selector(toggleHistory)
+        historyCheckbox.font = .systemFont(ofSize: 12)
+        let historyClear = NSButton(title: L("기록 지우기", "Clear"), target: self, action: #selector(clearHistory))
+        historyClear.bezelStyle = .rounded
+        historyClear.controlSize = .small
+        let historyRow = NSStackView(views: [historyCheckbox, historyClear])
+        historyRow.spacing = 8
+        historyRow.alignment = .centerY
+        let historyHint = NSTextField(wrappingLabelWithString: L("다른 앱에서 복사한 이미지도 포함되며, 내 맥에만 저장됩니다. 비밀번호 관리자처럼 숨김 표시된 항목은 기록하지 않습니다.", "Includes images copied in other apps; stored only on this Mac. Items marked as concealed (e.g. by password managers) are skipped."))
+        historyHint.font = .systemFont(ofSize: 11)
+        historyHint.textColor = .secondaryLabelColor
+        historyHint.preferredMaxLayoutWidth = L10n.isKorean ? 330 : 340
+
         let grid = NSGridView(views: [
             [label(L("캡처 단축키", "Capture hotkey")), hotkeyRow],
             [NSGridCell.emptyContentView, hotkeyHint],
@@ -329,6 +344,8 @@ final class SettingsWindowController: NSWindowController {
             [NSGridCell.emptyContentView, copySavesCheckbox],
             [label(L("주석 색상", "Palette")), paletteRow],
             [NSGridCell.emptyContentView, paletteHint],
+            [label(L("클립보드", "Clipboard")), historyRow],
+            [NSGridCell.emptyContentView, historyHint],
         ])
         grid.rowSpacing = 10
         grid.columnSpacing = 12
@@ -340,6 +357,8 @@ final class SettingsWindowController: NSWindowController {
         grid.row(at: 2).yPlacement = .center
         grid.row(at: 6).yPlacement = .center
         grid.row(at: 6).topPadding = 6
+        grid.row(at: 8).yPlacement = .center
+        grid.row(at: 8).topPadding = 6
         grid.translatesAutoresizingMaskIntoConstraints = false
         content.addSubview(grid)
 
@@ -373,6 +392,7 @@ final class SettingsWindowController: NSWindowController {
         directCheckbox.state = Settings.saveDirectly ? .on : .off
         saveCopiesCheckbox.state = Settings.saveAlsoCopies ? .on : .off
         copySavesCheckbox.state = Settings.copyAlsoSaves ? .on : .off
+        historyCheckbox.state = ClipboardHistory.isEnabled ? .on : .off
         let palette = Preferences.palette
         for (i, well) in colorWells.enumerated() where i < palette.count { well.color = palette[i] }
     }
@@ -392,6 +412,11 @@ final class SettingsWindowController: NSWindowController {
 
     @objc private func toggleSaveCopies() { Settings.saveAlsoCopies = saveCopiesCheckbox.state == .on }
     @objc private func toggleCopySaves() { Settings.copyAlsoSaves = copySavesCheckbox.state == .on }
+    @objc private func toggleHistory() { ClipboardHistory.isEnabled = historyCheckbox.state == .on }
+    @objc private func clearHistory() {
+        ClipboardHistory.shared.clear()
+        Toast.show(L("클립보드 이미지 기록을 지웠습니다", "Clipboard image history cleared"), duration: 1.4)
+    }
 
     @objc private func resetHotKey() {
         Settings.hotKey = .default

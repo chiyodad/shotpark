@@ -5,6 +5,7 @@ import ServiceManagement
 final class AppDelegate: NSObject, NSApplicationDelegate {
     private var statusItem: NSStatusItem!
     private var hotKey: HotKey?
+    private var historyHotKey: HotKey?
     private var session: CaptureSession?
     private var loginItem: NSMenuItem!
     private var captureItem: NSMenuItem!
@@ -14,6 +15,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         setupMainMenu()
         setupStatusItem()
         registerHotKey()
+        historyHotKey = HotKey(id: 2, keyCode: UInt32(kVK_ANSI_8), modifiers: UInt32(cmdKey | shiftKey)) {
+            ClipboardHistoryWindowController.shared.toggle()
+        }
+        if ProcessInfo.processInfo.environment["SHOTPARK_SELFTEST"] != "1" { ClipboardHistory.shared.start() }
 
         NotificationCenter.default.addObserver(forName: .settingsChanged, object: nil, queue: .main) { [weak self] _ in
             self?.registerHotKey()
@@ -51,6 +56,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         if env["SHOTPARK_SETTINGS"] == "1" {
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { self.openSettings() }
+        }
+        if env["SHOTPARK_CLIPTEST"] == "1", env["SHOTPARK_CLIPDIR"] != nil {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { self.runClipboardTest() }
+            return
         }
         if env["SHOTPARK_PANELTEST"] == "1" {
             // Opens the "+ Add image" panel during a capture and reports which windows are on top.
@@ -206,6 +215,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         captureItem = NSMenuItem(title: L("영역 캡처", "Capture Region"), action: #selector(captureAction), keyEquivalent: "")
         captureItem.target = self
         menu.addItem(captureItem)
+        let history = NSMenuItem(title: L("클립보드 이미지", "Clipboard Images"), action: #selector(openClipboardHistory), keyEquivalent: "8")
+        history.keyEquivalentModifierMask = [.command, .shift]
+        history.target = self
+        menu.addItem(history)
         menu.addItem(.separator())
 
         let settings = NSMenuItem(title: L("설정… (단축키 · 저장 폴더)", "Settings… (Hotkey · Save Folder)"), action: #selector(openSettings), keyEquivalent: ",")
@@ -239,6 +252,76 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         menu.delegate = self
         statusItem.menu = menu
+    }
+
+    /// SHOTPARK_CLIPTEST=1 SHOTPARK_CLIPDIR=/tmp/x — exercises clipboard history in a scratch folder,
+    /// restores the user's clipboard, leaves the window up for 5 s (prints its window number), then quits.
+    private func runClipboardTest() {
+        let pb = NSPasteboard.general
+        let savedItems: [[NSPasteboard.PasteboardType: Data]] = (pb.pasteboardItems ?? []).map { item in
+            var d: [NSPasteboard.PasteboardType: Data] = [:]
+            for t in item.types { if let v = item.data(forType: t) { d[t] = v } }
+            return d
+        }
+        func restoreClipboard() {
+            pb.clearContents()
+            let items = savedItems.map { d -> NSPasteboardItem in let it = NSPasteboardItem(); d.forEach { it.setData($1, forType: $0) }; return it }
+            if !items.isEmpty { pb.writeObjects(items) }
+        }
+        var out: [String] = []
+        func check(_ n: String, _ ok: Bool, _ d: String = "") { out.append((ok ? "PASS " : "FAIL ") + n + (d.isEmpty ? "" : "  [\(d)]")) }
+        func make(_ c: NSColor, _ w: CGFloat, _ h: CGFloat, _ label: String) -> NSImage {
+            NSImage(size: NSSize(width: w, height: h), flipped: false) { r in
+                c.setFill(); r.fill()
+                NSAttributedString(string: label, attributes: [.font: NSFont.boldSystemFont(ofSize: h / 4), .foregroundColor: NSColor.white]).draw(at: NSPoint(x: 12, y: h / 3))
+                return true
+            }
+        }
+        let h = ClipboardHistory.shared
+        h.clear()
+        h.start()
+        let colors: [NSColor] = [.systemBlue, .systemPink, .systemGreen, .systemOrange, .systemPurple]
+        for (i, c) in colors.enumerated() {
+            Exporter.copy(make(c, CGFloat(300 + i * 60), 180, "Sample \(i + 1)"))
+            h.poll()
+        }
+        check("records copied images", h.entries.count == colors.count, "\(h.entries.count)")
+        let first = h.entries.first
+        Exporter.copy(make(.systemPurple, 540, 180, "Sample 5")); h.poll()
+        check("same image is not duplicated", h.entries.count == colors.count && h.entries.first?.hash == first?.hash)
+        pb.clearContents()
+        let secret = NSPasteboardItem()
+        if let png = Exporter.pngData(make(.black, 100, 100, "x")) { secret.setData(png, forType: .png) }
+        secret.setData(Data(), forType: NSPasteboard.PasteboardType("org.nspasteboard.ConcealedType"))
+        pb.writeObjects([secret]); h.poll()
+        check("concealed items are skipped", h.entries.count == colors.count)
+        pb.clearContents(); pb.setString("hello", forType: .string); h.poll()
+        check("text is ignored", h.entries.count == colors.count)
+        if let last = h.entries.last {
+            h.copyToClipboard(last); h.poll()
+            check("copy back moves to front, no duplicate", h.entries.first?.name == last.name && h.entries.count == colors.count)
+        }
+        h.stop()
+        restoreClipboard()
+        ClipboardHistoryWindowController.shared.show()
+        check("window shows", ClipboardHistoryWindowController.shared.window?.isVisible == true)
+        out.forEach { print($0) }
+        print(out.contains { $0.hasPrefix("FAIL") } ? "SOME FAILED" : "ALL PASS (\(out.count))")
+        print("WINDOW \(ClipboardHistoryWindowController.shared.window?.windowNumber ?? 0)")
+        fflush(stdout)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
+            if let v = ClipboardHistoryWindowController.shared.window?.contentView?.superview,
+               let rep = v.bitmapImageRepForCachingDisplay(in: v.bounds) {
+                v.cacheDisplay(in: v.bounds, to: rep)
+                try? rep.representation(using: .png, properties: [:])?.write(to: URL(fileURLWithPath: "/tmp/sp-clip-window.png"))
+                print("RENDERED")
+            }
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 5) { h.clear(); exit(0) }
+    }
+
+    @objc private func openClipboardHistory() {
+        ClipboardHistoryWindowController.shared.show()
     }
 
     @objc private func captureAction() {
