@@ -23,11 +23,16 @@ struct TextStyles: OptionSet, Equatable {
     }
 }
 
+enum ArrowHead: Int { case triangle = 0, circle = 1 }
+
 struct Shape {
     var tool: Tool
     var points: [CGPoint]
     var color: NSColor
     var lineWidth: CGFloat
+    /// Dashed stroke (line / arrow / rect / ellipse). Pen and marker ignore it.
+    var dashed: Bool = false
+    var arrowHead: ArrowHead = .triangle
     var text: String = ""
     var fontSize: CGFloat = 20
     var textStyle: TextStyles = .shadow
@@ -183,6 +188,10 @@ enum ShapeRenderer {
         ctx.setStrokeColor(s.color.cgColor)
         ctx.setFillColor(s.color.cgColor)
         ctx.setLineWidth(s.lineWidth)
+        if s.dashed, [.line, .arrow, .rect, .ellipse].contains(s.tool) {
+            // dash/gap scale with the stroke so thin and thick lines look balanced
+            ctx.setLineDash(phase: 0, lengths: [s.lineWidth * 3, s.lineWidth * 2])
+        }
 
         switch s.tool {
         case .move:
@@ -218,20 +227,38 @@ enum ShapeRenderer {
             let dx = end.x - start.x, dy = end.y - start.y
             let len = max(sqrt(dx * dx + dy * dy), 0.001)
             let ux = dx / len, uy = dy / len
-            let headLen = max(14, s.lineWidth * 4.5)
-            let headWidth = headLen * 0.6
-            let base = CGPoint(x: end.x - ux * headLen, y: end.y - uy * headLen)
-            let px = -uy * headWidth, py = ux * headWidth
-            ctx.beginPath()
-            ctx.move(to: start)
-            ctx.addLine(to: CGPoint(x: end.x - ux * headLen * 0.6, y: end.y - uy * headLen * 0.6))
-            ctx.strokePath()
-            ctx.beginPath()
-            ctx.move(to: end)
-            ctx.addLine(to: CGPoint(x: base.x + px, y: base.y + py))
-            ctx.addLine(to: CGPoint(x: base.x - px, y: base.y - py))
-            ctx.closePath()
-            ctx.fillPath()
+            switch s.arrowHead {
+            case .triangle:
+                // Bigger, more visible head that still scales with the stroke width (얇게/보통/굵게).
+                let headLen = max(20, s.lineWidth * 5.5)
+                let headWidth = headLen * 0.7
+                let base = CGPoint(x: end.x - ux * headLen, y: end.y - uy * headLen)
+                let px = -uy * headWidth, py = ux * headWidth
+                ctx.beginPath()
+                ctx.move(to: start)
+                ctx.addLine(to: CGPoint(x: end.x - ux * headLen * 0.6, y: end.y - uy * headLen * 0.6))
+                ctx.strokePath()
+                ctx.setLineDash(phase: 0, lengths: [])
+                ctx.beginPath()
+                ctx.move(to: end)
+                ctx.addLine(to: CGPoint(x: base.x + px, y: base.y + py))
+                ctx.addLine(to: CGPoint(x: base.x - px, y: base.y - py))
+                ctx.closePath()
+                ctx.fillPath()
+            case .circle:
+                // A filled dot with a thin white ring: a "pointer" that marks an exact spot.
+                let r = max(7, s.lineWidth * 1.9)
+                ctx.beginPath()
+                ctx.move(to: start)
+                ctx.addLine(to: CGPoint(x: end.x - ux * r * 0.6, y: end.y - uy * r * 0.6))
+                ctx.strokePath()
+                ctx.setLineDash(phase: 0, lengths: [])
+                let dot = CGRect(x: end.x - r, y: end.y - r, width: r * 2, height: r * 2)
+                ctx.fillEllipse(in: dot)
+                ctx.setStrokeColor(NSColor.white.cgColor)
+                ctx.setLineWidth(max(1.2, s.lineWidth * 0.35))
+                ctx.strokeEllipse(in: dot.insetBy(dx: 0.5, dy: 0.5))
+            }
 
         case .rect:
             ctx.stroke(s.rect)

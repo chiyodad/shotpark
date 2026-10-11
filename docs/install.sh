@@ -9,11 +9,6 @@ APP="ShotPark.app"
 DEST="/Applications"
 
 if [ "$(uname -s)" != "Darwin" ]; then echo "ShotPark is a macOS app."; exit 1; fi
-if [ "$(uname -m)" != "arm64" ]; then
-  echo "The prebuilt release is Apple Silicon only. On Intel, build from source:"
-  echo "  git clone https://github.com/$REPO.git && cd shotpark && ./build.sh --install"
-  exit 1
-fi
 
 echo "▶ Finding the latest ShotPark release…"
 URL=$(curl -fsSL "https://api.github.com/repos/$REPO/releases/latest" \

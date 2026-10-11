@@ -8,6 +8,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var session: CaptureSession?
     private var loginItem: NSMenuItem!
     private var captureItem: NSMenuItem!
+    private var updateItem: NSMenuItem!
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         setupMainMenu()
@@ -17,6 +18,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         NotificationCenter.default.addObserver(forName: .settingsChanged, object: nil, queue: .main) { [weak self] _ in
             self?.registerHotKey()
         }
+        NotificationCenter.default.addObserver(forName: .updateAvailabilityChanged, object: nil, queue: .main) { [weak self] _ in
+            self?.refreshUpdateItem()
+        }
+        if ProcessInfo.processInfo.environment["SHOTPARK_SELFTEST"] != "1" { UpdateChecker.shared.checkDailyIfNeeded() }
 
         if !ScreenCapture.hasPermission() {
             // Triggers the system prompt + adds the app to the Screen Recording list.
@@ -43,15 +48,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         if env["SHOTPARK_SELFTEST"] == "1" {
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { self.startCapture() }
-            DispatchQueue.main.asyncAfter(deadline: .now() + 2.5) { [weak self] in
-                guard let view = self?.session?.primaryView else { print("FAIL no capture view (permission?)"); exit(2) }
+            // Poll until the overlay is up (capture + windows can take a moment), then run.
+            var tries = 0
+            func attempt() {
+                tries += 1
+                guard let view = self.session?.primaryView, view.window?.isVisible == true else {
+                    if tries < 20 { DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { attempt() }; return }
+                    print("FAIL no capture view (permission?)"); exit(2)
+                }
                 let results = view.runSelfTest()
                 results.forEach { print($0) }
                 let failed = results.filter { $0.hasPrefix("FAIL") }.count
                 print(failed == 0 ? "ALL PASS (\(results.count))" : "\(failed) FAILED")
-                self?.session?.cancel()
+                self.session?.cancel()
                 exit(failed == 0 ? 0 : 1)
             }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { attempt() }
             return
         }
         guard let spec = env["SHOTPARK_DEMO"] else { return }
@@ -155,6 +167,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
 
         let menu = NSMenu()
+        // Appears only when GitHub has a newer release (checked once a day).
+        updateItem = NSMenuItem(title: "", action: #selector(openReleases), keyEquivalent: "")
+        updateItem.target = self
+        updateItem.isHidden = true
+        menu.addItem(updateItem)
         captureItem = NSMenuItem(title: L("영역 캡처", "Capture Region"), action: #selector(captureAction), keyEquivalent: "")
         captureItem.target = self
         menu.addItem(captureItem)
@@ -177,6 +194,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         menu.addItem(perm)
         menu.addItem(.separator())
 
+        let check = NSMenuItem(title: L("업데이트 확인…", "Check for Updates…"), action: #selector(checkForUpdates), keyEquivalent: "")
+        check.target = self
+        menu.addItem(check)
         let about = NSMenuItem(title: L("ShotPark 정보", "About ShotPark"), action: #selector(showAbout), keyEquivalent: "")
         about.target = self
         menu.addItem(about)
@@ -194,6 +214,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     @objc private func openSettings() {
         SettingsWindowController.shared.show()
+    }
+
+    @objc private func checkForUpdates() { UpdateChecker.shared.check(userInitiated: true) }
+    @objc private func openReleases() { NSWorkspace.shared.open(UpdateChecker.releasesURL) }
+
+    private func refreshUpdateItem() {
+        if let v = UpdateChecker.shared.availableVersion {
+            updateItem.title = L("⬆︎ ShotPark \(v) 업데이트 받기", "⬆︎ Update to ShotPark \(v)")
+            updateItem.isHidden = false
+        } else {
+            updateItem.isHidden = true
+        }
     }
 
     @objc private func openSaveFolder() {
@@ -220,7 +252,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let alert = NSAlert()
         alert.messageText = "ShotPark"
         alert.informativeText = L10n.isKorean ? """
-        가벼운 네이티브 Apple Silicon 영역 캡처 도구
+        가벼운 맥 네이티브 영역 캡처 도구 (Apple Silicon · Intel)
 
         \(Settings.hotKey.display)  영역 캡처 시작 (설정에서 변경 가능)
         드래그  영역 선택 · 핸들로 크기 조절 · 안쪽 드래그로 이동
@@ -230,7 +262,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         저장 폴더: \((Settings.saveFolder.path as NSString).abbreviatingWithTildeInPath)
         """ : """
-        A lightweight native Apple Silicon region capture tool — a Lightshot alternative for Mac
+        A lightweight native Mac region capture tool (Apple Silicon · Intel) — a Lightshot / PicPick alternative
 
         \(Settings.hotKey.display)  start a region capture (change it in Settings)
         Drag to select · handles to resize · drag inside to move

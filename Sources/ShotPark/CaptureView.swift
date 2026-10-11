@@ -51,6 +51,12 @@ final class CaptureView: NSView, NSTextViewDelegate {
     var lineWidth: CGFloat = Preferences.lineWidth {
         didSet { strokeOptions.lineWidth = lineWidth; Preferences.lineWidth = lineWidth }
     }
+    var dashed: Bool = Preferences.dashed {
+        didSet { strokeOptions.dashed = dashed; Preferences.dashed = dashed }
+    }
+    var arrowHead: ArrowHead = Preferences.arrowHead {
+        didSet { strokeOptions.arrowHead = arrowHead; Preferences.arrowHead = arrowHead }
+    }
 
     private let toolbar = ToolbarView()
     private let palette = ColorPaletteView()
@@ -115,6 +121,10 @@ final class CaptureView: NSView, NSTextViewDelegate {
         strokeOptions.lineWidth = lineWidth
         strokeOptions.color = color
         strokeOptions.onChange = { [weak self] in self?.lineWidth = $0 }
+        strokeOptions.dashed = dashed
+        strokeOptions.arrowHead = arrowHead
+        strokeOptions.onDashed = { [weak self] in self?.dashed = $0 }
+        strokeOptions.onArrowHead = { [weak self] in self?.arrowHead = $0 }
         addSubview(strokeOptions)
 
         emojiOptions.isHidden = true
@@ -319,6 +329,8 @@ final class CaptureView: NSView, NSTextViewDelegate {
         if tool == .text || tool == .number { place(textOptions) }
         let drawing: Set<Tool> = [.pen, .line, .arrow, .rect, .ellipse, .marker]
         strokeOptions.isHidden = !drawing.contains(tool)
+        strokeOptions.showsDash = [.line, .arrow, .rect, .ellipse].contains(tool)
+        strokeOptions.showsHead = tool == .arrow
         if drawing.contains(tool) { place(strokeOptions) }
         emojiOptions.isHidden = tool != .emoji
         if tool == .emoji { place(emojiOptions) }
@@ -462,7 +474,7 @@ final class CaptureView: NSView, NSTextViewDelegate {
                     needsDisplay = true
                     return
                 }
-                currentShape = Shape(tool: tool, points: [p, p], color: color, lineWidth: lineWidth)
+                currentShape = Shape(tool: tool, points: [p, p], color: color, lineWidth: lineWidth, dashed: dashed, arrowHead: arrowHead)
                 drag = .draw
                 needsDisplay = true
                 return
@@ -1017,6 +1029,16 @@ enum Preferences {
         }
         set { UserDefaults.standard.set(newValue.rawValue, forKey: textStyleKey) }
     }
+    private static let dashedKey = "annotationDashed"
+    private static let arrowHeadKey = "annotationArrowHead"
+    static var dashed: Bool {
+        get { UserDefaults.standard.bool(forKey: dashedKey) }
+        set { UserDefaults.standard.set(newValue, forKey: dashedKey) }
+    }
+    static var arrowHead: ArrowHead {
+        get { ArrowHead(rawValue: UserDefaults.standard.integer(forKey: arrowHeadKey)) ?? .triangle }
+        set { UserDefaults.standard.set(newValue.rawValue, forKey: arrowHeadKey) }
+    }
     private static let lineWidthKey = "annotationLineWidth"
     static var lineWidth: CGFloat {
         get { let v = UserDefaults.standard.double(forKey: lineWidthKey); return v > 0 ? CGFloat(v) : 4 }
@@ -1117,7 +1139,13 @@ extension CaptureView {
         windowFrames = [fakeWindow]
 
         // 1. drag-select a region
-        dragFrom(CGPoint(x: 100, y: H - 100), to: CGPoint(x: 400, y: H - 300))
+        out.append("INFO bounds=\(bounds) win=\(window?.frame ?? .zero) key=\(window?.isKeyWindow ?? false) screens=\(NSScreen.screens.map { $0.frame })")
+        mouseDown(with: ev(.leftMouseDown, CGPoint(x: 100, y: H - 100)))
+        out.append("INFO after down: state=\(state) sel=\(selection)")
+        mouseDragged(with: ev(.leftMouseDragged, CGPoint(x: 400, y: H - 300)))
+        out.append("INFO after drag: state=\(state) sel=\(selection)")
+        mouseUp(with: ev(.leftMouseUp, CGPoint(x: 400, y: H - 300)))
+        out.append("INFO after up: state=\(state) sel=\(selection)")
         check("drag selects region", state == .selected && selection.width == 300 && selection.height == 200, "\(selection)")
 
         // 2. BUG: click outside selection must clear it, not grab the (full-screen) window under the cursor
@@ -1161,6 +1189,22 @@ extension CaptureView {
         let ec = emojiCursor()
         check("emoji cursor built", ec.image.size.width >= 24)
         key(53)
+
+        // 5b. dashed + circle-head arrow, then back to defaults
+        tool = .arrow
+        dashed = true; arrowHead = .circle
+        dragFrom(CGPoint(x: 150, y: H - 300), to: CGPoint(x: 350, y: H - 350))
+        check("dashed circle-head arrow placed", shapes.last?.tool == .arrow && shapes.last?.dashed == true && shapes.last?.arrowHead == .circle)
+        check("dash/head remembered in prefs", Preferences.dashed == true && Preferences.arrowHead == .circle)
+        tool = .rect
+        dragFrom(CGPoint(x: 150, y: H - 380), to: CGPoint(x: 250, y: H - 420))
+        check("dashed rect placed", shapes.last?.tool == .rect && shapes.last?.dashed == true)
+        dashed = false; arrowHead = .triangle
+        tool = .line
+        dragFrom(CGPoint(x: 300, y: H - 300), to: CGPoint(x: 450, y: H - 350))
+        check("solid line after toggling off", shapes.last?.tool == .line && shapes.last?.dashed == false)
+        key(53)
+        check("version compare", UpdateChecker.isNewer("1.10.0", than: "1.9.2") && !UpdateChecker.isNewer("1.9.2", than: "1.9.2") && !UpdateChecker.isNewer("1.9.1", than: "1.9.2"))
 
         // 6. click outside with annotations → idle and annotations cleared
         click(CGPoint(x: 20, y: 20))

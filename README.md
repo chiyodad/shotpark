@@ -6,13 +6,13 @@
 
 <p align="center">
   맥에서 화면 한 부분을 잡아 바로 표시하고 보내는 가장 빠른 길<br>
-  <b>Apple Silicon 네이티브</b> · 외부 의존성 없음 · 메뉴 막대 상주
+  <b>맥 네이티브 (Apple Silicon · Intel)</b> · 외부 의존성 없음 · 메뉴 막대 상주
 </p>
 
 <p align="center">
   <a href="https://github.com/chiyodad/shotpark/releases/latest"><img src="https://img.shields.io/github/v/release/chiyodad/shotpark?label=download&color=5b4bdb" alt="Download"></a>
   <img src="https://img.shields.io/badge/macOS-13%2B-black" alt="macOS 13+">
-  <img src="https://img.shields.io/badge/arch-Apple%20Silicon-black" alt="arm64">
+  <img src="https://img.shields.io/badge/arch-Universal%20(Apple%20Silicon%20%C2%B7%20Intel)-black" alt="universal">
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-green" alt="MIT"></a>
   <a href="https://buymeacoffee.com/chiyodad"><img src="https://img.shields.io/badge/Buy%20me%20a%20coffee-%E2%98%95-FFDD00?logo=buymeacoffee&logoColor=black" alt="Buy me a coffee"></a>
 </p>
@@ -35,7 +35,7 @@
 ## 특징
 
 단축키 한 번으로 영역을 선택하여 캡처하고, 바로 표시하여, 빠르게 공유하세요!
-Apple Silicon 네이티브로 개발하였습니다.
+Apple Silicon · Intel 모두에서 돌아가는 맥 네이티브 앱입니다.
 
 Windows에서 **픽픽(PicPick)**이나 **라이트샷(Lightshot)**을 쓰셨다면, 맥에서는 ShotPark — 같은 조작감입니다. 픽픽은 맥 버전이 없고 라이트샷의 맥 앱은 Intel 전용이라, 그 "단축키 → 드래그 → 바로 주석 → 복사" 흐름을 맥 네이티브로 옮겼습니다. 자세한 비교는 [홈페이지](https://shotpark.site/#compare)에.
 
@@ -49,7 +49,7 @@ Windows에서 **픽픽(PicPick)**이나 **라이트샷(Lightshot)**을 쓰셨다
 - ScreenCaptureKit 기반 (macOS 14+), 이전 버전은 자동 폴백.
 
 **주석**
-- 펜 · 선 · 화살표 · 사각형 · 타원 · 마커(형광펜) · 텍스트(여러 줄) · 번호 스탬프 · 이모지 도장, 10색 팔레트(설정에서 내 색으로 변경 가능), 선 굵기 3단계, 실행 취소/다시 실행.
+- 펜 · 선 · 화살표 · 사각형 · 타원 · 마커(형광펜) · 텍스트(여러 줄) · 번호 스탬프 · 이모지 도장, 10색 팔레트(설정에서 내 색으로 변경 가능), 선 굵기 3단계 + 점선 토글, 화살표 머리 모양(삼각형/원형), 실행 취소/다시 실행.
 - 넣은 주석은 선택(V) 도구로 드래그해 옮기고, 방향키로 미세 이동, Delete로 지울 수 있습니다. 텍스트는 더블클릭해 다시 편집.
 - 텍스트는 크기(16 / 24 / 40 또는 8–200 직접 입력)와 스타일 토글(그림자 · 외곽선 · 배경, 동시 선택 가능)을 옵션 바에서 고르고, 색은 팔레트를 따릅니다. `⌘+` / `⌘-`로 크기 조절.
 - 화면에서 보이는 그대로 내보냅니다 (같은 렌더러 사용).
@@ -60,7 +60,7 @@ Windows에서 **픽픽(PicPick)**이나 **라이트샷(Lightshot)**을 쓰셨다
 - **공유** 버튼(`⌘⇧S`): Claude · Slack · 카카오톡으로 바로 보내기, 또는 macOS 공유 시트(메일 · 메시지 · AirDrop · 메모 등).
 
 **그 외**
-- 메뉴 막대에만 상주 (Dock에 안 뜸), 로그인 시 자동 실행 옵션. UI는 macOS 언어에 따라 한국어 · 영어 자동 선택.
+- 메뉴 막대에만 상주 (Dock에 안 뜸), 로그인 시 자동 실행 옵션. 하루 한 번 새 버전을 확인해 메뉴에 "업데이트 받기"를 표시(메뉴의 "업데이트 확인…"으로 수동 확인도 가능). UI는 macOS 언어에 따라 한국어 · 영어 자동 선택.
 - 설정 창: 캡처 단축키, 저장 폴더, 바로 저장 여부, 주석 색상 팔레트.
 - 외부 라이브러리 0개. 소스 전체가 Swift 파일 10개.
 
@@ -171,7 +171,7 @@ cd shotpark
 같은 것: 전역 단축키 → 드래그로 영역 → 그 자리에서 화살표·사각형·텍스트 → 클립보드 복사, 창 클릭으로 창 전체 선택. 다른 것: 기본 단축키가 `⌘⇧9`(설정에서 변경), 픽픽의 자·색상 추출·화이트보드·스크롤 캡처는 없음, 라이트샷의 prnt.sc 업로드 없음(모든 처리는 로컬).
 
 **Intel 맥에서도 되나요?**
-빌드 스크립트가 arm64로 고정되어 있습니다. `build.sh`의 `--arch arm64`를 지우고 빌드하면 Intel에서도 돌아갑니다 (테스트는 안 했습니다).
+네. 1.9.2부터 릴리즈 바이너리가 유니버설(Apple Silicon + Intel)이라 같은 zip·같은 설치 명령으로 됩니다.
 
 **온라인 업로드/링크 공유는요?**
 없습니다. 의도적으로 모든 것이 로컬에서만 처리됩니다.
@@ -216,11 +216,11 @@ MIT © chiyodad
 
 > Full English page: https://shotpark.site/en/
 
-**ShotPark** is a free, open-source **Lightshot alternative for Mac**: a region screenshot tool for macOS, built natively for Apple Silicon in Swift/AppKit with zero dependencies. Hotkey → drag a region → annotate → copy / save / share.
+**ShotPark** is a free, open-source **Lightshot alternative for Mac**: a region screenshot tool for macOS, built natively for macOS (universal: Apple Silicon + Intel) in Swift/AppKit with zero dependencies. Hotkey → drag a region → annotate → copy / save / share.
 
 - Global hotkey (default `⌘⇧9`, configurable), resizable/movable selection, multi-monitor, Retina-resolution capture via ScreenCaptureKit.
 - Click a window to select it, or drag a region; resize with handles, nudge with arrow keys.
-- Annotations: pen, line, arrow, rectangle, ellipse, marker, multi-line text (shadow / outline / background box), numbered stamps, emoji stamps; 10-color palette (customizable in Settings), 3 stroke widths, undo/redo; move or delete any annotation afterwards.
+- Annotations: pen, line, arrow, rectangle, ellipse, marker, multi-line text (shadow / outline / background box), numbered stamps, emoji stamps; 10-color palette (customizable in Settings), 3 stroke widths + dashed toggle, arrow head style (triangle / circle), undo/redo; move or delete any annotation afterwards.
 - `⌘C`/`Enter` copies to clipboard, `⌘S` saves `shotpark-yyyyMMdd-HHmmss.png` directly to a folder of your choice, `⌘⇧S` shares to Claude / Slack / KakaoTalk or the macOS share sheet.
 - Menu-bar only, launch-at-login option, settings window. English or Korean UI, following your macOS language.
 

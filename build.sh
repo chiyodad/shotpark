@@ -1,5 +1,6 @@
 #!/bin/zsh
-# Builds ShotPark.app (Apple Silicon native) and optionally installs it to /Applications.
+# Builds ShotPark.app (universal: Apple Silicon + Intel) and optionally installs it to /Applications.
+#   SHOTPARK_ARCH=arm64 ./build.sh   → single-arch build (faster, for local iteration)
 #   ./build.sh            → build/ShotPark.app
 #   ./build.sh --install  → also copies to /Applications and launches it
 set -euo pipefail
@@ -8,10 +9,23 @@ cd "$(dirname "$0")"
 NAME="ShotPark"
 APP="build/$NAME.app"
 
-echo "▶ swift build (release, arm64)"
-swift build -c release --arch arm64
-BIN=".build/arm64-apple-macosx/release/$NAME"
-[ -f "$BIN" ] || BIN=".build/release/$NAME"
+ARCHS="${SHOTPARK_ARCH:-arm64 x86_64}"
+# SwiftPM with only the Command Line Tools can't do a multi-arch build in one go (needs Xcode's
+# xcbuild), so build each slice separately and glue them with lipo.
+for a in ${=ARCHS}; do
+  echo "▶ swift build (release, $a)"
+  swift build -c release --arch "$a"
+done
+mkdir -p build
+if [ "$(echo $ARCHS | wc -w)" -gt 1 ]; then
+  echo "▶ lipo → universal"
+  SLICES=()
+  for a in ${=ARCHS}; do SLICES+=(".build/$a-apple-macosx/release/$NAME"); done
+  lipo -create -output "build/$NAME.universal" "${SLICES[@]}"
+  BIN="build/$NAME.universal"
+else
+  BIN=".build/${ARCHS}-apple-macosx/release/$NAME"
+fi
 [ -f "$BIN" ] || { echo "빌드 실패: 바이너리를 찾을 수 없습니다"; exit 1; }
 
 echo "▶ app bundle"

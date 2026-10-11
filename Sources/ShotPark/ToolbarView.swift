@@ -689,8 +689,22 @@ final class StrokeOptionsView: NSView {
 
     var lineWidth: CGFloat = 4 { didSet { needsDisplay = true } }
     var color: NSColor = .systemRed { didSet { needsDisplay = true } }
+    var dashed: Bool = false { didSet { needsDisplay = true } }
+    var arrowHead: ArrowHead = .triangle { didSet { needsDisplay = true } }
+    /// Which extra controls to show: dash toggle (line/arrow/rect/ellipse) and head picker (arrow only).
+    var showsDash: Bool = true { didSet { relayout() } }
+    var showsHead: Bool = false { didSet { relayout() } }
     var onChange: ((CGFloat) -> Void)?
-    private var hoverIndex: Int?
+    var onDashed: ((Bool) -> Void)?
+    var onArrowHead: ((ArrowHead) -> Void)?
+    private var hoverIndex: Int?   // 0-2 widths, 10 dash, 20/21 heads
+
+    private let widthsEnd: CGFloat = 50 + 3 * 64
+    private var dashRect: NSRect { NSRect(x: widthsEnd + 10, y: 4, width: 58, height: Self.height - 8) }
+    private var headLabelX: CGFloat { (showsDash ? dashRect.maxX : widthsEnd) + 10 }
+    private func headRects() -> [NSRect] {
+        (0..<2).map { NSRect(x: headLabelX + 34 + CGFloat($0) * 40, y: 4, width: 38, height: Self.height - 8) }
+    }
 
     init() {
         super.init(frame: NSRect(x: 0, y: 0, width: 6 + 44 + 3 * 64 + 6, height: Self.height))
@@ -699,8 +713,17 @@ final class StrokeOptionsView: NSView {
         layer?.shadowOpacity = 0.5
         layer?.shadowRadius = 8
         layer?.masksToBounds = false
+        relayout()
     }
     required init?(coder: NSCoder) { fatalError() }
+
+    private func relayout() {
+        var w = widthsEnd + 6
+        if showsDash { w = dashRect.maxX + 6 }
+        if showsHead { w = headRects().last!.maxX + 6 }
+        setFrameSize(NSSize(width: w, height: Self.height))
+        needsDisplay = true
+    }
 
     private func rects() -> [NSRect] {
         (0..<3).map { NSRect(x: 50 + CGFloat($0) * 64, y: 4, width: 64, height: Self.height - 8) }
@@ -712,6 +735,17 @@ final class StrokeOptionsView: NSView {
         addTrackingArea(NSTrackingArea(rect: bounds, options: [.mouseMoved, .mouseEnteredAndExited, .activeAlways], owner: self, userInfo: nil))
     }
 
+    private func pill(_ r: NSRect, on: Bool, hover: Bool) {
+        if on || hover {
+            (on ? NSColor(srgbRed: 0.36, green: 0.30, blue: 0.86, alpha: 1) : NSColor.white.withAlphaComponent(0.12)).setFill()
+            NSBezierPath(roundedRect: r.insetBy(dx: 2, dy: 1), xRadius: 6, yRadius: 6).fill()
+        }
+    }
+    private func separator(at x: CGFloat) {
+        NSColor.white.withAlphaComponent(0.18).setFill()
+        NSRect(x: x, y: 8, width: 1, height: Self.height - 16).fill()
+    }
+
     override func draw(_ dirtyRect: NSRect) {
         let bg = NSBezierPath(roundedRect: bounds, xRadius: 8, yRadius: 8)
         NSColor(calibratedWhite: 0.12, alpha: 0.94).setFill()
@@ -720,6 +754,7 @@ final class StrokeOptionsView: NSView {
         bg.stroke()
         let labelAttrs: [NSAttributedString.Key: Any] = [.font: NSFont.systemFont(ofSize: 11, weight: .medium),
                                                          .foregroundColor: NSColor.white.withAlphaComponent(0.6)]
+        let itemAttrs: [NSAttributedString.Key: Any] = [.font: NSFont.systemFont(ofSize: 12, weight: .medium), .foregroundColor: NSColor.white]
         NSAttributedString(string: L("굵기", "Width"), attributes: labelAttrs).draw(at: NSPoint(x: 12, y: (bounds.height - 13) / 2))
         for (i, r) in rects().enumerated() {
             let w = Self.widths[i]
@@ -728,26 +763,59 @@ final class StrokeOptionsView: NSView {
                 NSColor.white.withAlphaComponent(selected ? 0.28 : 0.12).setFill()
                 NSBezierPath(roundedRect: r.insetBy(dx: 2, dy: 1), xRadius: 6, yRadius: 6).fill()
             }
-            // sample dot + label
             let d = w + 3
             color.setFill()
             NSBezierPath(ovalIn: NSRect(x: r.minX + 10, y: r.midY - d / 2, width: d, height: d)).fill()
-            let str = NSAttributedString(string: Self.labels[i], attributes: [.font: NSFont.systemFont(ofSize: 12, weight: .medium), .foregroundColor: NSColor.white])
+            let str = NSAttributedString(string: Self.labels[i], attributes: itemAttrs)
             str.draw(at: NSPoint(x: r.minX + 26, y: r.midY - str.size().height / 2))
+        }
+        if showsDash {
+            separator(at: widthsEnd + 4)
+            let r = dashRect
+            pill(r, on: dashed, hover: hoverIndex == 10)
+            // small dashed sample + label
+            let path = NSBezierPath()
+            path.move(to: NSPoint(x: r.minX + 8, y: r.midY)); path.line(to: NSPoint(x: r.minX + 22, y: r.midY))
+            path.lineWidth = 2; path.setLineDash([3, 2], count: 2, phase: 0); NSColor.white.setStroke(); path.stroke()
+            let str = NSAttributedString(string: L("점선", "Dash"), attributes: itemAttrs)
+            str.draw(at: NSPoint(x: r.minX + 26, y: r.midY - str.size().height / 2))
+        }
+        if showsHead {
+            separator(at: headLabelX - 6)
+            NSAttributedString(string: L("머리", "Head"), attributes: labelAttrs).draw(at: NSPoint(x: headLabelX, y: (bounds.height - 13) / 2))
+            for (i, r) in headRects().enumerated() {
+                let on = arrowHead.rawValue == i
+                pill(r, on: on, hover: hoverIndex == 20 + i)
+                NSColor.white.setFill()
+                if i == 0 {
+                    let t = NSBezierPath()
+                    t.move(to: NSPoint(x: r.midX + 7, y: r.midY)); t.line(to: NSPoint(x: r.midX - 6, y: r.midY + 6)); t.line(to: NSPoint(x: r.midX - 6, y: r.midY - 6)); t.close(); t.fill()
+                } else {
+                    NSBezierPath(ovalIn: NSRect(x: r.midX - 6, y: r.midY - 6, width: 12, height: 12)).fill()
+                }
+            }
         }
     }
 
+    private func hit(_ p: NSPoint) -> Int? {
+        if let i = rects().firstIndex(where: { $0.contains(p) }) { return i }
+        if showsDash, dashRect.contains(p) { return 10 }
+        if showsHead, let i = headRects().firstIndex(where: { $0.contains(p) }) { return 20 + i }
+        return nil
+    }
+
     override func mouseMoved(with event: NSEvent) {
-        let p = convert(event.locationInWindow, from: nil)
-        let idx = rects().firstIndex { $0.contains(p) }
+        let idx = hit(convert(event.locationInWindow, from: nil))
         if idx != hoverIndex { hoverIndex = idx; needsDisplay = true }
     }
     override func mouseExited(with event: NSEvent) { hoverIndex = nil; needsDisplay = true }
     override func mouseDown(with event: NSEvent) {
-        let p = convert(event.locationInWindow, from: nil)
-        if let i = rects().firstIndex(where: { $0.contains(p) }) {
-            lineWidth = Self.widths[i]
-            onChange?(lineWidth)
+        guard let i = hit(convert(event.locationInWindow, from: nil)) else { return }
+        switch i {
+        case 0...2: lineWidth = Self.widths[i]; onChange?(lineWidth)
+        case 10: dashed.toggle(); onDashed?(dashed)
+        case 20, 21: arrowHead = ArrowHead(rawValue: i - 20) ?? .triangle; onArrowHead?(arrowHead)
+        default: break
         }
     }
     override func resetCursorRects() { addCursorRect(bounds, cursor: .arrow) }
