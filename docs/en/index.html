@@ -134,7 +134,7 @@
     <p>Lightshot set the bar for quick screenshots: press a key, drag a box, scribble on it, copy. PicPick did the same for millions of Windows users (it's the default choice in Korea). The catch: PicPick has no Mac version at all, and Lightshot's Mac app is an Intel-only build that needs Rosetta on Apple Silicon — if it runs at all. ShotPark keeps that exact workflow and rebuilds it natively for the Mac with Swift and AppKit, with nothing phoning home.</p>
     <div class="grid" style="margin-top:18px">
       <div class="card"><div class="ic">⚡️</div><h3>Same muscle memory</h3><p>Hotkey → drag → annotate → <kbd>⌘C</kbd>. If you used Lightshot or PicPick, you already know how ShotPark works. The overlay appears in well under 100&nbsp;ms.</p></div>
-      <div class="card"><div class="ic">🍎</div><h3>Built for modern Macs</h3><p>Universal native binary (Apple Silicon + Intel) using ScreenCaptureKit. No Rosetta, no Electron, no Java — a 12-file Swift app with zero third-party libraries.</p></div>
+      <div class="card"><div class="ic">🍎</div><h3>Built for modern Macs</h3><p>Universal native binary (Apple Silicon + Intel) using ScreenCaptureKit. No Rosetta, no Electron, no Java — a 13-file Swift app with zero third-party libraries.</p></div>
       <div class="card"><div class="ic">🔒</div><h3>No cloud, no account</h3><p>Lightshot's "upload to prnt.sc" button is intentionally absent. Captures go to your clipboard, your folder, or the app you pick. Nothing leaves the machine.</p></div>
       <div class="card"><div class="ic">🧰</div><h3>More annotation, not less</h3><p>Everything Lightshot had plus multi-line text with shadow / outline / background box, numbered stamps, emoji stamps, dashed lines, movable and editable annotations, undo and redo.</p></div>
     </div>
@@ -158,11 +158,11 @@
     <h2>Features</h2>
     <div class="grid">
       <div class="card"><div class="ic">⌨️</div><h3>One hotkey, one drag</h3><p>Default <kbd>⌘⇧9</kbd>. The screen dims; drag to select a region or <b>click</b> a window to grab it whole. Resize with handles, move by dragging inside, nudge 1&nbsp;px with the arrow keys. Pixel dimensions are shown live.</p></div>
-      <div class="card"><div class="ic">✏️</div><h3>Annotate right there</h3><p>Pen · line · arrow · rectangle · ellipse · marker · multi-line text · numbered stamps · emoji stamps, a 10-color palette (customizable in Settings), 3 stroke widths plus a dashed toggle, chevron (>) or circle arrow heads, undo/redo. Drag any annotation to move it, Delete to remove it. Text has 3 size presets plus free entry and togglable shadow, outline and background box. What you see is exactly what gets exported.</p></div>
+      <div class="card"><div class="ic">✏️</div><h3>Annotate right there</h3><p>Pen · line · arrow · rectangle · ellipse · marker · multi-line text · numbered stamps · emoji stamps · image stamps (signature, logo), a 10-color palette (customizable in Settings), 3 stroke widths plus a dashed toggle, chevron (>) or circle arrow heads, undo/redo. Drag any annotation to move it, Delete to remove it. Text has 3 size presets plus free entry and togglable shadow, outline and background box. What you see is exactly what gets exported.</p></div>
       <div class="card"><div class="ic">📋</div><h3>Copy · save · share</h3><p><kbd>⌘C</kbd> to the clipboard, <kbd>⌘S</kbd> straight to your chosen folder as PNG, <kbd>⌘⇧S</kbd> to Claude · Slack · KakaoTalk or the macOS share sheet.</p></div>
       <div class="card"><div class="ic">🖥️</div><h3>Retina · multi-monitor</h3><p>ScreenCaptureKit captures every display at its true resolution. Works the same with one monitor or five.</p></div>
       <div class="card"><div class="ic">⚙️</div><h3>Your settings</h3><p>Change the capture hotkey, the save folder, the save/copy behaviour and the 10 palette colours in the settings window. Optional launch at login. A once-a-day check tells you in the menu when a new version is out. UI in English or Korean, following your macOS language.</p></div>
-      <div class="card"><div class="ic">🪶</div><h3>Light and transparent</h3><p>12 Swift/AppKit files, 0 external libraries. No Dock icon — menu bar only. Never uploads anything.</p></div>
+      <div class="card"><div class="ic">🪶</div><h3>Light and transparent</h3><p>13 Swift/AppKit files, 0 external libraries. No Dock icon — menu bar only. Never uploads anything.</p></div>
     </div>
     <div class="settings-fig"><img src="img/settings-window.png" alt="ShotPark settings window — capture hotkey, save folder, direct-save options"></div>
     <p class="caption">Settings (<kbd>⌘,</kbd>). Click the hotkey box and press the combination you want; it applies immediately. Save folder, direct save and save↔copy linking live here too. The app follows your macOS language (English or Korean).</p>
@@ -178,6 +178,7 @@
       <tr><td>New line while typing text</td><td><kbd>⇧↩</kbd></td></tr>
       <tr><td>Select (move / resize) mode</td><td><kbd>V</kbd> or click the active tool again</td></tr>
       <tr><td>Copy to clipboard and close</td><td><kbd>⌘C</kbd> or <kbd>Enter</kbd></td></tr>
+      <tr><td>Paste an image as a stamp (e.g. a copied signature)</td><td><kbd>⌘V</kbd></td></tr>
       <tr><td>Save as PNG</td><td><kbd>⌘S</kbd></td></tr>
       <tr><td>Share menu</td><td><kbd>⌘⇧S</kbd></td></tr>
       <tr><td>Grab a whole window</td><td>Click the window instead of dragging</td></tr>

@@ -554,6 +554,12 @@ final class EmojiOptionsView: NSView, NSTextFieldDelegate {
     var emoji: String = "👍" { didSet { needsDisplay = true } }
     var emojiSize: CGFloat = 44 { didSet { needsDisplay = true } }
     var recents: [String] = [] { didSet { rebuildChoices(); needsDisplay = true } }
+    /// User image stamps (file names in ImageStamps) and the selected one (nil = emoji mode).
+    var images: [String] = [] { didSet { rebuildChoices(); needsDisplay = true } }
+    var selectedImage: String? { didSet { needsDisplay = true } }
+    var onPickImage: ((String) -> Void)?
+    var onAddImage: (() -> Void)?
+    var onRemoveImage: ((String) -> Void)?
     var onPick: ((String) -> Void)?
     var onSize: ((CGFloat) -> Void)?
     /// Called when the system picker inserted an emoji (also passed through onPick).
@@ -589,7 +595,7 @@ final class EmojiOptionsView: NSView, NSTextFieldDelegate {
         var list = recents
         for e in Self.presets where !list.contains(e) { list.append(e) }
         choices = Array(list.prefix(10))
-        let w = leading + CGFloat(choices.count) * cell + 12 + 64 + 10 + 3 * 46 + 8
+        let w = imageAddRect.maxX + 8
         setFrameSize(NSSize(width: w, height: Self.height))
         receiver.frame = NSRect(x: 2, y: 2, width: 1, height: 1)
     }
@@ -601,6 +607,15 @@ final class EmojiOptionsView: NSView, NSTextFieldDelegate {
     private func sizeRects() -> [NSRect] {
         let x0 = moreRect.maxX + 10
         return (0..<3).map { NSRect(x: x0 + CGFloat($0) * 46, y: 4, width: 46, height: Self.height - 8) }
+    }
+    private var imagesLabelX: CGFloat { sizeRects().last!.maxX + 14 }
+    private func imageRects() -> [NSRect] {
+        let x0 = imagesLabelX + 42
+        return (0..<images.count).map { NSRect(x: x0 + CGFloat($0) * 36, y: 3, width: 34, height: Self.height - 6) }
+    }
+    private var imageAddRect: NSRect {
+        let x0 = (imageRects().last?.maxX ?? imagesLabelX + 42) + 4
+        return NSRect(x: x0, y: 5, width: 58, height: Self.height - 10)
     }
 
     override func updateTrackingAreas() {
@@ -620,7 +635,7 @@ final class EmojiOptionsView: NSView, NSTextFieldDelegate {
         NSAttributedString(string: L("도장", "Stamp"), attributes: labelAttrs).draw(at: NSPoint(x: 12, y: (bounds.height - 13) / 2))
 
         for (i, r) in choiceRects().enumerated() {
-            let selected = choices[i] == emoji
+            let selected = selectedImage == nil && choices[i] == emoji
             if selected || hoverIndex == i {
                 NSColor.white.withAlphaComponent(selected ? 0.28 : 0.12).setFill()
                 NSBezierPath(roundedRect: r.insetBy(dx: 1, dy: 1), xRadius: 6, yRadius: 6).fill()
@@ -645,13 +660,58 @@ final class EmojiOptionsView: NSView, NSTextFieldDelegate {
             let str = NSAttributedString(string: Self.sizeLabels[i], attributes: [.font: NSFont.systemFont(ofSize: 12, weight: .medium), .foregroundColor: NSColor.white])
             str.draw(at: NSPoint(x: r.midX - str.size().width / 2, y: r.midY - str.size().height / 2))
         }
+
+        // user images (signatures, logos…)
+        NSColor.white.withAlphaComponent(0.18).setFill()
+        NSRect(x: imagesLabelX - 8, y: 8, width: 1, height: Self.height - 16).fill()
+        NSAttributedString(string: L("이미지", "Image"), attributes: labelAttrs).draw(at: NSPoint(x: imagesLabelX, y: (bounds.height - 13) / 2))
+        for (i, r) in imageRects().enumerated() {
+            let name = images[i]
+            let selected = name == selectedImage
+            NSColor.white.withAlphaComponent(selected ? 0.9 : (hoverIndex == 300 + i ? 0.35 : 0.18)).setFill()
+            NSBezierPath(roundedRect: r.insetBy(dx: 1, dy: 1), xRadius: 6, yRadius: 6).fill()
+            if let img = ImageStamps.image(name) {
+                let box = r.insetBy(dx: 4, dy: 4)
+                let s = min(box.width / max(img.size.width, 1), box.height / max(img.size.height, 1))
+                let iw = img.size.width * s, ih = img.size.height * s
+                img.draw(in: NSRect(x: box.midX - iw / 2, y: box.midY - ih / 2, width: iw, height: ih))
+            }
+            if selected {
+                NSColor(srgbRed: 0.36, green: 0.30, blue: 0.86, alpha: 1).setStroke()
+                let ring = NSBezierPath(roundedRect: r.insetBy(dx: 1, dy: 1), xRadius: 6, yRadius: 6)
+                ring.lineWidth = 2; ring.stroke()
+            }
+        }
+        if images.count < ImageStamps.maxCount {
+            let ar = imageAddRect
+            NSColor.white.withAlphaComponent(hoverIndex == 400 ? 0.2 : 0.1).setFill()
+            NSBezierPath(roundedRect: ar, xRadius: 6, yRadius: 6).fill()
+            let add = NSAttributedString(string: L("＋ 추가", "＋ Add"), attributes: [.font: NSFont.systemFont(ofSize: 12, weight: .medium), .foregroundColor: NSColor.white])
+            add.draw(at: NSPoint(x: ar.midX - add.size().width / 2, y: ar.midY - add.size().height / 2))
+        }
     }
 
     private func index(at p: NSPoint) -> Int? {
         if let i = choiceRects().firstIndex(where: { $0.contains(p) }) { return i }
         if moreRect.contains(p) { return 100 }
         if let i = sizeRects().firstIndex(where: { $0.contains(p) }) { return 200 + i }
+        if let i = imageRects().firstIndex(where: { $0.contains(p) }) { return 300 + i }
+        if images.count < ImageStamps.maxCount, imageAddRect.contains(p) { return 400 }
         return nil
+    }
+
+    override func rightMouseDown(with event: NSEvent) {
+        guard let idx = index(at: convert(event.locationInWindow, from: nil)), (300..<400).contains(idx) else { return }
+        let name = images[idx - 300]
+        let menu = NSMenu()
+        let item = NSMenuItem(title: L("이 이미지 삭제", "Remove this image"), action: #selector(removeImageItem(_:)), keyEquivalent: "")
+        item.target = self
+        item.representedObject = name
+        menu.addItem(item)
+        NSMenu.popUpContextMenu(menu, with: event, for: self)
+    }
+    @objc private func removeImageItem(_ sender: NSMenuItem) {
+        if let name = sender.representedObject as? String { onRemoveImage?(name) }
     }
 
     override func mouseMoved(with event: NSEvent) {
@@ -662,6 +722,12 @@ final class EmojiOptionsView: NSView, NSTextFieldDelegate {
     override func mouseDown(with event: NSEvent) {
         guard let idx = index(at: convert(event.locationInWindow, from: nil)) else { return }
         if idx < 100 { emoji = choices[idx]; onPick?(emoji) }
+        else if (300..<400).contains(idx) {
+            let name = images[idx - 300]
+            if event.modifierFlags.contains(.control) { onRemoveImage?(name); return }
+            selectedImage = name; onPickImage?(name)
+        }
+        else if idx == 400 { onAddImage?() }
         else if idx == 100 {
             // Character Viewer inserts into the first responder → our hidden field
             receiver.stringValue = ""

@@ -38,6 +38,8 @@ struct Shape {
     var textStyle: TextStyles = .shadow
     var boxColor: NSColor = .white
     var boxAlpha: CGFloat = 0.85
+    /// Stamp tool with a user image (signature, logo) instead of an emoji. Height = fontSize × 2.2.
+    var imageName: String? = nil
 
     var rect: CGRect {
         guard points.count >= 2 else { return .zero }
@@ -102,6 +104,14 @@ extension Shape {
     /// Radius of a number stamp (scales with the text size setting).
     var stampRadius: CGFloat { max(12, fontSize * 0.7) }
 
+    /// Where an image stamp is drawn: centred on the click point, height from the stamp size, aspect kept.
+    var imageRect: CGRect? {
+        guard tool == .emoji, let name = imageName, let c = points.first, let img = ImageStamps.image(name) else { return nil }
+        let h = fontSize * 2.2
+        let w = img.size.height > 0 ? h * img.size.width / img.size.height : h
+        return CGRect(x: c.x - w / 2, y: c.y - h / 2, width: w, height: h)
+    }
+
     static func emojiAttributes(size: CGFloat) -> [NSAttributedString.Key: Any] {
         [.font: NSFont.systemFont(ofSize: size)]
     }
@@ -111,6 +121,7 @@ extension Shape {
         switch tool {
         case .emoji:
             guard let c = points.first else { return .zero }
+            if let r = imageRect { return r }
             let sz = NSAttributedString(string: text, attributes: Shape.emojiAttributes(size: fontSize)).size()
             return CGRect(x: c.x - sz.width / 2, y: c.y - sz.height / 2, width: sz.width, height: sz.height)
         case .number:
@@ -267,6 +278,10 @@ enum ShapeRenderer {
             ctx.strokeEllipse(in: s.rect)
 
         case .emoji:
+            if let name = s.imageName, let img = ImageStamps.image(name), let r = s.imageRect {
+                img.draw(in: r, from: .zero, operation: .sourceOver, fraction: 1)
+                break
+            }
             guard let c = s.points.first, !s.text.isEmpty else { return }
             let str = NSAttributedString(string: s.text, attributes: Shape.emojiAttributes(size: s.fontSize))
             let sz = str.size()

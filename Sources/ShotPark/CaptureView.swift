@@ -64,6 +64,10 @@ final class CaptureView: NSView, NSTextViewDelegate {
     private let strokeOptions = StrokeOptionsView()
     private let emojiOptions = EmojiOptionsView()
     var emoji: String = Preferences.emoji { didSet { emojiOptions.emoji = emoji; Preferences.emoji = emoji; window?.invalidateCursorRects(for: self) } }
+    /// Selected user image for the stamp tool (nil = use the emoji).
+    var stampImage: String? = Preferences.stampImage {
+        didSet { emojiOptions.selectedImage = stampImage; Preferences.stampImage = stampImage; window?.invalidateCursorRects(for: self) }
+    }
     var emojiSize: CGFloat = Preferences.emojiSize { didSet { emojiOptions.emojiSize = emojiSize; Preferences.emojiSize = emojiSize; window?.invalidateCursorRects(for: self) } }
     private var textEditor: AnnotationTextView?
 
@@ -134,6 +138,7 @@ final class CaptureView: NSView, NSTextViewDelegate {
         emojiOptions.onPick = { [weak self] e in
             guard let self else { return }
             self.emoji = e
+            self.stampImage = nil
             var r = Preferences.recentEmojis.filter { $0 != e }
             r.insert(e, at: 0)
             Preferences.recentEmojis = Array(r.prefix(10))
@@ -141,6 +146,18 @@ final class CaptureView: NSView, NSTextViewDelegate {
             self.layoutToolbar()
         }
         emojiOptions.onSize = { [weak self] in self?.emojiSize = $0 }
+        emojiOptions.images = ImageStamps.names
+        if let s = stampImage, !ImageStamps.names.contains(s) { stampImage = nil }
+        emojiOptions.selectedImage = stampImage
+        emojiOptions.onPickImage = { [weak self] in self?.stampImage = $0 }
+        emojiOptions.onAddImage = { [weak self] in self?.addStampImageFromFile() }
+        emojiOptions.onRemoveImage = { [weak self] name in
+            guard let self else { return }
+            ImageStamps.remove(name)
+            if self.stampImage == name { self.stampImage = nil }
+            self.emojiOptions.images = ImageStamps.names
+            self.layoutToolbar()
+        }
         emojiOptions.onFocusReturn = { [weak self] in
             guard let self else { return }
             self.window?.makeFirstResponder(self)
@@ -209,6 +226,21 @@ final class CaptureView: NSView, NSTextViewDelegate {
     private var emojiCursorCache: (key: String, cursor: NSCursor)?
     /// A cursor showing the current emoji at (roughly) its stamp size, hotspot in the centre.
     private func emojiCursor() -> NSCursor {
+        if let name = stampImage, let img = ImageStamps.image(name) {
+            let h = min(max(emojiSize * 1.2, 28), 96)
+            let w = min(h * img.size.width / max(img.size.height, 1), 160)
+            let key = "img:\(name)@\(w)x\(h)"
+            if let c = emojiCursorCache, c.key == key { return c.cursor }
+            let cur = NSImage(size: NSSize(width: w, height: h), flipped: false) { rect in
+                img.draw(in: rect, from: .zero, operation: .sourceOver, fraction: 0.85)
+                NSColor.systemBlue.withAlphaComponent(0.6).setStroke()
+                let b = NSBezierPath(rect: rect.insetBy(dx: 0.5, dy: 0.5)); b.setLineDash([3, 2], count: 2, phase: 0); b.stroke()
+                return true
+            }
+            let cursor = NSCursor(image: cur, hotSpot: NSPoint(x: w / 2, y: h / 2))
+            emojiCursorCache = (key, cursor)
+            return cursor
+        }
         let side = min(max(emojiSize * 0.8, 24), 64)
         let key = "\(emoji)@\(side)"
         if let c = emojiCursorCache, c.key == key { return c.cursor }
@@ -226,6 +258,42 @@ final class CaptureView: NSView, NSTextViewDelegate {
         let cursor = NSCursor(image: img, hotSpot: NSPoint(x: side / 2, y: side / 2))
         emojiCursorCache = (key, cursor)
         return cursor
+    }
+
+    /// "+ Add" in the stamp bar: pick an image file (PNG with transparency works best for signatures).
+    func addStampImageFromFile() {
+        let panel = NSOpenPanel()
+        panel.allowedContentTypes = [.png, .jpeg, .heic, .tiff, .gif, .pdf, .image]
+        panel.allowsMultipleSelection = false
+        panel.message = L("도장으로 쓸 이미지를 고르세요 (서명·로고 등, 투명 배경 PNG 권장)", "Choose an image to use as a stamp (signature, logo… a transparent PNG works best)")
+        panel.prompt = L("추가", "Add")
+        // The overlay sits at the shielding level; lift the panel above it.
+        panel.level = NSWindow.Level(rawValue: Int(CGShieldingWindowLevel()) + 1)
+        let result = panel.runModal()
+        window?.makeKeyAndOrderFront(nil)
+        window?.makeFirstResponder(self)
+        guard result == .OK, let url = panel.url, let name = ImageStamps.add(url: url) else { return }
+        emojiOptions.images = ImageStamps.names
+        stampImage = name
+        tool = .emoji
+        layoutToolbar()
+    }
+
+    /// ⌘V during a capture: an image on the clipboard becomes a stamp, placed in the middle of the selection.
+    private func pasteImageStamp() -> Bool {
+        guard state == .selected,
+              let img = NSImage(pasteboard: NSPasteboard.general),
+              let name = ImageStamps.add(img) else { return false }
+        emojiOptions.images = ImageStamps.names
+        stampImage = name
+        shapes.append(Shape(tool: .emoji, points: [CGPoint(x: selection.midX, y: selection.midY)], color: color,
+                            lineWidth: lineWidth, text: "", fontSize: emojiSize, imageName: name))
+        redoStack = []
+        tool = .move
+        selectedShape = shapes.count - 1
+        window?.invalidateCursorRects(for: self)
+        needsDisplay = true
+        return true
     }
 
     private var numberCursorCache: (key: String, cursor: NSCursor)?
@@ -459,7 +527,7 @@ final class CaptureView: NSView, NSTextViewDelegate {
                 }
                 if tool == .emoji {
                     shapes.append(Shape(tool: .emoji, points: [p], color: color, lineWidth: lineWidth,
-                                        text: emoji, fontSize: emojiSize))
+                                        text: stampImage == nil ? emoji : "", fontSize: emojiSize, imageName: stampImage))
                     redoStack = []
                     window?.invalidateCursorRects(for: self)
                     needsDisplay = true
@@ -658,6 +726,7 @@ final class CaptureView: NSView, NSTextViewDelegate {
             case 1:  if state == .selected { flags.contains(.shift) ? showShareMenu() : saveToFile() } // S
             case 6:  flags.contains(.shift) ? redoLast() : undoLast()                  // Z / ⇧Z
             case 0:  selectWholeScreen()                                               // A
+            case 9:  _ = pasteImageStamp()                                             // V
             case 24, 69: if tool == .text || tool == .number { stepTextSize(+1) }                         // = / keypad +
             case 27, 78: if tool == .text || tool == .number { stepTextSize(-1) }                         // - / keypad -
             default: break
@@ -1044,6 +1113,11 @@ enum Preferences {
         get { let v = UserDefaults.standard.double(forKey: lineWidthKey); return v > 0 ? CGFloat(v) : 4 }
         set { UserDefaults.standard.set(Double(newValue), forKey: lineWidthKey) }
     }
+    private static let stampImageKey = "stampImageSelected"
+    static var stampImage: String? {
+        get { UserDefaults.standard.string(forKey: stampImageKey) }
+        set { UserDefaults.standard.set(newValue, forKey: stampImageKey) }
+    }
     private static let emojiKey = "stampEmoji"
     private static let emojiSizeKey = "stampEmojiSize"
     private static let recentEmojisKey = "stampRecentEmojis"
@@ -1205,6 +1279,29 @@ extension CaptureView {
         check("solid line after toggling off", shapes.last?.tool == .line && shapes.last?.dashed == false)
         key(53)
         check("version compare", UpdateChecker.isNewer("1.10.0", than: "1.9.2") && !UpdateChecker.isNewer("1.9.2", than: "1.9.2") && !UpdateChecker.isNewer("1.9.1", than: "1.9.2"))
+
+        // 5c. image stamp (signature): add a generated image, place it, then clean up
+        let sig = NSImage(size: NSSize(width: 200, height: 60), flipped: false) { r in
+            NSColor.systemBlue.setStroke(); let p = NSBezierPath(); p.move(to: NSPoint(x: 10, y: 20)); p.curve(to: NSPoint(x: 190, y: 40), controlPoint1: NSPoint(x: 60, y: 70), controlPoint2: NSPoint(x: 120, y: -10)); p.lineWidth = 4; p.stroke(); return true
+        }
+        let stampsBefore = ImageStamps.names.count
+        if stampsBefore >= ImageStamps.maxCount { check("image stamp (skipped: user already has max images)", true) }
+        else if let name = ImageStamps.add(sig) {
+            emojiOptions.images = ImageStamps.names
+            check("image stamp saved", ImageStamps.names.first == name && ImageStamps.names.count == min(stampsBefore + 1, ImageStamps.maxCount))
+            tool = .emoji
+            stampImage = name
+            click(CGPoint(x: 300, y: H - 250))
+            let placed = shapes.last
+            check("image stamp placed", placed?.tool == .emoji && placed?.imageName == name)
+            if let r = placed?.imageRect { check("image stamp keeps aspect", abs(r.width / r.height - 200.0 / 60.0) < 0.05, "\(r)") }
+            else { check("image stamp keeps aspect", false, "no rect") }
+            emojiOptions.onPick?("👍")
+            check("picking an emoji leaves image mode", stampImage == nil)
+            emojiOptions.onRemoveImage?(name)
+            check("image stamp removed", !ImageStamps.names.contains(name))
+            key(53)
+        } else { check("image stamp saved", false, "add failed") }
 
         // 6. click outside with annotations → idle and annotations cleared
         click(CGPoint(x: 20, y: 20))
