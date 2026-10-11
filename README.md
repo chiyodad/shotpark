@@ -56,7 +56,7 @@ If you used Lightshot or PicPick on Windows, you already know how it works: hotk
 **Export**
 - `⌘C` or `Enter` copies to the clipboard and closes.
 - `⌘S` saves a PNG (`shotpark-yyyyMMdd-HHmmss.png`) straight into your chosen folder (or shows a save dialog); click the toast to reveal it in Finder. Optionally also copy on save / also save on copy.
-- **Share** (`⌘⇧S`): straight to Claude · Slack · KakaoTalk, or the macOS share sheet (Mail, Messages, AirDrop, Notes…).
+- **Share** (`⌘⇧S`): straight to Claude · ChatGPT · Gemini · Slack · KakaoTalk (ChatGPT / Gemini fall back to the web app when the desktop app isn't installed), or the macOS share sheet (Mail, Messages, AirDrop, Notes…).
 
 **And**
 - Menu-bar only (no Dock icon), optional launch at login, English or Korean UI following your macOS language.
@@ -131,8 +131,9 @@ Needs only the Xcode Command Line Tools (`xcode-select --install`). `./build.sh`
 
 - Text tool (`T`): click to open an input box, `Enter` to commit, `⇧Enter` for a new line, `Esc` to cancel. With the text tool active an options bar offers size presets and style toggles; changes apply while typing.
 - Number tool (`N`): each click places ①, ②, ③…; size follows the text size. The cursor shows the next stamp.
-- Image stamp (`S`): in the stamp bar, **＋ Add** an image file (a transparent PNG works best for signatures) or press `⌘V` with an image on the clipboard; pick it and click to place. It uses the S/M/L size, keeps its aspect ratio, and can be dragged like any annotation. Up to 6 images are kept (stored locally in `~/Library/Application Support/ShotPark/Stamps`); right-click one to remove it.
+- Image stamp (`S`): in the stamp bar, **＋ Add** an image file (a transparent PNG works best for signatures) or press `⌘V` with an image on the clipboard; pick it and click to place. It uses the stamp size, keeps its aspect ratio, and can be dragged like any annotation. Up to 6 images are kept (stored locally in `~/Library/Application Support/ShotPark/Stamps`); right-click one to remove it.
 - Emoji stamp (`S`): pick an emoji (10 slots — most recent first, "More…" opens the system picker) and a size, then click. The cursor shows the emoji.
+- Stamp size: S/M/L presets or `−` / `＋` in the stamp bar, `⌘+` / `⌘-`, or drag the corner handle of a placed stamp (emoji, image or number). A just-placed stamp stays selected, so you can resize it right away.
 - Stroke bar (drawing tools): width, **Dash** toggle (line / arrow / rect / ellipse) and, for arrows, **Head** > / ●.
 - Existing annotations can be dragged (select or text tool) and text can be double-clicked to edit.
 
@@ -155,8 +156,8 @@ That's the quarantine flag on downloaded files. Clear it with `xattr -d com.appl
 **After updating it asks for Screen Recording again.**
 Expected: a build with a different signature is a new app to macOS. Enable it and relaunch. If you build from source, creating a self-signed code-signing certificate named `ShotPark Developer` in Keychain makes `build.sh` sign with it, so permission survives rebuilds.
 
-**How does sharing to Slack / KakaoTalk work?**
-The image is copied to the clipboard and the file is handed to the app. Apps that accept files (like Slack) open an upload sheet; the others are just brought to the front, so paste with `⌘V`.
+**How does sharing to Slack / KakaoTalk / ChatGPT / Gemini work?**
+The image is copied to the clipboard and the file is handed to the app. Apps that accept files (like Slack) open an upload sheet; the others are just brought to the front, so paste with `⌘V`. Without the ChatGPT / Gemini desktop app, the web app opens instead — paste with `⌘V` there.
 
 **Intel Macs?**
 Supported: since 1.9.2 the release is a universal binary. Same zip, same install commands.

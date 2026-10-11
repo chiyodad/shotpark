@@ -16,6 +16,7 @@ final class CaptureView: NSView, NSTextViewDelegate {
         case resize(Handle, startRect: CGRect)
         case draw
         case moveShape(Int, startPoints: [CGPoint], start: CGPoint)
+        case scaleShape(Int, startSize: CGFloat, center: CGPoint, startDist: CGFloat)
     }
 
     weak var session: CaptureSession?
@@ -29,7 +30,7 @@ final class CaptureView: NSView, NSTextViewDelegate {
     private var currentShape: Shape?
     private var redoStack: [Shape] = []
     /// Index of the annotation highlighted for move / delete (selection tool).
-    private var selectedShape: Int? { didSet { needsDisplay = true } }
+    private var selectedShape: Int? { didSet { needsDisplay = true; window?.invalidateCursorRects(for: self) } }
     /// Window frames (view coords, front to back) for click-to-select-window.
     var windowFrames: [CGRect] = []
     private var hoverWindowRect: CGRect?
@@ -145,7 +146,12 @@ final class CaptureView: NSView, NSTextViewDelegate {
             self.emojiOptions.recents = Preferences.recentEmojis
             self.layoutToolbar()
         }
-        emojiOptions.onSize = { [weak self] in self?.emojiSize = $0 }
+        emojiOptions.onSize = { [weak self] size in
+            guard let self else { return }
+            self.emojiSize = size
+            if let i = self.selectedShape, i < self.shapes.count, self.shapes[i].tool == .emoji { self.shapes[i].fontSize = size; self.needsDisplay = true }
+        }
+        emojiOptions.onStep = { [weak self] in self?.stepStampSize($0) }
         emojiOptions.images = ImageStamps.names
         if let s = stampImage, !ImageStamps.names.contains(s) { stampImage = nil }
         emojiOptions.selectedImage = stampImage
@@ -218,6 +224,7 @@ final class CaptureView: NSView, NSTextViewDelegate {
             if tool == .move || tool == .text {
                 for r in textShapeRects() { addCursorRect(r.intersection(selection), cursor: .openHand) }
             }
+            if let h = stampHandleRect() { addCursorRect(h.insetBy(dx: -4, dy: -4), cursor: .crosshair) }
         } else {
             addCursorRect(bounds, cursor: .crosshair)
         }
@@ -434,17 +441,22 @@ final class CaptureView: NSView, NSTextViewDelegate {
         guard state == .selected else { return }
         let menu = NSMenu()
         menu.autoenablesItems = false
-        for target in ShareTarget.installed {
-            let item = NSMenuItem(title: L("\(target.name)(으)로 보내기", "Send to \(target.name)"), action: #selector(shareToApp(_:)), keyEquivalent: "")
+        let targets = ShareTarget.available
+        for target in targets {
+            let title = target.isInstalled ? L("\(target.name)(으)로 보내기", "Send to \(target.name)")
+                                           : L("\(target.name)(으)로 보내기 (웹)", "Send to \(target.name) (web)")
+            let item = NSMenuItem(title: title, action: #selector(shareToApp(_:)), keyEquivalent: "")
             item.target = self
             item.representedObject = target.name
             if let icon = target.appURL.map({ NSWorkspace.shared.icon(forFile: $0.path) }) {
                 icon.size = NSSize(width: 18, height: 18)
                 item.image = icon
+            } else if let sym = NSImage(systemSymbolName: target.symbol, accessibilityDescription: target.name) {
+                item.image = sym
             }
             menu.addItem(item)
         }
-        if !ShareTarget.installed.isEmpty { menu.addItem(.separator()) }
+        if !targets.isEmpty { menu.addItem(.separator()) }
         let other = NSMenuItem(title: L("다른 앱으로 공유… (메일 · 메시지 · AirDrop)", "Share to another app… (Mail · Messages · AirDrop)"), action: #selector(shareViaSystem), keyEquivalent: "")
         other.target = self
         menu.addItem(other)
@@ -461,9 +473,10 @@ final class CaptureView: NSView, NSTextViewDelegate {
     }
 
     @objc private func shareViaSystem() {
-        guard let image = renderResult() else { return }
+        guard let image = renderResult(), let win = window else { return }
         let anchor = toolbar.rect(for: .share) ?? toolbar.bounds
-        session?.showSystemShareSheet(for: image, relativeTo: anchor, of: toolbar)
+        let screenRect = win.convertToScreen(toolbar.convert(anchor, to: nil))
+        session?.showSystemShareSheet(for: image, at: screenRect)
     }
 
     /// Edit-menu actions (⌘Z / ⌘C) reach us here when a main menu exists; same behaviour as the key shortcuts.
@@ -499,6 +512,12 @@ final class CaptureView: NSView, NSTextViewDelegate {
             return
         }
 
+        // Corner handle of the selected stamp: drag to resize it.
+        if let h = stampHandleRect(), h.insetBy(dx: -4, dy: -4).contains(p), let i = selectedShape, let c = shapes[i].points.first {
+            drag = .scaleShape(i, startSize: shapes[i].fontSize, center: c, startDist: max(hypot(p.x - c.x, p.y - c.y), 1))
+            return
+        }
+
         // Existing annotation: drag to move, double-click a text to edit it again, Delete removes.
         if state == .selected, tool == .move || tool == .text, let i = shapeIndex(at: p) {
             if event.clickCount == 2, shapes[i].tool == .text { editTextShape(at: i); return }
@@ -529,6 +548,7 @@ final class CaptureView: NSView, NSTextViewDelegate {
                     shapes.append(Shape(tool: .emoji, points: [p], color: color, lineWidth: lineWidth,
                                         text: stampImage == nil ? emoji : "", fontSize: emojiSize, imageName: stampImage))
                     redoStack = []
+                    selectedShape = shapes.count - 1 // shows the resize handle; ⌘+/⌘− resize it
                     window?.invalidateCursorRects(for: self)
                     needsDisplay = true
                     return
@@ -538,6 +558,7 @@ final class CaptureView: NSView, NSTextViewDelegate {
                     shapes.append(Shape(tool: .number, points: [p], color: color, lineWidth: lineWidth,
                                         text: "\(next)", fontSize: textSize))
                     redoStack = []
+                    selectedShape = shapes.count - 1
                     window?.invalidateCursorRects(for: self)
                     needsDisplay = true
                     return
@@ -587,6 +608,9 @@ final class CaptureView: NSView, NSTextViewDelegate {
             }
             selection = rect(from: CGPoint(x: minX, y: minY), to: CGPoint(x: maxX, y: maxY))
             layoutToolbar()
+        case .scaleShape(let i, let startSize, let c, let d0):
+            guard i < shapes.count else { return }
+            shapes[i].fontSize = min(max(startSize * hypot(p.x - c.x, p.y - c.y) / d0, 8), 400)
         case .moveShape(let i, let startPoints, let start):
             guard i < shapes.count else { return }
             shapes[i].points = startPoints.map { CGPoint(x: $0.x + p.x - start.x, y: $0.y + p.y - start.y) }
@@ -637,6 +661,8 @@ final class CaptureView: NSView, NSTextViewDelegate {
             currentShape = nil
         case .moveShape:
             NSCursor.pop()
+        case .scaleShape(let i, _, _, _):
+            if i < shapes.count, shapes[i].tool == .emoji { emojiSize = shapes[i].fontSize.rounded() } // next stamp keeps this size
         case .none:
             break
         }
@@ -727,8 +753,8 @@ final class CaptureView: NSView, NSTextViewDelegate {
             case 6:  flags.contains(.shift) ? redoLast() : undoLast()                  // Z / ⇧Z
             case 0:  selectWholeScreen()                                               // A
             case 9:  _ = pasteImageStamp()                                             // V
-            case 24, 69: if tool == .text || tool == .number { stepTextSize(+1) }                         // = / keypad +
-            case 27, 78: if tool == .text || tool == .number { stepTextSize(-1) }                         // - / keypad -
+            case 24, 69: if isStamp(selectedShape) || tool == .emoji { stepStampSize(+1) } else if tool == .text || tool == .number { stepTextSize(+1) } // = / keypad +
+            case 27, 78: if isStamp(selectedShape) || tool == .emoji { stepStampSize(-1) } else if tool == .text || tool == .number { stepTextSize(-1) } // - / keypad -
             default: break
             }
             return
@@ -750,6 +776,30 @@ final class CaptureView: NSView, NSTextViewDelegate {
     }
 
     // MARK: text tool
+
+    private func isStamp(_ i: Int?) -> Bool {
+        guard let i, i < shapes.count else { return false }
+        return shapes[i].tool == .emoji || shapes[i].tool == .number
+    }
+
+    /// ⌘+/⌘− and the stamp bar's −/＋: resize the selected stamp, or the size of the next one.
+    func stepStampSize(_ dir: Int) {
+        let f: CGFloat = dir > 0 ? 1.15 : 1 / 1.15
+        if let i = selectedShape, isStamp(i) {
+            shapes[i].fontSize = min(max(shapes[i].fontSize * f, 8), 400)
+            if shapes[i].tool == .emoji { emojiSize = shapes[i].fontSize.rounded() }
+        } else {
+            emojiSize = min(max(emojiSize * f, 12), 300).rounded()
+        }
+        needsDisplay = true
+    }
+
+    /// Small square at the bottom-right of the selected stamp; dragging it scales the stamp.
+    private func stampHandleRect() -> CGRect? {
+        guard state == .selected, let i = selectedShape, isStamp(i) else { return nil }
+        let b = shapes[i].bounds.insetBy(dx: -3, dy: -3)
+        return CGRect(x: b.maxX - 5, y: b.minY - 5, width: 10, height: 10)
+    }
 
     private func stepTextSize(_ dir: Int) {
         textSize = min(max(textSize + CGFloat(dir * 2), 8), 200)
@@ -941,6 +991,11 @@ final class CaptureView: NSView, NSTextViewDelegate {
             hl.setLineDash([4, 3], count: 2, phase: 0)
             NSColor.white.setStroke()
             hl.stroke()
+        }
+        if let h = stampHandleRect() {
+            let hp = NSBezierPath(roundedRect: h, xRadius: 2, yRadius: 2)
+            NSColor.white.setFill(); hp.fill()
+            NSColor.black.withAlphaComponent(0.55).setStroke(); hp.lineWidth = 1; hp.stroke()
         }
 
         // selection border
@@ -1296,6 +1351,16 @@ extension CaptureView {
             check("image stamp placed", placed?.tool == .emoji && placed?.imageName == name)
             if let r = placed?.imageRect { check("image stamp keeps aspect", abs(r.width / r.height - 200.0 / 60.0) < 0.05, "\(r)") }
             else { check("image stamp keeps aspect", false, "no rect") }
+            if let i = shapes.indices.last {
+                selectedShape = i
+                let savedSize = emojiSize
+                defer { emojiSize = savedSize }
+                let before = shapes[i].fontSize
+                stepStampSize(+1)
+                check("stamp resize (⌘+)", shapes[i].fontSize > before, "\(before) → \(shapes[i].fontSize)")
+                stepStampSize(-1); stepStampSize(-1)
+                check("stamp resize (⌘−)", shapes[i].fontSize < before)
+            }
             emojiOptions.onPick?("👍")
             check("picking an emoji leaves image mode", stampImage == nil)
             emojiOptions.onRemoveImage?(name)

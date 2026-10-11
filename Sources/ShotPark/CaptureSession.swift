@@ -130,23 +130,14 @@ final class CaptureSession {
     }
 
     /// System share sheet (Mail, Messages, AirDrop, Notes, and any app with a share extension).
-    /// The overlay stays up until the service finishes so sheets have a window to attach to.
-    private var sharingDelegate: SharingDelegate?
-    func showSystemShareSheet(for image: NSImage, relativeTo rect: NSRect, of view: NSView) {
+    /// The overlay sits at the shielding level, so anything a service opens (compose windows,
+    /// AirDrop, the picker itself) would be hidden behind it. Close the overlay first and show the
+    /// picker from a small anchor window at the share button's position instead.
+    func showSystemShareSheet(for image: NSImage, at screenRect: NSRect) {
         guard let url = Exporter.writeTempPNG(image) else { return }
-        let picker = NSSharingServicePicker(items: [url])
-        let delegate = SharingDelegate(onDone: { [weak self] in self?.end() })
-        sharingDelegate = delegate
-        picker.delegate = delegate
-        picker.show(relativeTo: rect, of: view, preferredEdge: .minY)
-    }
-
-    private final class SharingDelegate: NSObject, NSSharingServicePickerDelegate, NSSharingServiceDelegate {
-        let onDone: () -> Void
-        init(onDone: @escaping () -> Void) { self.onDone = onDone }
-        func sharingServicePicker(_ picker: NSSharingServicePicker, delegateFor service: NSSharingService) -> NSSharingServiceDelegate? { self }
-        func sharingService(_ service: NSSharingService, didShareItems items: [Any]) { onDone() }
-        func sharingService(_ service: NSSharingService, didFailToShareItems items: [Any], error: Error) { onDone() }
+        end()
+        // Let the menu finish tracking and the overlay disappear before presenting.
+        DispatchQueue.main.async { SystemSharer.shared.share(url, at: screenRect) }
     }
 
     private func end() {
@@ -181,14 +172,68 @@ final class CaptureSession {
     }
 }
 
-/// Apps we can hand a screenshot to directly.
+/// Shows NSSharingServicePicker from a tiny transparent window so it works without the overlay.
+final class SystemSharer: NSObject, NSSharingServicePickerDelegate, NSSharingServiceDelegate {
+    static let shared = SystemSharer()
+    private var anchor: NSWindow?
+
+    private final class AnchorWindow: NSWindow {
+        override var canBecomeKey: Bool { true }
+    }
+
+    func share(_ url: URL, at screenRect: NSRect) {
+        cleanup()
+        let r = screenRect.width > 1 && screenRect.height > 1 ? screenRect : NSRect(origin: NSEvent.mouseLocation, size: NSSize(width: 2, height: 2))
+        let win = AnchorWindow(contentRect: r, styleMask: [.borderless], backing: .buffered, defer: false)
+        win.isOpaque = false
+        win.backgroundColor = .clear
+        win.hasShadow = false
+        win.ignoresMouseEvents = true
+        win.isReleasedWhenClosed = false
+        win.level = .floating
+        win.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
+        anchor = win
+        NSApp.activate(ignoringOtherApps: true)
+        win.makeKeyAndOrderFront(nil)
+        guard let view = win.contentView else { cleanup(); return }
+        let picker = NSSharingServicePicker(items: [url])
+        picker.delegate = self
+        picker.show(relativeTo: view.bounds, of: view, preferredEdge: .minY)
+    }
+
+    private func cleanup() {
+        anchor?.orderOut(nil)
+        anchor?.close()
+        anchor = nil
+    }
+
+    // Picker dismissed without choosing → drop the anchor window.
+    func sharingServicePicker(_ picker: NSSharingServicePicker, didChoose service: NSSharingService?) {
+        if service == nil { cleanup() }
+    }
+    func sharingServicePicker(_ picker: NSSharingServicePicker, delegateFor service: NSSharingService) -> NSSharingServiceDelegate? { self }
+    func sharingService(_ service: NSSharingService, sourceFrameOnScreenForShareItem item: Any) -> NSRect { anchor?.frame ?? .zero }
+    func sharingService(_ service: NSSharingService, sourceWindowForShareItems items: [Any], sharingContentScope: UnsafeMutablePointer<NSSharingService.SharingContentScope>) -> NSWindow? { anchor }
+    func sharingService(_ service: NSSharingService, didShareItems items: [Any]) { cleanup() }
+    func sharingService(_ service: NSSharingService, didFailToShareItems items: [Any], error: Error) { cleanup() }
+}
+
+/// Apps we can hand a screenshot to directly. Targets with a `webURL` also work without the
+/// desktop app: the image is copied and the web app opens, ready for ⌘V.
 struct ShareTarget {
     let name: String
     let bundleIDs: [String]
     let symbol: String
+    var webURL: URL? = nil
+    /// The app ignores files opened with it, so tell the user to paste.
+    var pasteHint = false
 
     static let all: [ShareTarget] = [
         ShareTarget(name: "Claude", bundleIDs: ["com.anthropic.claudefordesktop"], symbol: "sparkles"),
+        ShareTarget(name: "ChatGPT", bundleIDs: ["com.openai.chat"], symbol: "bubble.left.and.text.bubble.right",
+                    webURL: URL(string: "https://chatgpt.com/"), pasteHint: true),
+        ShareTarget(name: "Gemini", bundleIDs: ["com.google.GeminiMacOS"], symbol: "sparkle",
+                    webURL: URL(string: "https://gemini.google.com/app"), pasteHint: true),
         ShareTarget(name: "Slack", bundleIDs: ["com.tinyspeck.slackmacgap"], symbol: "number"),
         ShareTarget(name: L("카카오톡", "KakaoTalk"), bundleIDs: ["com.kakao.KakaoTalkMac"], symbol: "bubble.left.fill"),
     ]
@@ -205,6 +250,8 @@ struct ShareTarget {
 
     /// Installed targets only.
     static var installed: [ShareTarget] { all.filter { $0.isInstalled } }
+    /// Installed apps plus web-capable targets (ChatGPT, Gemini).
+    static var available: [ShareTarget] { all.filter { $0.isInstalled || $0.webURL != nil } }
 }
 
 enum Exporter {
@@ -222,7 +269,16 @@ enum Exporter {
     /// it is still activated and the image is ready to paste with ⌘V.
     static func share(_ image: NSImage, to target: ShareTarget) {
         copy(image)
-        guard let appURL = target.appURL else { return }
+        guard let appURL = target.appURL else {
+            if let web = target.webURL {
+                NSWorkspace.shared.open(web)
+                Toast.show(L("\(target.name) 열림 · ⌘V로 붙여넣기", "\(target.name) opened · paste with ⌘V"), duration: 2.2)
+            }
+            return
+        }
+        if target.pasteHint {
+            Toast.show(L("이미지 복사됨 · \(target.name)에서 ⌘V", "Image copied · press ⌘V in \(target.name)"), duration: 2.2)
+        }
         let fileURL = writeTempPNG(image)
         let config = NSWorkspace.OpenConfiguration()
         config.activates = true

@@ -146,7 +146,7 @@
         <tr><td>Annotate right where you captured</td><td class="so">△ separate Markup window</td><td class="so">△ separate editor</td><td class="ok">●</td><td class="ok">●</td><td class="me ok">●</td></tr>
         <tr><td>Copy to clipboard by default</td><td class="no">✕ saves a file</td><td class="so">△ setting</td><td class="ok">●</td><td class="ok">●</td><td class="me ok">● ⌘C or Enter</td></tr>
         <tr><td>Text background (masking) · number · emoji stamps</td><td class="no">✕</td><td class="so">△ some</td><td class="no">✕</td><td class="ok">●</td><td class="me ok">●</td></tr>
-        <tr><td>Share straight to Claude · Slack · KakaoTalk</td><td class="no">✕</td><td class="no">✕</td><td class="no">✕</td><td class="no">✕</td><td class="me ok">●</td></tr>
+        <tr><td>Share straight to Claude · ChatGPT · Gemini · Slack · KakaoTalk</td><td class="no">✕</td><td class="no">✕</td><td class="no">✕</td><td class="no">✕</td><td class="me ok">●</td></tr>
         <tr><td>No online upload (local only)</td><td class="ok">●</td><td class="so">△ optional</td><td class="so">△ prnt.sc upload</td><td class="so">△ optional cloud</td><td class="me ok">● no upload feature at all</td></tr>
         <tr><td>English · Korean UI</td><td class="ok">●</td><td class="ok">●</td><td class="so">△</td><td class="so">△ English</td><td class="me ok">●</td></tr>
       </table>
@@ -158,8 +158,8 @@
     <h2>Features</h2>
     <div class="grid">
       <div class="card"><div class="ic">⌨️</div><h3>One hotkey, one drag</h3><p>Default <kbd>⌘⇧9</kbd>. The screen dims; drag to select a region or <b>click</b> a window to grab it whole. Resize with handles, move by dragging inside, nudge 1&nbsp;px with the arrow keys. Pixel dimensions are shown live.</p></div>
-      <div class="card"><div class="ic">✏️</div><h3>Annotate right there</h3><p>Pen · line · arrow · rectangle · ellipse · marker · multi-line text · numbered stamps · emoji stamps · image stamps (signature, logo), a 10-color palette (customizable in Settings), 3 stroke widths plus a dashed toggle, chevron (>) or circle arrow heads, undo/redo. Drag any annotation to move it, Delete to remove it. Text has 3 size presets plus free entry and togglable shadow, outline and background box. What you see is exactly what gets exported.</p></div>
-      <div class="card"><div class="ic">📋</div><h3>Copy · save · share</h3><p><kbd>⌘C</kbd> to the clipboard, <kbd>⌘S</kbd> straight to your chosen folder as PNG, <kbd>⌘⇧S</kbd> to Claude · Slack · KakaoTalk or the macOS share sheet.</p></div>
+      <div class="card"><div class="ic">✏️</div><h3>Annotate right there</h3><p>Pen · line · arrow · rectangle · ellipse · marker · multi-line text · numbered stamps · emoji stamps · image stamps (signature, logo) in any size, a 10-color palette (customizable in Settings), 3 stroke widths plus a dashed toggle, chevron (>) or circle arrow heads, undo/redo. Drag any annotation to move it, Delete to remove it. Text has 3 size presets plus free entry and togglable shadow, outline and background box. What you see is exactly what gets exported.</p></div>
+      <div class="card"><div class="ic">📋</div><h3>Copy · save · share</h3><p><kbd>⌘C</kbd> to the clipboard, <kbd>⌘S</kbd> straight to your chosen folder as PNG, <kbd>⌘⇧S</kbd> to Claude · ChatGPT · Gemini · Slack · KakaoTalk or the macOS share sheet.</p></div>
       <div class="card"><div class="ic">🖥️</div><h3>Retina · multi-monitor</h3><p>ScreenCaptureKit captures every display at its true resolution. Works the same with one monitor or five.</p></div>
       <div class="card"><div class="ic">⚙️</div><h3>Your settings</h3><p>Change the capture hotkey, the save folder, the save/copy behaviour and the 10 palette colours in the settings window. Optional launch at login. A once-a-day check tells you in the menu when a new version is out. UI in English or Korean, following your macOS language.</p></div>
       <div class="card"><div class="ic">🪶</div><h3>Light and transparent</h3><p>13 Swift/AppKit files, 0 external libraries. No Dock icon — menu bar only. Never uploads anything.</p></div>
@@ -185,7 +185,7 @@
       <tr><td>Nudge the region / selected annotation</td><td>Arrow keys (<kbd>⇧</kbd> for 10&nbsp;px)</td></tr>
       <tr><td>Move / delete / re-edit an annotation</td><td>Drag / <kbd>Delete</kbd> / double-click (select tool)</td></tr>
       <tr><td>Redo</td><td><kbd>⌘⇧Z</kbd></td></tr>
-      <tr><td>Bigger / smaller text (text tool)</td><td><kbd>⌘+</kbd> / <kbd>⌘-</kbd></td></tr>
+      <tr><td>Bigger / smaller text or stamp</td><td><kbd>⌘+</kbd> / <kbd>⌘-</kbd></td></tr>
       <tr><td>Undo</td><td><kbd>⌘Z</kbd></td></tr>
       <tr><td>Cancel</td><td><kbd>Esc</kbd> · right-click</td></tr>
     </table>
@@ -240,7 +240,7 @@ cd shotpark
     <details><summary>Nothing happens when I press the hotkey</summary><p>Screen Recording permission hasn't been granted yet. Menu bar icon → "Screen Recording permission…", enable ShotPark and relaunch the app. If another app already owns the same global hotkey, change the combination in settings.</p></details>
     <details><summary>macOS says the app "is damaged and can't be opened"</summary><p>That's the quarantine flag attached to downloaded files. Clear it with <code>xattr -d com.apple.quarantine /Applications/ShotPark.app</code> from step 2.</p></details>
     <details><summary>After updating, it asks for Screen Recording again</summary><p>Expected. A new build with a different signature is treated by macOS as a new app, so it asks once more. Enable it and relaunch.</p></details>
-    <details><summary>How does sharing to Slack / KakaoTalk work?</summary><p>The image is copied to the clipboard and the file is handed to the app. Apps that accept files (like Slack) open their upload sheet immediately; apps that don't are simply brought to the front, so just paste with ⌘V.</p></details>
+    <details><summary>How does sharing to Slack / KakaoTalk / ChatGPT / Gemini work?</summary><p>The image is copied to the clipboard and the file is handed to the app. Apps that accept files (like Slack) open their upload sheet immediately; apps that don't are simply brought to the front, so just paste with ⌘V. Without the ChatGPT / Gemini desktop app, the web app opens instead — paste there.</p></details>
     <details><summary>What about Intel Macs?</summary><p>Supported. Since 1.9.2 the release is a universal binary (Apple Silicon + Intel): same zip, same install commands.</p></details>
     <details><summary>Can I share with an online link like Lightshot's prnt.sc?</summary><p>No, and that's deliberate. Everything stays on your machine; sharing goes through the clipboard, files or the macOS share sheet only.</p></details>
     <details><summary>Is the app in English?</summary><p>Yes. Menus, settings, tooltips and messages follow your macOS language: English by default, Korean when Korean is your primary language. You can also pick a per-app language under System Settings → General → Language &amp; Region → Applications.</p></details>

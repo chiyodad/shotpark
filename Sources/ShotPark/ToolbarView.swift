@@ -562,6 +562,8 @@ final class EmojiOptionsView: NSView, NSTextFieldDelegate {
     var onRemoveImage: ((String) -> Void)?
     var onPick: ((String) -> Void)?
     var onSize: ((CGFloat) -> Void)?
+    /// −/＋ buttons: step the stamp size (or the selected stamp's size).
+    var onStep: ((Int) -> Void)?
     /// Called when the system picker inserted an emoji (also passed through onPick).
     var onFocusReturn: (() -> Void)?
 
@@ -604,11 +606,13 @@ final class EmojiOptionsView: NSView, NSTextFieldDelegate {
         (0..<choices.count).map { NSRect(x: leading + CGFloat($0) * cell, y: 3, width: cell, height: Self.height - 6) }
     }
     private var moreRect: NSRect { NSRect(x: leading + CGFloat(choices.count) * cell + 12, y: 5, width: 64, height: Self.height - 10) }
+    private var minusRect: NSRect { NSRect(x: moreRect.maxX + 10, y: 4, width: 28, height: Self.height - 8) }
     private func sizeRects() -> [NSRect] {
-        let x0 = moreRect.maxX + 10
+        let x0 = minusRect.maxX
         return (0..<3).map { NSRect(x: x0 + CGFloat($0) * 46, y: 4, width: 46, height: Self.height - 8) }
     }
-    private var imagesLabelX: CGFloat { sizeRects().last!.maxX + 14 }
+    private var plusRect: NSRect { NSRect(x: sizeRects().last!.maxX, y: 4, width: 28, height: Self.height - 8) }
+    private var imagesLabelX: CGFloat { plusRect.maxX + 14 }
     private func imageRects() -> [NSRect] {
         let x0 = imagesLabelX + 42
         return (0..<images.count).map { NSRect(x: x0 + CGFloat($0) * 36, y: 3, width: 34, height: Self.height - 6) }
@@ -661,6 +665,15 @@ final class EmojiOptionsView: NSView, NSTextFieldDelegate {
             str.draw(at: NSPoint(x: r.midX - str.size().width / 2, y: r.midY - str.size().height / 2))
         }
 
+        for (idx, r, label) in [(210, minusRect, "−"), (211, plusRect, "＋")] {
+            if hoverIndex == idx {
+                NSColor.white.withAlphaComponent(0.12).setFill()
+                NSBezierPath(roundedRect: r.insetBy(dx: 2, dy: 1), xRadius: 6, yRadius: 6).fill()
+            }
+            let str = NSAttributedString(string: label, attributes: [.font: NSFont.systemFont(ofSize: 15, weight: .semibold), .foregroundColor: NSColor.white])
+            str.draw(at: NSPoint(x: r.midX - str.size().width / 2, y: r.midY - str.size().height / 2))
+        }
+
         // user images (signatures, logos…)
         NSColor.white.withAlphaComponent(0.18).setFill()
         NSRect(x: imagesLabelX - 8, y: 8, width: 1, height: Self.height - 16).fill()
@@ -695,6 +708,8 @@ final class EmojiOptionsView: NSView, NSTextFieldDelegate {
         if let i = choiceRects().firstIndex(where: { $0.contains(p) }) { return i }
         if moreRect.contains(p) { return 100 }
         if let i = sizeRects().firstIndex(where: { $0.contains(p) }) { return 200 + i }
+        if minusRect.contains(p) { return 210 }
+        if plusRect.contains(p) { return 211 }
         if let i = imageRects().firstIndex(where: { $0.contains(p) }) { return 300 + i }
         if images.count < ImageStamps.maxCount, imageAddRect.contains(p) { return 400 }
         return nil
@@ -728,6 +743,7 @@ final class EmojiOptionsView: NSView, NSTextFieldDelegate {
             selectedImage = name; onPickImage?(name)
         }
         else if idx == 400 { onAddImage?() }
+        else if idx == 210 || idx == 211 { onStep?(idx == 211 ? 1 : -1) }
         else if idx == 100 {
             // Character Viewer inserts into the first responder → our hidden field
             receiver.stringValue = ""
