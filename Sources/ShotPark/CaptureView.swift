@@ -271,6 +271,12 @@ final class CaptureView: NSView, NSTextViewDelegate {
         return cursor
     }
 
+    func debugOpenAddImagePanel() {
+        selectWholeScreen()
+        tool = .emoji
+        addStampImageFromFile()
+    }
+
     /// "+ Add" in the stamp bar: pick an image file (PNG with transparency works best for signatures).
     func addStampImageFromFile() {
         let panel = NSOpenPanel()
@@ -278,9 +284,18 @@ final class CaptureView: NSView, NSTextViewDelegate {
         panel.allowsMultipleSelection = false
         panel.message = L("도장으로 쓸 이미지를 고르세요 (서명·로고 등, 투명 배경 PNG 권장)", "Choose an image to use as a stamp (signature, logo… a transparent PNG works best)")
         panel.prompt = L("추가", "Add")
-        // The overlay sits at the shielding level; lift the panel above it.
-        panel.level = NSWindow.Level(rawValue: Int(CGShieldingWindowLevel()) + 1)
+        // The overlay sits at the shielding level. runModal() resets the panel to the modal-panel level
+        // (behind the overlay), so lift it once it is on screen.
+        let above = NSWindow.Level(rawValue: Int(CGShieldingWindowLevel()) + 1)
+        panel.level = above
+        let lift = Timer(timeInterval: 0.02, repeats: true) { t in
+            guard panel.isVisible else { return }
+            if panel.level != above { panel.level = above; panel.orderFrontRegardless() }
+            if !panel.isVisible || panel.level == above { t.invalidate() }
+        }
+        RunLoop.main.add(lift, forMode: .modalPanel)
         let result = panel.runModal()
+        lift.invalidate()
         window?.makeKeyAndOrderFront(nil)
         window?.makeFirstResponder(self)
         guard result == .OK, let url = panel.url else { return }

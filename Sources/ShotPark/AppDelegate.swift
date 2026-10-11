@@ -52,6 +52,31 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if env["SHOTPARK_SETTINGS"] == "1" {
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { self.openSettings() }
         }
+        if env["SHOTPARK_PANELTEST"] == "1" {
+            // Opens the "+ Add image" panel during a capture and reports which windows are on top.
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { self.startCapture() }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 2.5) {
+                guard let view = self.session?.primaryView else { print("no view"); exit(2) }
+                let t = Timer(timeInterval: 2.0, repeats: false) { _ in
+                    let pid = ProcessInfo.processInfo.processIdentifier
+                    let list = (CGWindowListCopyWindowInfo([.optionOnScreenOnly], kCGNullWindowID) as? [[String: Any]]) ?? []
+                    for w in list.prefix(12) {
+                        let owner = w[kCGWindowOwnerName as String] as? String ?? "?"
+                        let opid = w[kCGWindowOwnerPID as String] as? Int32 ?? 0
+                        let layer = w[kCGWindowLayer as String] as? Int ?? 0
+                        let b = w[kCGWindowBounds as String] as? [String: Any] ?? [:]
+                        print("WIN owner=\(owner) mine=\(opid == pid) layer=\(layer) bounds=\(b["Width"] ?? 0)x\(b["Height"] ?? 0)")
+                    }
+                    print("modalKey=\(NSApp.modalWindow?.isKeyWindow ?? false) modalWindow=\(String(describing: NSApp.modalWindow)) level=\(NSApp.modalWindow?.level.rawValue ?? -1) visible=\(NSApp.modalWindow?.isVisible ?? false)")
+                    NSApp.abortModal()
+                    DispatchQueue.main.async { self.session?.cancel(); exit(0) }
+                }
+                RunLoop.main.add(t, forMode: .common)
+                RunLoop.main.add(t, forMode: .modalPanel)
+                view.debugOpenAddImagePanel()
+            }
+            return
+        }
         if env["SHOTPARK_SELFTEST"] == "1" {
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { self.startCapture() }
             // Poll until the overlay is up (capture + windows can take a moment), then run.
