@@ -832,40 +832,67 @@ final class CaptureView: NSView, NSTextViewDelegate {
         needsDisplay = true
     }
 
-    /// Buttons shown above the selected rotatable object: (-1 ↺, 1 ↻, 0 reset when rotated).
+    /// Rotate bar for the selected text/stamp: ↺, ↻ and (when rotated) "30° ✕" to straighten it.
+    /// It is placed on whichever side of the object has the most room, outside the circle the object
+    /// sweeps while rotating, and depends only on the unrotated geometry — so it stays put while you
+    /// click ↺/↻ repeatedly. The reset slot is reserved even when hidden so nothing shifts.
     private func rotateButtonRects() -> [(Int, CGRect)] {
         guard state == .selected, textEditor == nil, drag.isIdle, let i = selectedShape, i < shapes.count, shapes[i].isRotatable else { return [] }
-        let b = shapes[i].bounds.insetBy(dx: -3, dy: -3)
-        let s: CGFloat = 24, gap: CGFloat = 2
-        let ids = shapes[i].rotation != 0 ? [-1, 1, 0] : [-1, 1]
-        let w = CGFloat(ids.count) * s + CGFloat(ids.count - 1) * gap
-        var x = min(max(b.maxX - w, 2), bounds.width - w - 2)
-        var y = b.maxY + 6
-        if y + s > bounds.height - 2 { y = b.minY - s - 6 }
-        if y < 2 { y = 2 }
-        x = max(x, 2)
-        return ids.enumerated().map { ($0.element, CGRect(x: x + CGFloat($0.offset) * (s + gap), y: y, width: s, height: s)) }
+        let ub = shapes[i].unrotatedBounds
+        let c = shapes[i].pivot
+        let reach = hypot(ub.width, ub.height) / 2 + 8
+        let btn: CGFloat = 26, resetW: CGFloat = 54, gap: CGFloat = 2, pad: CGFloat = 4
+        let room = [("top", bounds.height - (c.y + reach)), ("bottom", c.y - reach),
+                    ("left", c.x - reach), ("right", bounds.width - (c.x + reach))]
+        let side = room.max(by: { $0.1 < $1.1 })!.0
+        var rects: [(Int, CGRect)] = []
+        if side == "top" || side == "bottom" {
+            let w = btn * 2 + resetW + gap * 2
+            var x = c.x - w / 2
+            x = min(max(x, pad), bounds.width - w - pad)
+            var y = side == "top" ? c.y + reach : c.y - reach - btn
+            y = min(max(y, pad), bounds.height - btn - pad)
+            rects = [(-1, CGRect(x: x, y: y, width: btn, height: btn)),
+                     (1, CGRect(x: x + btn + gap, y: y, width: btn, height: btn)),
+                     (0, CGRect(x: x + (btn + gap) * 2, y: y, width: resetW, height: btn))]
+        } else {
+            let h = btn * 3 + gap * 2
+            var y = c.y + h / 2 - btn   // top slot
+            y = min(max(y, pad + btn * 2 + gap * 2), bounds.height - btn - pad)
+            var x = side == "right" ? c.x + reach : c.x - reach - resetW
+            x = min(max(x, pad), bounds.width - resetW - pad)
+            rects = [(-1, CGRect(x: x, y: y, width: resetW, height: btn)),
+                     (1, CGRect(x: x, y: y - btn - gap, width: resetW, height: btn)),
+                     (0, CGRect(x: x, y: y - (btn + gap) * 2, width: resetW, height: btn))]
+        }
+        if shapes[i].rotation == 0 { rects.removeLast() }
+        return rects
     }
 
     private func drawRotateButtons() {
         let rects = rotateButtonRects()
-        guard let first = rects.first?.1, let last = rects.last?.1 else { return }
-        let pill = NSBezierPath(roundedRect: first.union(last).insetBy(dx: -3, dy: -3), xRadius: 8, yRadius: 8)
-        NSColor(calibratedWhite: 0.12, alpha: 0.92).setFill(); pill.fill()
-        NSColor.white.withAlphaComponent(0.2).setStroke(); pill.lineWidth = 1; pill.stroke()
+        guard !rects.isEmpty, let i = selectedShape, i < shapes.count else { return }
         let cfg = NSImage.SymbolConfiguration(pointSize: 13, weight: .semibold)
-        for (id, r) in rects {
-            if id == 0 {
-                let str = NSAttributedString(string: "0°", attributes: [.font: NSFont.systemFont(ofSize: 11, weight: .semibold), .foregroundColor: NSColor.white])
-                str.draw(at: NSPoint(x: r.midX - str.size().width / 2, y: r.midY - str.size().height / 2))
-                continue
-            }
-            let name = id < 0 ? "rotate.left" : "rotate.right"
-            guard let img = NSImage(systemSymbolName: name, accessibilityDescription: nil)?.withSymbolConfiguration(cfg) else { continue }
+        func symbol(_ name: String, in r: CGRect) {
+            guard let img = NSImage(systemSymbolName: name, accessibilityDescription: nil)?.withSymbolConfiguration(cfg) else { return }
             let tinted = NSImage(size: img.size, flipped: false) { rr in
                 img.draw(in: rr); NSColor.white.set(); rr.fill(using: .sourceAtop); return true
             }
             tinted.draw(in: NSRect(x: r.midX - img.size.width / 2, y: r.midY - img.size.height / 2, width: img.size.width, height: img.size.height))
+        }
+        for (id, r) in rects {
+            let bg = NSBezierPath(roundedRect: r, xRadius: 7, yRadius: 7)
+            (id == 0 ? NSColor(srgbRed: 0.36, green: 0.30, blue: 0.86, alpha: 0.95) : NSColor(calibratedWhite: 0.12, alpha: 0.92)).setFill()
+            bg.fill()
+            NSColor.white.withAlphaComponent(0.22).setStroke(); bg.lineWidth = 1; bg.stroke()
+            if id == 0 {
+                var deg = Int((-shapes[i].rotation * 180 / .pi).rounded()) % 360
+                if deg > 180 { deg -= 360 } else if deg <= -180 { deg += 360 }
+                let str = NSAttributedString(string: "\(deg)° ✕", attributes: [.font: NSFont.monospacedDigitSystemFont(ofSize: 11, weight: .semibold), .foregroundColor: NSColor.white])
+                str.draw(at: NSPoint(x: r.midX - str.size().width / 2, y: r.midY - str.size().height / 2))
+            } else {
+                symbol(id < 0 ? "rotate.left" : "rotate.right", in: r)
+            }
         }
     }
 
@@ -1449,6 +1476,9 @@ extension CaptureView {
                 check("rotate stamp ↻ 15°", abs(shapes[i].rotation + .pi / 12) < 0.001, "\(shapes[i].rotation)")
                 check("rotated stamp still hit at centre", shapes[i].hitTest(c))
                 check("rotate buttons shown (with reset)", rotateButtonRects().count == 3)
+                let r1 = rotateButtonRects().first?.1
+                rotateSelected(1)
+                check("rotate buttons stay put while rotating", rotateButtonRects().first?.1 == r1)
                 rotateSelected(0)
                 check("rotation reset", shapes[i].rotation == 0)
             }
