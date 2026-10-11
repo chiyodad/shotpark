@@ -18,6 +18,7 @@ final class CaptureView: NSView, NSTextViewDelegate {
         case draw
         case moveShape(Int, startPoints: [CGPoint], start: CGPoint)
         case scaleShape(Int, startSize: CGFloat, center: CGPoint, startDist: CGFloat)
+        case erase
     }
 
     weak var session: CaptureSession?
@@ -31,6 +32,11 @@ final class CaptureView: NSView, NSTextViewDelegate {
     private var currentShape: Shape?
     private var redoStack: [Shape] = []
     /// Index of the annotation highlighted for move / delete (selection tool).
+    /// Eraser: shapes removed by the current drag, and per-gesture records so ⌘Z can bring them back.
+    private var eraseGesture: [(Int, Shape)] = []
+    private var eraseLog: [(countAfter: Int, erased: [(Int, Shape)])] = []
+    private var eraserHover: Int? { didSet { needsDisplay = true } }
+
     /// Rotation of a text annotation being re-edited (the editor itself is always upright).
     private var editingRotation: CGFloat = 0
     private var selectedShape: Int? {
@@ -50,6 +56,7 @@ final class CaptureView: NSView, NSTextViewDelegate {
         didSet {
             toolbar.selectedTool = tool
             if tool != .move { selectedShape = nil }
+            if tool != .eraser { eraserHover = nil }
             layoutToolbar()
             window?.invalidateCursorRects(for: self)
             needsDisplay = true
@@ -200,6 +207,7 @@ final class CaptureView: NSView, NSTextViewDelegate {
         selection = .zero
         shapes = []
         redoStack = []
+        eraseLog = []
         selectedShape = nil
         hoverWindowRect = nil
         currentShape = nil
@@ -230,6 +238,8 @@ final class CaptureView: NSView, NSTextViewDelegate {
                 addCursorRect(selection, cursor: emojiCursor())
             } else if tool == .number {
                 addCursorRect(selection, cursor: numberCursor())
+            } else if tool == .eraser {
+                addCursorRect(selection, cursor: Self.eraserCursor)
             }
             if tool == .move || tool == .text {
                 for r in textShapeRects() { addCursorRect(r.intersection(selection), cursor: .openHand) }
@@ -449,7 +459,9 @@ final class CaptureView: NSView, NSTextViewDelegate {
 
     /// The selected annotation, when the options bars should edit it (select or text tool).
     private var editableSelection: Int? {
-        guard tool == .move || tool == .text, let i = selectedShape, i < shapes.count else { return nil }
+        guard let i = selectedShape, i < shapes.count else { return nil }
+        // Select / text tool: whatever is selected. A drawing tool: the shape it just drew.
+        guard tool == .move || tool == .text || shapes[i].tool == tool else { return nil }
         return i
     }
 
@@ -571,6 +583,14 @@ final class CaptureView: NSView, NSTextViewDelegate {
 
     func undoLast() {
         if textEditor != nil { cancelText(); return }
+        if let last = eraseLog.last, last.countAfter == shapes.count {
+            eraseLog.removeLast()
+            for (i, sh) in last.erased.reversed() { shapes.insert(sh, at: min(i, shapes.count)) }
+            selectedShape = nil
+            window?.invalidateCursorRects(for: self)
+            needsDisplay = true
+            return
+        }
         if !shapes.isEmpty {
             redoStack.append(shapes.removeLast())
             selectedShape = nil
@@ -644,6 +664,12 @@ final class CaptureView: NSView, NSTextViewDelegate {
                     beginText(at: p)
                     return
                 }
+                if tool == .eraser {
+                    eraseGesture = []
+                    erase(at: p)
+                    drag = .erase
+                    return
+                }
                 if tool == .emoji {
                     shapes.append(Shape(tool: .emoji, points: [p], color: color, lineWidth: lineWidth,
                                         text: stampImage == nil ? emoji : "", fontSize: emojiSize, imageName: stampImage))
@@ -714,6 +740,8 @@ final class CaptureView: NSView, NSTextViewDelegate {
         case .scaleShape(let i, let startSize, let c, let d0):
             guard i < shapes.count else { return }
             shapes[i].fontSize = min(max(startSize * hypot(p.x - c.x, p.y - c.y) / d0, 8), 400)
+        case .erase:
+            erase(at: p)
         case .moveShape(let i, let startPoints, let start):
             guard i < shapes.count else { return }
             shapes[i].points = startPoints.map { CGPoint(x: $0.x + p.x - start.x, y: $0.y + p.y - start.y) }
@@ -760,8 +788,15 @@ final class CaptureView: NSView, NSTextViewDelegate {
                 state = .idle; selection = .zero; shapes = []
             }
         case .draw:
-            if let s = currentShape { shapes.append(s); redoStack = [] }
+            if let s = currentShape {
+                shapes.append(s); redoStack = []
+                // Keep the new shape "current": width / dash / colour changes right after drawing apply to it.
+                selectedShape = shapes.count - 1
+            }
             currentShape = nil
+        case .erase:
+            if !eraseGesture.isEmpty { eraseLog.append((countAfter: shapes.count, erased: eraseGesture)) }
+            eraseGesture = []
         case .moveShape:
             NSCursor.pop()
         case .scaleShape(let i, _, _, _):
@@ -776,6 +811,12 @@ final class CaptureView: NSView, NSTextViewDelegate {
     }
 
     override func mouseMoved(with event: NSEvent) {
+        if state == .selected, tool == .eraser {
+            let p = convert(event.locationInWindow, from: nil)
+            let i = shapes.indices.reversed().first { shapes[$0].hitTest(p, tolerance: 10) }
+            if i != eraserHover { eraserHover = i; needsDisplay = true }
+            return
+        }
         guard state == .idle else { return }
         let p = convert(event.locationInWindow, from: nil)
         let r = windowFrames.first { $0.contains(p) }?.intersection(bounds)
@@ -865,7 +906,7 @@ final class CaptureView: NSView, NSTextViewDelegate {
             return
         }
         guard state == .selected, flags.isEmpty || flags == .shift else { return }
-        let map: [Int: Tool] = [35: .pen, 37: .line, 0: .arrow, 15: .rect, 14: .ellipse, 46: .marker, 17: .text, 45: .number, 1: .emoji, 9: .move]
+        let map: [Int: Tool] = [35: .pen, 37: .line, 0: .arrow, 15: .rect, 14: .ellipse, 46: .marker, 17: .text, 45: .number, 1: .emoji, 7: .eraser, 9: .move]
         if let t = map[code] { tool = t }
     }
 
@@ -980,6 +1021,29 @@ final class CaptureView: NSView, NSTextViewDelegate {
             }
         }
     }
+
+    // MARK: eraser
+
+    private func erase(at p: CGPoint) {
+        guard let i = shapes.indices.reversed().first(where: { shapes[$0].hitTest(p, tolerance: 10) }) else { return }
+        eraseGesture.append((i, shapes.remove(at: i)))
+        selectedShape = nil
+        eraserHover = nil
+        redoStack = []
+        needsDisplay = true
+    }
+
+    static let eraserCursor: NSCursor = {
+        let side: CGFloat = 26
+        let img = NSImage(size: NSSize(width: side, height: side), flipped: false) { rect in
+            let shadow = NSShadow(); shadow.shadowBlurRadius = 2; shadow.shadowColor = NSColor.black.withAlphaComponent(0.6); shadow.set()
+            if let sym = symbolImage("eraser.fill", color: .white, pointSize: 17, weight: .semibold) {
+                sym.draw(in: NSRect(x: (side - sym.size.width) / 2, y: (side - sym.size.height) / 2, width: sym.size.width, height: sym.size.height))
+            }
+            return true
+        }
+        return NSCursor(image: img, hotSpot: NSPoint(x: 7, y: side - 7))
+    }()
 
     /// Small square at the bottom-right of the selected stamp; dragging it scales the stamp.
     private func stampHandleRect() -> CGRect? {
@@ -1175,8 +1239,19 @@ final class CaptureView: NSView, NSTextViewDelegate {
         }
         ctx.restoreGState()
 
-        // highlighted annotation (selection tool)
-        if let i = selectedShape, i < shapes.count {
+        // eraser: outline what a click would remove
+        if tool == .eraser, let i = eraserHover, i < shapes.count {
+            ctx.saveGState()
+            ctx.addPath(shapes[i].outlinePath(inset: -4))
+            ctx.setLineWidth(1.5)
+            ctx.setLineDash(phase: 0, lengths: [4, 3])
+            ctx.setStrokeColor(NSColor.systemRed.cgColor)
+            ctx.strokePath()
+            ctx.restoreGState()
+        }
+
+        // highlighted annotation (selection tool; a shape just drawn with a drawing tool is kept current silently)
+        if let i = selectedShape, i < shapes.count, !Self.strokeTools.contains(tool) {
             ctx.saveGState()
             ctx.addPath(shapes[i].outlinePath(inset: -3))
             ctx.setLineWidth(1)
@@ -1607,6 +1682,27 @@ extension CaptureView {
             check("colour applies to selected shape (tool stays select)", shapes[i].color == .systemGreen && tool == .move)
         } else { check("rect for option-bar test", false) }
         selectedShape = nil
+
+        // 5f. just-drawn shape takes width changes; eraser removes, ⌘Z restores
+        do {
+            let saved = (color, lineWidth, dashed)
+            defer { color = saved.0; lineWidth = saved.1; dashed = saved.2 }
+            tool = .line
+            dragFrom(CGPoint(x: 120, y: H - 400), to: CGPoint(x: 300, y: H - 400))
+            let li = shapes.count - 1
+            let target = shapes[li].lineWidth == 7 ? CGFloat(2) : 7
+            strokeOptions.onChange?(target)
+            check("width applies to the line just drawn", shapes[li].lineWidth == target)
+            tool = .eraser
+            let n = shapes.count
+            click(CGPoint(x: 210, y: H - 400))
+            check("eraser removes the line", shapes.count == n - 1)
+            undoLast()
+            check("⌘Z brings the erased line back", shapes.count == n && shapes[li].tool == .line)
+            erase(at: CGPoint(x: 3, y: 3)) // empty spot: nothing to erase
+            check("eraser on empty spot does nothing", shapes.count == n)
+            tool = .move
+        }
 
         // 6. click outside with annotations → idle and annotations cleared
         click(CGPoint(x: 20, y: 20))

@@ -80,11 +80,12 @@ final class ToolbarView: NSView {
         Item(symbol: "character",            tip: L("텍스트 (T) — ⇧↩ 줄바꿈, 크기·스타일은 아래 옵션 바", "Text (T) — ⇧↩ new line; size & style in the bar below"), action: .selectTool(.text)),
         Item(symbol: "1.circle",             tip: L("번호 스탬프 (N) — 클릭할 때마다 ①, ②, ③… 순서 표시", "Number stamp (N) — each click places ①, ②, ③…"), action: .selectTool(.number)),
         Item(symbol: "face.smiling",         tip: L("이모지 도장 (S) — 아래에서 이모지를 고르고 클릭해 찍기", "Emoji stamp (S) — pick an emoji below, then click to place"), action: .selectTool(.emoji)),
+        Item(symbol: "eraser",               tip: L("지우개 (X) — 지울 주석을 클릭하거나 문지르기", "Eraser (X) — click or scrub over annotations to remove them"), action: .selectTool(.eraser)),
         Item(symbol: "paintpalette.fill",    tip: L("색상", "Color"),        action: .color),
         Item(symbol: "arrow.uturn.backward", tip: L("실행 취소 (⌘Z)", "Undo (⌘Z)"), action: .undo, separatorBefore: true),
         Item(symbol: "doc.on.doc",           tip: L("클립보드로 복사 (⌘C / Enter)", "Copy to clipboard (⌘C / Enter)"), action: .copy, separatorBefore: true),
         Item(symbol: "square.and.arrow.down", tip: L("저장 (⌘S)", "Save (⌘S)"),  action: .save),
-        Item(symbol: "square.and.arrow.up",  tip: L("공유 — Claude · Slack · 카카오톡 (⌘⇧S)", "Share — Claude · Slack · KakaoTalk (⌘⇧S)"), action: .share),
+        Item(symbol: "square.and.arrow.up",  tip: L("공유 — Claude · ChatGPT · Gemini · Slack · 카카오톡 (⌘⇧S)", "Share — Claude · ChatGPT · Gemini · Slack · KakaoTalk (⌘⇧S)"), action: .share),
         Item(symbol: "xmark",                tip: L("닫기 (Esc)", "Close (Esc)"),  action: .close),
     ]
 

@@ -1,7 +1,7 @@
 import AppKit
 
 enum Tool: Int, CaseIterable {
-    case move, pen, line, arrow, rect, ellipse, marker, text, number, emoji
+    case move, pen, line, arrow, rect, ellipse, marker, text, number, emoji, eraser
 }
 
 /// How annotation text is set off from the background. Any combination can be on at once.
@@ -174,7 +174,7 @@ extension Shape {
     func hitTest(_ p: CGPoint, tolerance: CGFloat = 7) -> Bool {
         let tol = tolerance + effectiveWidth / 2
         switch tool {
-        case .move: return false
+        case .move, .eraser: return false
         case .text, .emoji:
             guard rotation != 0 else { return unrotatedBounds.contains(p) }
             return unrotatedBounds.contains(p.applying(rotationTransform.inverted()))
@@ -235,7 +235,7 @@ enum ShapeRenderer {
         }
 
         switch s.tool {
-        case .move:
+        case .move, .eraser:
             break
 
         case .pen, .marker:
