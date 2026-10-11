@@ -232,7 +232,7 @@ struct ShareTarget {
 
     static let all: [ShareTarget] = [
         ShareTarget(name: "Claude", bundleIDs: ["com.anthropic.claudefordesktop"], symbol: "sparkles"),
-        ShareTarget(name: "ChatGPT", bundleIDs: ["com.openai.chat"], symbol: "bubble.left.and.text.bubble.right",
+        ShareTarget(name: "ChatGPT", bundleIDs: ["com.openai.chat", "com.openai.codex"], symbol: "bubble.left.and.text.bubble.right",
                     webURL: URL(string: "https://chatgpt.com/"), pasteHint: true),
         ShareTarget(name: "Gemini", bundleIDs: ["com.google.GeminiMacOS"], symbol: "sparkle",
                     webURL: URL(string: "https://gemini.google.com/app"), pasteHint: true),
@@ -241,8 +241,11 @@ struct ShareTarget {
     ]
 
     var appURL: URL? {
-        for id in bundleIDs {
-            if let u = NSWorkspace.shared.urlForApplication(withBundleIdentifier: id) { return u }
+        for (n, id) in bundleIDs.enumerated() {
+            // Secondary IDs only count when the app carries this target's name — the current ChatGPT
+            // desktop app ships as com.openai.codex, which must not match a separate Codex app.
+            if let u = NSWorkspace.shared.urlForApplication(withBundleIdentifier: id),
+               n == 0 || u.deletingPathExtension().lastPathComponent.hasPrefix(name) { return u }
         }
         let fallback = URL(fileURLWithPath: "/Applications/\(bundleIDs.first == "com.kakao.KakaoTalkMac" ? "KakaoTalk" : name).app")
         return FileManager.default.fileExists(atPath: fallback.path) ? fallback : nil
