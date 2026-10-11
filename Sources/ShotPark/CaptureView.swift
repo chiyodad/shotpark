@@ -10,6 +10,7 @@ final class CaptureView: NSView, NSTextViewDelegate {
     }
 
     private enum Drag {
+        var isIdle: Bool { if case .none = self { return true } else { return false } }
         case none
         case select(start: CGPoint)
         case move(startRect: CGRect, start: CGPoint)
@@ -30,6 +31,8 @@ final class CaptureView: NSView, NSTextViewDelegate {
     private var currentShape: Shape?
     private var redoStack: [Shape] = []
     /// Index of the annotation highlighted for move / delete (selection tool).
+    /// Rotation of a text annotation being re-edited (the editor itself is always upright).
+    private var editingRotation: CGFloat = 0
     private var selectedShape: Int? { didSet { needsDisplay = true; window?.invalidateCursorRects(for: self) } }
     /// Window frames (view coords, front to back) for click-to-select-window.
     var windowFrames: [CGRect] = []
@@ -225,6 +228,7 @@ final class CaptureView: NSView, NSTextViewDelegate {
                 for r in textShapeRects() { addCursorRect(r.intersection(selection), cursor: .openHand) }
             }
             if let h = stampHandleRect() { addCursorRect(h.insetBy(dx: -4, dy: -4), cursor: .crosshair) }
+            for (_, r) in rotateButtonRects() { addCursorRect(r, cursor: .pointingHand) }
         } else {
             addCursorRect(bounds, cursor: .crosshair)
         }
@@ -512,6 +516,12 @@ final class CaptureView: NSView, NSTextViewDelegate {
             return
         }
 
+        // ↺ / ↻ / 0° buttons next to the selected text or stamp.
+        if let hit = rotateButtonRects().first(where: { $0.1.contains(p) }) {
+            rotateSelected(hit.0)
+            return
+        }
+
         // Corner handle of the selected stamp: drag to resize it.
         if let h = stampHandleRect(), h.insetBy(dx: -4, dy: -4).contains(p), let i = selectedShape, let c = shapes[i].points.first {
             drag = .scaleShape(i, startSize: shapes[i].fontSize, center: c, startDist: max(hypot(p.x - c.x, p.y - c.y), 1))
@@ -521,6 +531,14 @@ final class CaptureView: NSView, NSTextViewDelegate {
         // Existing annotation: drag to move, double-click a text to edit it again, Delete removes.
         if state == .selected, tool == .move || tool == .text, let i = shapeIndex(at: p) {
             if event.clickCount == 2, shapes[i].tool == .text { editTextShape(at: i); return }
+            selectedShape = i
+            drag = .moveShape(i, startPoints: shapes[i].points, start: p)
+            NSCursor.closedHand.push()
+            return
+        }
+        // With a stamp tool, pressing on an existing stamp grabs it (drag to move) instead of stamping on top.
+        if state == .selected, tool == .emoji || tool == .number,
+           let i = shapes.indices.reversed().first(where: { (shapes[$0].tool == .emoji || shapes[$0].tool == .number) && shapes[$0].hitTest(p) }) {
             selectedShape = i
             drag = .moveShape(i, startPoints: shapes[i].points, start: p)
             NSCursor.closedHand.push()
@@ -753,6 +771,8 @@ final class CaptureView: NSView, NSTextViewDelegate {
             case 6:  flags.contains(.shift) ? redoLast() : undoLast()                  // Z / ⇧Z
             case 0:  selectWholeScreen()                                               // A
             case 9:  _ = pasteImageStamp()                                             // V
+            case 33: rotateSelected(-1)                                                // [  (counter-clockwise)
+            case 30: rotateSelected(1)                                                 // ]  (clockwise)
             case 24, 69: if isStamp(selectedShape) || tool == .emoji { stepStampSize(+1) } else if tool == .text || tool == .number { stepTextSize(+1) } // = / keypad +
             case 27, 78: if isStamp(selectedShape) || tool == .emoji { stepStampSize(-1) } else if tool == .text || tool == .number { stepTextSize(-1) } // - / keypad -
             default: break
@@ -794,6 +814,61 @@ final class CaptureView: NSView, NSTextViewDelegate {
         needsDisplay = true
     }
 
+    // MARK: rotation (text, emoji and image stamps)
+
+    static let rotateStep: CGFloat = .pi / 12 // 15°
+
+    /// dir: -1 = ↺ counter-clockwise, 1 = ↻ clockwise, 0 = reset.
+    func rotateSelected(_ dir: Int) {
+        guard let i = selectedShape, i < shapes.count, shapes[i].isRotatable else { return }
+        if dir == 0 { shapes[i].rotation = 0 }
+        else {
+            var r = shapes[i].rotation + (dir < 0 ? Self.rotateStep : -Self.rotateStep)
+            r = (r / Self.rotateStep).rounded() * Self.rotateStep
+            if abs(r) >= 2 * .pi - 0.001 { r = 0 }
+            shapes[i].rotation = abs(r) < 0.001 ? 0 : r
+        }
+        window?.invalidateCursorRects(for: self)
+        needsDisplay = true
+    }
+
+    /// Buttons shown above the selected rotatable object: (-1 ↺, 1 ↻, 0 reset when rotated).
+    private func rotateButtonRects() -> [(Int, CGRect)] {
+        guard state == .selected, textEditor == nil, drag.isIdle, let i = selectedShape, i < shapes.count, shapes[i].isRotatable else { return [] }
+        let b = shapes[i].bounds.insetBy(dx: -3, dy: -3)
+        let s: CGFloat = 24, gap: CGFloat = 2
+        let ids = shapes[i].rotation != 0 ? [-1, 1, 0] : [-1, 1]
+        let w = CGFloat(ids.count) * s + CGFloat(ids.count - 1) * gap
+        var x = min(max(b.maxX - w, 2), bounds.width - w - 2)
+        var y = b.maxY + 6
+        if y + s > bounds.height - 2 { y = b.minY - s - 6 }
+        if y < 2 { y = 2 }
+        x = max(x, 2)
+        return ids.enumerated().map { ($0.element, CGRect(x: x + CGFloat($0.offset) * (s + gap), y: y, width: s, height: s)) }
+    }
+
+    private func drawRotateButtons() {
+        let rects = rotateButtonRects()
+        guard let first = rects.first?.1, let last = rects.last?.1 else { return }
+        let pill = NSBezierPath(roundedRect: first.union(last).insetBy(dx: -3, dy: -3), xRadius: 8, yRadius: 8)
+        NSColor(calibratedWhite: 0.12, alpha: 0.92).setFill(); pill.fill()
+        NSColor.white.withAlphaComponent(0.2).setStroke(); pill.lineWidth = 1; pill.stroke()
+        let cfg = NSImage.SymbolConfiguration(pointSize: 13, weight: .semibold)
+        for (id, r) in rects {
+            if id == 0 {
+                let str = NSAttributedString(string: "0°", attributes: [.font: NSFont.systemFont(ofSize: 11, weight: .semibold), .foregroundColor: NSColor.white])
+                str.draw(at: NSPoint(x: r.midX - str.size().width / 2, y: r.midY - str.size().height / 2))
+                continue
+            }
+            let name = id < 0 ? "rotate.left" : "rotate.right"
+            guard let img = NSImage(systemSymbolName: name, accessibilityDescription: nil)?.withSymbolConfiguration(cfg) else { continue }
+            let tinted = NSImage(size: img.size, flipped: false) { rr in
+                img.draw(in: rr); NSColor.white.set(); rr.fill(using: .sourceAtop); return true
+            }
+            tinted.draw(in: NSRect(x: r.midX - img.size.width / 2, y: r.midY - img.size.height / 2, width: img.size.width, height: img.size.height))
+        }
+    }
+
     /// Small square at the bottom-right of the selected stamp; dragging it scales the stamp.
     private func stampHandleRect() -> CGRect? {
         guard state == .selected, let i = selectedShape, isStamp(i) else { return nil }
@@ -823,6 +898,7 @@ final class CaptureView: NSView, NSTextViewDelegate {
     private func editTextShape(at i: Int) {
         guard i < shapes.count, shapes[i].tool == .text, let o = shapes[i].points.first else { return }
         let sh = shapes.remove(at: i)
+        editingRotation = sh.rotation
         color = sh.color
         textSize = sh.fontSize
         textStyle = sh.textStyle
@@ -891,11 +967,14 @@ final class CaptureView: NSView, NSTextViewDelegate {
         let text = tv.string.trimmingCharacters(in: .whitespacesAndNewlines)
         if !text.isEmpty {
             let origin = editingTextOrigin ?? CGPoint(x: tv.frame.minX + 2, y: tv.frame.maxY - textSize * 0.2)
-            shapes.append(Shape(tool: .text, points: [origin], color: color, lineWidth: lineWidth,
-                                text: text, fontSize: textSize, textStyle: textStyle,
-                                boxColor: boxColor, boxAlpha: boxAlpha))
+            var sh = Shape(tool: .text, points: [origin], color: color, lineWidth: lineWidth,
+                           text: text, fontSize: textSize, textStyle: textStyle,
+                           boxColor: boxColor, boxAlpha: boxAlpha)
+            sh.rotation = editingRotation
+            shapes.append(sh)
             redoStack = []
         }
+        editingRotation = 0
         tv.removeFromSuperview()
         textEditor = nil
         window?.makeFirstResponder(self)
@@ -906,6 +985,7 @@ final class CaptureView: NSView, NSTextViewDelegate {
     private func cancelText() {
         textEditor?.removeFromSuperview()
         textEditor = nil
+        editingRotation = 0
         window?.makeFirstResponder(self)
         needsDisplay = true
     }
@@ -985,18 +1065,20 @@ final class CaptureView: NSView, NSTextViewDelegate {
 
         // highlighted annotation (selection tool)
         if let i = selectedShape, i < shapes.count {
-            let b = shapes[i].bounds.insetBy(dx: -3, dy: -3)
-            let hl = NSBezierPath(roundedRect: b, xRadius: 4, yRadius: 4)
-            hl.lineWidth = 1
-            hl.setLineDash([4, 3], count: 2, phase: 0)
-            NSColor.white.setStroke()
-            hl.stroke()
+            ctx.saveGState()
+            ctx.addPath(shapes[i].outlinePath(inset: -3))
+            ctx.setLineWidth(1)
+            ctx.setLineDash(phase: 0, lengths: [4, 3])
+            ctx.setStrokeColor(NSColor.white.cgColor)
+            ctx.strokePath()
+            ctx.restoreGState()
         }
         if let h = stampHandleRect() {
             let hp = NSBezierPath(roundedRect: h, xRadius: 2, yRadius: 2)
             NSColor.white.setFill(); hp.fill()
             NSColor.black.withAlphaComponent(0.55).setStroke(); hp.lineWidth = 1; hp.stroke()
         }
+        drawRotateButtons()
 
         // selection border
         let border = NSBezierPath(rect: selection.insetBy(dx: -0.5, dy: -0.5))
@@ -1360,6 +1442,15 @@ extension CaptureView {
                 check("stamp resize (⌘+)", shapes[i].fontSize > before, "\(before) → \(shapes[i].fontSize)")
                 stepStampSize(-1); stepStampSize(-1)
                 check("stamp resize (⌘−)", shapes[i].fontSize < before)
+            }
+            if let i = shapes.indices.last, let c = shapes[i].points.first {
+                selectedShape = i
+                rotateSelected(1)
+                check("rotate stamp ↻ 15°", abs(shapes[i].rotation + .pi / 12) < 0.001, "\(shapes[i].rotation)")
+                check("rotated stamp still hit at centre", shapes[i].hitTest(c))
+                check("rotate buttons shown (with reset)", rotateButtonRects().count == 3)
+                rotateSelected(0)
+                check("rotation reset", shapes[i].rotation == 0)
             }
             emojiOptions.onPick?("👍")
             check("picking an emoji leaves image mode", stampImage == nil)

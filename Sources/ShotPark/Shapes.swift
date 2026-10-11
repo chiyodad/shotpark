@@ -40,6 +40,21 @@ struct Shape {
     var boxAlpha: CGFloat = 0.85
     /// Stamp tool with a user image (signature, logo) instead of an emoji. Height = fontSize × 2.2.
     var imageName: String? = nil
+    /// Rotation in radians (counter-clockwise) around the centre of the unrotated bounds. Text and emoji/image stamps only.
+    var rotation: CGFloat = 0
+
+    var isRotatable: Bool { tool == .text || tool == .emoji }
+    var pivot: CGPoint { let b = unrotatedBounds; return CGPoint(x: b.midX, y: b.midY) }
+    private var rotationTransform: CGAffineTransform {
+        let c = pivot
+        return CGAffineTransform(translationX: c.x, y: c.y).rotated(by: rotation).translatedBy(x: -c.x, y: -c.y)
+    }
+    /// Outline of the object as drawn (rotated when it has a rotation).
+    func outlinePath(inset: CGFloat) -> CGPath {
+        let r = unrotatedBounds.insetBy(dx: inset, dy: inset)
+        var t = rotation != 0 && isRotatable ? rotationTransform : .identity
+        return CGPath(roundedRect: r, cornerWidth: 4, cornerHeight: 4, transform: &t)
+    }
 
     var rect: CGRect {
         guard points.count >= 2 else { return .zero }
@@ -116,8 +131,15 @@ extension Shape {
         [.font: NSFont.systemFont(ofSize: size)]
     }
 
-    /// Rough bounding box used for selection highlight.
+    /// Axis-aligned bounding box (of the rotated object when rotated).
     var bounds: CGRect {
+        let b = unrotatedBounds
+        guard rotation != 0, isRotatable else { return b }
+        return b.applying(rotationTransform)
+    }
+
+    /// Rough bounding box ignoring rotation.
+    var unrotatedBounds: CGRect {
         switch tool {
         case .emoji:
             guard let c = points.first else { return .zero }
@@ -153,7 +175,9 @@ extension Shape {
         let tol = tolerance + effectiveWidth / 2
         switch tool {
         case .move: return false
-        case .text, .emoji: return bounds.contains(p)
+        case .text, .emoji:
+            guard rotation != 0 else { return unrotatedBounds.contains(p) }
+            return unrotatedBounds.contains(p.applying(rotationTransform.inverted()))
         case .number:
             guard let c = points.first else { return false }
             return hypot(p.x - c.x, p.y - c.y) <= stampRadius + 2
@@ -198,6 +222,12 @@ enum ShapeRenderer {
         ctx.setLineJoin(.round)
         ctx.setStrokeColor(s.color.cgColor)
         ctx.setFillColor(s.color.cgColor)
+        if s.rotation != 0, s.isRotatable {
+            let c = s.pivot
+            ctx.translateBy(x: c.x, y: c.y)
+            ctx.rotate(by: s.rotation)
+            ctx.translateBy(x: -c.x, y: -c.y)
+        }
         ctx.setLineWidth(s.lineWidth)
         if s.dashed, [.line, .arrow, .rect, .ellipse].contains(s.tool) {
             // dash/gap scale with the stroke so thin and thick lines look balanced

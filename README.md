@@ -133,7 +133,8 @@ Needs only the Xcode Command Line Tools (`xcode-select --install`). `./build.sh`
 - Number tool (`N`): each click places ①, ②, ③…; size follows the text size. The cursor shows the next stamp.
 - Image stamp (`S`): in the stamp bar, **＋ Add** an image file (a transparent PNG works best for signatures) or press `⌘V` with an image on the clipboard; pick it and click to place. It uses the stamp size, keeps its aspect ratio, and can be dragged like any annotation. Up to 6 images are kept (stored locally in `~/Library/Application Support/ShotPark/Stamps`); right-click one to remove it.
 - Emoji stamp (`S`): pick an emoji (10 slots — most recent first, "More…" opens the system picker) and a size, then click. The cursor shows the emoji.
-- Stamp size: S/M/L presets or `−` / `＋` in the stamp bar, `⌘+` / `⌘-`, or drag the corner handle of a placed stamp (emoji, image or number). A just-placed stamp stays selected, so you can resize it right away.
+- Stamp size: S/M/L presets or `−` / `＋` in the stamp bar, `⌘+` / `⌘-`, or drag the corner handle of a placed stamp (emoji, image or number). A just-placed stamp stays selected, so you can resize it right away. With a stamp tool active, drag an existing stamp to move it.
+- Rotate text and emoji/image stamps: select one and use the ↺ / ↻ buttons that appear next to it (15° steps, **0°** resets), or `⌘[` / `⌘]`.
 - Stroke bar (drawing tools): width, **Dash** toggle (line / arrow / rect / ellipse) and, for arrows, **Head** > / ●.
 - Existing annotations can be dragged (select or text tool) and text can be double-clicked to edit.
 
