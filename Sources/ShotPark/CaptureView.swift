@@ -283,7 +283,12 @@ final class CaptureView: NSView, NSTextViewDelegate {
         let result = panel.runModal()
         window?.makeKeyAndOrderFront(nil)
         window?.makeFirstResponder(self)
-        guard result == .OK, let url = panel.url, let name = ImageStamps.add(url: url) else { return }
+        guard result == .OK, let url = panel.url else { return }
+        guard let name = ImageStamps.add(url: url) else {
+            NSSound.beep()
+            Toast.show(L("이미지를 불러오지 못했습니다", "Couldn't load that image"), subtitle: url.lastPathComponent, duration: 2.0)
+            return
+        }
         emojiOptions.images = ImageStamps.names
         stampImage = name
         tool = .emoji

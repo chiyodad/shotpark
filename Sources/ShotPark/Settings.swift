@@ -466,7 +466,7 @@ final class Toast {
         let win = NSWindow(contentRect: NSRect(origin: origin, size: size), styleMask: [.borderless], backing: .buffered, defer: false)
         win.isOpaque = false
         win.backgroundColor = .clear
-        win.level = .statusBar
+        win.level = NSWindow.Level(rawValue: Int(CGShieldingWindowLevel()) + 1) // visible over the capture overlay too
         win.hasShadow = true
         win.ignoresMouseEvents = onClick == nil
         win.collectionBehavior = [.canJoinAllSpaces, .transient]

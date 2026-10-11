@@ -72,6 +72,8 @@ final class CaptureSession {
         // ⌘C / Enter work no matter which overlay window or view currently has focus.
         keyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
             guard let self, !self.ended else { return event }
+            // Only our overlay windows: keys typed in the open panel (Enter to choose a file) must not copy & close.
+            guard let w = event.window, self.windows.contains(where: { $0 === w }) else { return event }
             if let fr = event.window?.firstResponder, fr is NSTextView { return event } // typing a text annotation
             // Key codes, not characters: with a Korean input source ⌘C reports "ㅊ", not "c".
             let flags = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
