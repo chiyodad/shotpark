@@ -586,6 +586,9 @@ final class CaptureView: NSView, NSTextViewDelegate {
                     shapes.append(Shape(tool: .emoji, points: [p], color: color, lineWidth: lineWidth,
                                         text: stampImage == nil ? emoji : "", fontSize: emojiSize, imageName: stampImage))
                     redoStack = []
+                    // A photo / signature is usually placed once and then moved, resized or rotated:
+                    // switch to the select tool. ⌥-click keeps the image loaded to stamp it again.
+                    if stampImage != nil, !event.modifierFlags.contains(.option) { tool = .move }
                     selectedShape = shapes.count - 1 // shows the resize handle; ⌘+/⌘− resize it
                     window?.invalidateCursorRects(for: self)
                     needsDisplay = true
@@ -1478,6 +1481,8 @@ extension CaptureView {
             click(CGPoint(x: 300, y: H - 250))
             let placed = shapes.last
             check("image stamp placed", placed?.tool == .emoji && placed?.imageName == name)
+            check("placing an image switches to select", tool == .move && selectedShape == shapes.count - 1)
+            tool = .emoji
             if let r = placed?.imageRect { check("image stamp keeps aspect", abs(r.width / r.height - 200.0 / 60.0) < 0.05, "\(r)") }
             else { check("image stamp keeps aspect", false, "no rect") }
             emojiOptions.onPick?("👍")
