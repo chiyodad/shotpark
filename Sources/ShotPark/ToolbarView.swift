@@ -76,7 +76,7 @@ final class ToolbarView: NSView {
         Item(symbol: "arrow.up.right",       tip: L("화살표 (A)", "Arrow (A)"),  action: .selectTool(.arrow)),
         Item(symbol: "rectangle",            tip: L("사각형 (R)", "Rectangle (R)"),  action: .selectTool(.rect)),
         Item(symbol: "circle",               tip: L("타원 (E)", "Ellipse (E)"),    action: .selectTool(.ellipse)),
-        Item(symbol: "highlighter",          tip: L("마커 (M)", "Marker (M)"),    action: .selectTool(.marker)),
+        Item(symbol: "highlighter",          tip: L("마커 (M)", "Marker (M)"),    action: .selectTool(.marker), separatorBefore: true),
         Item(symbol: "character",            tip: L("텍스트 (T) — ⇧↩ 줄바꿈, 크기·스타일은 아래 옵션 바", "Text (T) — ⇧↩ new line; size & style in the bar below"), action: .selectTool(.text)),
         Item(symbol: "1.circle",             tip: L("번호 스탬프 (N) — 클릭할 때마다 ①, ②, ③… 순서 표시", "Number stamp (N) — each click places ①, ②, ③…"), action: .selectTool(.number)),
         Item(symbol: "face.smiling",         tip: L("이모지 도장 (S) — 아래에서 이모지를 고르고 클릭해 찍기", "Emoji stamp (S) — pick an emoji below, then click to place"), action: .selectTool(.emoji)),
