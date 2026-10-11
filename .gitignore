@@ -5,3 +5,4 @@ build/
 .swiftpm/
 dist/
 .shots/
+Claude outputs/
