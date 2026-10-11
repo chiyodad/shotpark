@@ -3,10 +3,10 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>ShotPark — 맥용 영역 캡처 · 주석 · 공유</title>
-<meta name="description" content="Apple Silicon 네이티브 스크린샷 도구. 단축키 → 드래그 → 주석 → 복사/저장/공유.">
-<meta property="og:title" content="ShotPark">
-<meta property="og:description" content="맥용 영역 캡처 · 주석 · 공유 도구. Apple Silicon 네이티브.">
+<title>ShotPark — 맥에서 쓰는 픽픽·라이트샷 | 맥용 영역 캡처 · 주석 · 공유</title>
+<meta name="description" content="맥에 픽픽(PicPick) 맥 버전이 없어 아쉬웠다면 — ShotPark은 같은 조작감의 무료 오픈소스 캡처 도구입니다. 단축키 → 드래그 → 주석 → 복사/저장/공유, Apple Silicon 네이티브, 업로드 없음. 라이트샷(Lightshot) 맥 대안으로도 좋습니다.">
+<meta property="og:title" content="ShotPark — 맥에서 쓰는 픽픽·라이트샷">
+<meta property="og:description" content="맥용 영역 캡처 · 주석 · 공유 도구. 픽픽·라이트샷과 같은 조작감, 무료 · 오픈소스 · Apple Silicon 네이티브.">
 <meta property="og:image" content="https://shotpark.site/img/demo-map.jpg">
 <link rel="alternate" hreflang="ko" href="https://shotpark.site/">
 <link rel="alternate" hreflang="en" href="https://shotpark.site/en/">
@@ -79,6 +79,15 @@
   .settings-fig { max-width: 560px; margin: 48px auto 0; filter: drop-shadow(0 12px 28px rgba(0,0,0,.22)); }
   .settings-fig + .caption { text-align: center; max-width: 620px; margin: 16px auto 0; }
   .settings-fig img { display: block; width: 100%; }
+  .hero p.switch { color: var(--fg); font-size: 15.5px; margin: -10px auto 24px; max-width: 620px; background: var(--card); border: 1px solid var(--line); border-radius: 999px; padding: 8px 18px; display: inline-block; }
+  .cmp { overflow-x: auto; }
+  .cmp table { min-width: 640px; font-size: 14px; }
+  .cmp th:first-child, .cmp td:first-child { color: var(--muted); font-weight: 500; white-space: nowrap; text-align: left; }
+  .cmp th { text-align: center; white-space: nowrap; }
+  .cmp td { text-align: center; }
+  .cmp td.me, .cmp th.me { background: rgba(91,75,219,.08); font-weight: 600; color: var(--fg); }
+  .cmp .ok { color: #2e9e5b; } .cmp .no { color: #c0392b; } .cmp .so { color: var(--muted); }
+  .cmp p.fine { color: var(--muted); font-size: 13px; margin-top: 10px; }
   .bmc { margin-top: 26px; display: flex; flex-direction: column; align-items: center; gap: 8px; }
   .bmc .why { color: var(--muted); font-size: 13.5px; }
   footer .foot-bmc { margin-top: 14px; }
@@ -95,6 +104,7 @@
     <a class="brand" href="#"><img src="icon.png" alt="">ShotPark</a>
     <nav>
       <a href="#features">기능</a>
+      <a href="#compare">비교</a>
       <a href="#keys">단축키</a>
       <a href="#install">설치</a>
       <a href="#faq">FAQ</a>
@@ -107,6 +117,7 @@
     <img src="icon.png" alt="ShotPark 아이콘">
     <h1>ShotPark</h1>
     <p class="lead">단축키 한 번으로 영역을 선택하여 캡처하고, 바로 표시하여, 빠르게 공유하세요!<br>Apple Silicon 네이티브로 개발하였습니다.</p>
+    <p class="switch">Windows에서 <b>픽픽</b>·<b>라이트샷</b>을 쓰셨다면, 맥에서는 ShotPark — 같은 조작감.</p>
     <div class="cta">
       <a class="btn primary" href="https://github.com/chiyodad/shotpark/releases/latest">⬇ 다운로드 (macOS 13+ · Apple Silicon)</a>
       <a class="btn" href="https://github.com/chiyodad/shotpark">소스 보기</a>
@@ -132,6 +143,25 @@
     </div>
     <div class="settings-fig"><img src="img/settings-window.png" alt="ShotPark 설정 창 — 캡처 단축키, 저장 폴더, 바로 저장 옵션"></div>
     <p class="caption">설정 창 (<kbd>⌘,</kbd>). 단축키 박스를 클릭하고 원하는 조합을 누르면 바로 적용됩니다. 저장 폴더, 바로 저장, 저장↔복사 연동도 여기서.</p>
+  </section>
+
+  <section id="compare">
+    <h2>픽픽 · 라이트샷과 비교하면</h2>
+    <p>한국에서 가장 많이 쓰는 캡처 프로그램 픽픽은 Windows 전용이라 맥 버전이 없고, 라이트샷의 맥 앱은 Intel 빌드라 Apple Silicon 맥에서는 Rosetta가 필요합니다. ShotPark은 그 둘의 "단축키 → 드래그 → 바로 주석 → 복사" 흐름을 맥 네이티브로 그대로 옮긴 앱입니다.</p>
+    <div class="cmp">
+      <table>
+        <tr><th></th><th>macOS 기본 캡처</th><th>픽픽</th><th>라이트샷</th><th>CleanShot X</th><th class="me">ShotPark</th></tr>
+        <tr><td>맥 지원</td><td class="ok">●</td><td class="no">✕ Windows 전용</td><td class="so">△ Intel 빌드</td><td class="ok">●</td><td class="me ok">● Apple Silicon 네이티브</td></tr>
+        <tr><td>가격</td><td>무료</td><td>개인 무료</td><td>무료</td><td>유료 (US$29~)</td><td class="me">무료 · 오픈소스(MIT)</td></tr>
+        <tr><td>캡처 직후 그 자리에서 주석</td><td class="so">△ 마크업 창 따로</td><td class="so">△ 편집기 창 따로</td><td class="ok">●</td><td class="ok">●</td><td class="me ok">●</td></tr>
+        <tr><td>클립보드 복사가 기본</td><td class="no">✕ 파일 저장이 기본</td><td class="so">△ 설정</td><td class="ok">●</td><td class="ok">●</td><td class="me ok">● ⌘C 또는 Enter</td></tr>
+        <tr><td>텍스트 배경(마스킹) · 번호 · 이모지 스탬프</td><td class="no">✕</td><td class="so">△ 일부</td><td class="no">✕</td><td class="ok">●</td><td class="me ok">●</td></tr>
+        <tr><td>Claude · Slack · 카카오톡 바로 공유</td><td class="no">✕</td><td class="no">✕</td><td class="no">✕</td><td class="no">✕</td><td class="me ok">●</td></tr>
+        <tr><td>온라인 업로드 없음 (로컬 처리)</td><td class="ok">●</td><td class="so">△ 선택</td><td class="so">△ prnt.sc 업로드 있음</td><td class="so">△ 클라우드 선택</td><td class="me ok">● 업로드 기능 자체가 없음</td></tr>
+        <tr><td>영어 · 한국어 UI</td><td class="ok">●</td><td class="ok">●</td><td class="so">△</td><td class="so">△ 영어</td><td class="me ok">●</td></tr>
+      </table>
+      <p class="fine">픽픽의 자(ruler) · 색상 추출 · 화이트보드 같은 부가 도구는 ShotPark에 없습니다. 영역 캡처와 주석, 공유에만 집중합니다. 2026년 10월 기준 각 제품의 공개 정보로 작성했으며, 정확하지 않은 부분이 있으면 <a href="https://github.com/chiyodad/shotpark/issues">알려주세요</a>.</p>
+    </div>
   </section>
 
   <section id="keys">
@@ -207,6 +237,7 @@ cd shotpark
     <details><summary>"손상되었기 때문에 열 수 없습니다"라고 떠요</summary><p>다운로드한 파일에 붙는 격리 속성 때문입니다. 설치 2단계의 <code>xattr -d com.apple.quarantine /Applications/ShotPark.app</code>으로 해제하면 됩니다.</p></details>
     <details><summary>업데이트했더니 화면 기록 권한을 다시 물어봐요</summary><p>정상입니다. 서명이 바뀐 새 빌드는 macOS가 새 앱으로 취급해서 한 번 더 묻습니다. 켜 주고 앱을 재실행하면 됩니다.</p></details>
     <details><summary>Slack / 카카오톡 공유는 어떻게 동작하나요?</summary><p>이미지를 클립보드에 복사한 뒤 해당 앱에 파일을 넘깁니다. Slack처럼 파일을 받는 앱은 업로드 창이 바로 뜨고, 받지 않는 앱은 앞으로 올라오기만 하므로 ⌘V로 붙여넣으면 됩니다.</p></details>
+    <details><summary>픽픽이나 라이트샷을 쓰다 왔는데, 뭐가 같고 뭐가 다른가요?</summary><p>같은 것: 전역 단축키 → 드래그로 영역 → 그 자리에서 화살표·사각형·텍스트 → 클립보드 복사. 픽픽의 "영역 캡처 후 바로 편집", 라이트샷의 "캡처 즉시 주석"과 같은 흐름이고, 창을 클릭하면 창 전체가 잡히는 것도 같습니다. 다른 것: 단축키 기본값이 <kbd>⌘⇧9</kbd>이고(설정에서 원하는 조합으로 변경), 픽픽의 자·색상 추출·화이트보드·스크롤 캡처는 없으며, 라이트샷의 prnt.sc 업로드도 없습니다. 모든 처리는 맥 안에서만 끝납니다.</p></details>
     <details><summary>Intel 맥은요?</summary><p>릴리즈 바이너리는 Apple Silicon 전용입니다. <code>build.sh</code>에서 <code>--arch arm64</code>를 지우고 직접 빌드하면 Intel에서도 돌아갑니다.</p></details>
     <details><summary>온라인 링크로 공유할 수 있나요?</summary><p>아니요. 의도적으로 모든 처리를 로컬에서만 합니다. 공유는 클립보드, 파일, macOS 공유 시트를 통해서만 이뤄집니다.</p></details>
   </section>
