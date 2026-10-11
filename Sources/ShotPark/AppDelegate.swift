@@ -27,6 +27,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             // Triggers the system prompt + adds the app to the Screen Recording list.
             ScreenCapture.requestPermission()
         }
+        if ProcessInfo.processInfo.environment["SHOTPARK_SELFTEST"] != "1", ProcessInfo.processInfo.environment["SHOTPARK_DEMO"] == nil {
+            WelcomeWindowController.showIfFirstLaunch()
+        }
 
         // Pre-fetch display info so the first ⌘⇧9 is as fast as the rest; refresh when screens change.
         ScreenCapture.prewarm()
@@ -43,6 +46,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     ///                                        of the main screen. The overlay stays up until Esc.
     private func handleDemoEnvironment() {
         let env = ProcessInfo.processInfo.environment
+        if env["SHOTPARK_WELCOME"] == "1" {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { WelcomeWindowController.shared.show() }
+        }
         if env["SHOTPARK_SETTINGS"] == "1" {
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { self.openSettings() }
         }
@@ -180,6 +186,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let settings = NSMenuItem(title: L("설정… (단축키 · 저장 폴더)", "Settings… (Hotkey · Save Folder)"), action: #selector(openSettings), keyEquivalent: ",")
         settings.target = self
         menu.addItem(settings)
+        let welcome = NSMenuItem(title: L("시작 안내", "Getting Started"), action: #selector(openWelcome), keyEquivalent: "")
+        welcome.target = self
+        menu.addItem(welcome)
 
         let folder = NSMenuItem(title: L("저장 폴더 열기", "Open Save Folder"), action: #selector(openSaveFolder), keyEquivalent: "")
         folder.target = self
@@ -211,6 +220,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // Let the menu close first so it is not in the screenshot.
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) { self.startCapture() }
     }
+
+    @objc private func openWelcome() { WelcomeWindowController.shared.show() }
 
     @objc private func openSettings() {
         SettingsWindowController.shared.show()

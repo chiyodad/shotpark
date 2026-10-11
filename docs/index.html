@@ -139,7 +139,7 @@
       <div class="card"><div class="ic">📋</div><h3>복사 · 저장 · 공유</h3><p><kbd>⌘C</kbd>로 클립보드, <kbd>⌘S</kbd>로 지정 폴더에 즉시 PNG 저장, <kbd>⌘⇧S</kbd>로 Claude · Slack · 카카오톡 또는 macOS 공유 시트.</p></div>
       <div class="card"><div class="ic">🖥️</div><h3>Retina · 다중 모니터</h3><p>ScreenCaptureKit으로 각 디스플레이의 실제 해상도 그대로 캡처합니다. 모니터가 몇 대든 같은 방식.</p></div>
       <div class="card"><div class="ic">⚙️</div><h3>내 맘대로 설정</h3><p>캡처 단축키, 저장 폴더, 바로 저장 여부, 주석 색상 팔레트를 설정 창에서 변경. 로그인 시 자동 실행 옵션. 새 버전이 나오면 메뉴에 알려줍니다. 한국어 · 영어 UI는 macOS 언어를 따라 자동 선택.</p></div>
-      <div class="card"><div class="ic">🪶</div><h3>가볍고 투명하게</h3><p>Swift/AppKit 파일 10개, 외부 라이브러리 0개. Dock에 안 뜨고 메뉴 막대에만 있습니다. 온라인 업로드 없음.</p></div>
+      <div class="card"><div class="ic">🪶</div><h3>가볍고 투명하게</h3><p>Swift/AppKit 파일 12개, 외부 라이브러리 0개. Dock에 안 뜨고 메뉴 막대에만 있습니다. 온라인 업로드 없음.</p></div>
     </div>
     <div class="settings-fig"><img src="img/settings-window.png" alt="ShotPark 설정 창 — 캡처 단축키, 저장 폴더, 바로 저장 옵션"></div>
     <p class="caption">설정 창 (<kbd>⌘,</kbd>). 단축키 박스를 클릭하고 원하는 조합을 누르면 바로 적용됩니다. 저장 폴더, 바로 저장, 저장↔복사 연동도 여기서.</p>
@@ -246,5 +246,26 @@ cd shotpark
     ShotPark · MIT © chiyodad · <a href="https://github.com/chiyodad/shotpark">GitHub</a> · <a href="https://buymeacoffee.com/chiyodad">☕ 커피 한 잔으로 응원하기</a> · <a href="https://github.com/chiyodad/shotpark/issues">이슈 남기기</a>
   </footer>
 </div>
+<script data-goatcounter="https://chiyodad.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+<script>
+  // Click events → GoatCounter (download, install commands, coffee). No cookies, no personal data.
+  document.addEventListener('click', function (e) {
+    var a = e.target.closest('a'); if (!a || !window.goatcounter || !goatcounter.count) return;
+    var h = a.getAttribute('href') || '';
+    var ev = null;
+    if (/releases\/latest/.test(h)) ev = 'click-download';
+    else if (/buymeacoffee\.com/.test(h)) ev = 'click-coffee';
+    else if (/github\.com\/chiyodad\/shotpark\/?$/.test(h)) ev = 'click-github';
+    if (ev) goatcounter.count({ path: ev, title: ev, event: true });
+  });
+  document.querySelectorAll('pre code').forEach(function (c) {
+    c.addEventListener('copy', function () {
+      if (!window.goatcounter || !goatcounter.count) return;
+      var t = c.textContent || '';
+      var ev = /install\.sh/.test(t) ? 'copy-install-curl' : /brew install/.test(t) ? 'copy-install-brew' : null;
+      if (ev) goatcounter.count({ path: ev, title: ev, event: true });
+    });
+  });
+</script>
 </body>
 </html>

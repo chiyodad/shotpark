@@ -126,7 +126,7 @@
     <p>Lightshot set the bar for quick screenshots: press a key, drag a box, scribble on it, copy. The problem is that its Mac app is an Intel-only build, so on Apple Silicon it has to run through Rosetta — if it runs at all. ShotPark keeps that exact workflow and rebuilds it natively for modern Macs with Swift and AppKit, with nothing phoning home.</p>
     <div class="grid" style="margin-top:18px">
       <div class="card"><div class="ic">⚡️</div><h3>Same muscle memory</h3><p>Hotkey → drag → annotate → <kbd>⌘C</kbd>. If you used Lightshot or PicPick, you already know how ShotPark works. The overlay appears in well under 100&nbsp;ms.</p></div>
-      <div class="card"><div class="ic">🍎</div><h3>Built for modern Macs</h3><p>Universal native binary (Apple Silicon + Intel) using ScreenCaptureKit. No Rosetta, no Electron, no Java — a 10-file Swift app with zero third-party libraries.</p></div>
+      <div class="card"><div class="ic">🍎</div><h3>Built for modern Macs</h3><p>Universal native binary (Apple Silicon + Intel) using ScreenCaptureKit. No Rosetta, no Electron, no Java — a 12-file Swift app with zero third-party libraries.</p></div>
       <div class="card"><div class="ic">🔒</div><h3>No cloud, no account</h3><p>Lightshot's "upload to prnt.sc" button is intentionally absent. Captures go to your clipboard, your folder, or the app you pick. Nothing leaves the machine.</p></div>
       <div class="card"><div class="ic">🧰</div><h3>More annotation, not less</h3><p>Everything Lightshot had plus multi-line text with shadow / outline / background box, numbered stamps, emoji stamps, movable and editable annotations, undo and redo.</p></div>
     </div>
@@ -140,7 +140,7 @@
       <div class="card"><div class="ic">📋</div><h3>Copy · save · share</h3><p><kbd>⌘C</kbd> to the clipboard, <kbd>⌘S</kbd> straight to your chosen folder as PNG, <kbd>⌘⇧S</kbd> to Claude · Slack · KakaoTalk or the macOS share sheet.</p></div>
       <div class="card"><div class="ic">🖥️</div><h3>Retina · multi-monitor</h3><p>ScreenCaptureKit captures every display at its true resolution. Works the same with one monitor or five.</p></div>
       <div class="card"><div class="ic">⚙️</div><h3>Your settings</h3><p>Change the capture hotkey, the save folder, the save/copy behaviour and the 10 palette colours in the settings window. Optional launch at login. A once-a-day check tells you in the menu when a new version is out. UI in English or Korean, following your macOS language.</p></div>
-      <div class="card"><div class="ic">🪶</div><h3>Light and transparent</h3><p>10 Swift/AppKit files, 0 external libraries. No Dock icon — menu bar only. Never uploads anything.</p></div>
+      <div class="card"><div class="ic">🪶</div><h3>Light and transparent</h3><p>12 Swift/AppKit files, 0 external libraries. No Dock icon — menu bar only. Never uploads anything.</p></div>
     </div>
     <div class="settings-fig"><img src="img/settings-window.png" alt="ShotPark settings window — capture hotkey, save folder, direct-save options"></div>
     <p class="caption">Settings (<kbd>⌘,</kbd>). Click the hotkey box and press the combination you want; it applies immediately. Save folder, direct save and save↔copy linking live here too. The app follows your macOS language (English or Korean).</p>
@@ -227,5 +227,26 @@ cd shotpark
     ShotPark · MIT © chiyodad · <a href="https://github.com/chiyodad/shotpark">GitHub</a> · <a href="https://buymeacoffee.com/chiyodad">☕ Support with a coffee</a> · <a href="https://github.com/chiyodad/shotpark/issues">Report an issue</a> · <a href="../">한국어</a>
   </footer>
 </div>
+<script data-goatcounter="https://chiyodad.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+<script>
+  // Click events → GoatCounter (download, install commands, coffee). No cookies, no personal data.
+  document.addEventListener('click', function (e) {
+    var a = e.target.closest('a'); if (!a || !window.goatcounter || !goatcounter.count) return;
+    var h = a.getAttribute('href') || '';
+    var ev = null;
+    if (/releases\/latest/.test(h)) ev = 'click-download';
+    else if (/buymeacoffee\.com/.test(h)) ev = 'click-coffee';
+    else if (/github\.com\/chiyodad\/shotpark\/?$/.test(h)) ev = 'click-github';
+    if (ev) goatcounter.count({ path: ev, title: ev, event: true });
+  });
+  document.querySelectorAll('pre code').forEach(function (c) {
+    c.addEventListener('copy', function () {
+      if (!window.goatcounter || !goatcounter.count) return;
+      var t = c.textContent || '';
+      var ev = /install\.sh/.test(t) ? 'copy-install-curl' : /brew install/.test(t) ? 'copy-install-brew' : null;
+      if (ev) goatcounter.count({ path: ev, title: ev, event: true });
+    });
+  });
+</script>
 </body>
 </html>
