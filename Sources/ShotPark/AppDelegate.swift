@@ -9,15 +9,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var session: CaptureSession?
     private var loginItem: NSMenuItem!
     private var captureItem: NSMenuItem!
+    private var historyItem: NSMenuItem?
     private var updateItem: NSMenuItem!
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         setupMainMenu()
         setupStatusItem()
         registerHotKey()
-        historyHotKey = HotKey(id: 2, keyCode: UInt32(kVK_ANSI_8), modifiers: UInt32(cmdKey | shiftKey)) {
-            ClipboardHistoryWindowController.shared.toggle()
-        }
         if ProcessInfo.processInfo.environment["SHOTPARK_SELFTEST"] != "1" { ClipboardHistory.shared.start() }
 
         NotificationCenter.default.addObserver(forName: .settingsChanged, object: nil, queue: .main) { [weak self] _ in
@@ -56,6 +54,46 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         if env["SHOTPARK_SETTINGS"] == "1" {
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { self.openSettings() }
+        }
+        if env["SHOTPARK_RENDERTEST"] == "1" {
+            // Renders the settings window and a mosaic/blur sample to /tmp for visual review, then quits.
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
+                func save(_ v: NSView, _ path: String) {
+                    guard let rep = v.bitmapImageRepForCachingDisplay(in: v.bounds) else { return }
+                    v.cacheDisplay(in: v.bounds, to: rep)
+                    try? rep.representation(using: .png, properties: [:])?.write(to: URL(fileURLWithPath: path))
+                }
+                self.openSettings()
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                    if let v = SettingsWindowController.shared.window?.contentView?.superview { save(v, "/tmp/sp-settings.png") }
+                    let sample = NSImage(size: NSSize(width: 600, height: 200), flipped: false) { r in
+                        NSColor.white.setFill(); r.fill()
+                        NSAttributedString(string: "홍길동 010-1234-5678\nhong@example.com", attributes: [.font: NSFont.systemFont(ofSize: 30), .foregroundColor: NSColor.black]).draw(at: NSPoint(x: 20, y: 60))
+                        return true
+                    }
+                    guard let cg = sample.cgImage(forProposedRect: nil, context: nil, hints: nil) else { exit(1) }
+                    let bd = MosaicBackdrop(screenshot: cg, viewSize: CGSize(width: 600, height: 200))
+                    let out = NSImage(size: NSSize(width: 600, height: 600), flipped: false) { _ in
+                        guard let ctx = NSGraphicsContext.current?.cgContext else { return false }
+                        for (row, (style, level)) in [(MosaicStyle.pixelate, 1), (.pixelate, 2), (.blur, 1)].enumerated() {
+                            ctx.saveGState()
+                            ctx.translateBy(x: 0, y: CGFloat(2 - row) * 200)
+                            ctx.draw(cg, in: CGRect(x: 0, y: 0, width: 600, height: 200))
+                            ShapeRenderer.backdrop = bd
+                            var sh = Shape(tool: .mosaic, points: [CGPoint(x: 10, y: 40), CGPoint(x: 420, y: 160)], color: .red, lineWidth: 2)
+                            sh.mosaicStyle = style; sh.mosaicLevel = level
+                            ShapeRenderer.draw(sh, in: ctx)
+                            ctx.restoreGState()
+                        }
+                        return true
+                    }
+                    if let t = out.tiffRepresentation, let rep = NSBitmapImageRep(data: t) {
+                        try? rep.representation(using: .png, properties: [:])?.write(to: URL(fileURLWithPath: "/tmp/sp-mosaic.png"))
+                    }
+                    print("RENDERED"); exit(0)
+                }
+            }
+            return
         }
         if env["SHOTPARK_CLIPTEST"] == "1", env["SHOTPARK_CLIPDIR"] != nil {
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { self.runClipboardTest() }
@@ -155,6 +193,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     // MARK: hotkey
 
     private func registerHotKey() {
+        let h = Settings.shortcut(.history)
+        historyHotKey = nil
+        let cap = Settings.hotKey
+        if !(h.keyCode == cap.keyCode && h.carbonModifiers == cap.carbonModifiers) { // never shadow the capture hotkey
+            historyHotKey = HotKey(id: 2, keyCode: h.keyCode, modifiers: h.carbonModifiers) {
+                ClipboardHistoryWindowController.shared.toggle()
+            }
+        }
+        historyItem?.keyEquivalent = h.keyEquivalent
+        historyItem?.keyEquivalentModifierMask = h.nsModifiers
+
         let spec = Settings.hotKey
         hotKey = nil // unregister previous
         hotKey = HotKey(keyCode: spec.keyCode, modifiers: spec.carbonModifiers) { [weak self] in
@@ -215,10 +264,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         captureItem = NSMenuItem(title: L("영역 캡처", "Capture Region"), action: #selector(captureAction), keyEquivalent: "")
         captureItem.target = self
         menu.addItem(captureItem)
-        let history = NSMenuItem(title: L("클립보드 이미지", "Clipboard Images"), action: #selector(openClipboardHistory), keyEquivalent: "8")
-        history.keyEquivalentModifierMask = [.command, .shift]
+        let history = NSMenuItem(title: L("클립보드 이미지", "Clipboard Images"), action: #selector(openClipboardHistory), keyEquivalent: "")
         history.target = self
         menu.addItem(history)
+        historyItem = history
+        let h = Settings.shortcut(.history)
+        history.keyEquivalent = h.keyEquivalent
+        history.keyEquivalentModifierMask = h.nsModifiers
         menu.addItem(.separator())
 
         let settings = NSMenuItem(title: L("설정… (단축키 · 저장 폴더)", "Settings… (Hotkey · Save Folder)"), action: #selector(openSettings), keyEquivalent: ",")

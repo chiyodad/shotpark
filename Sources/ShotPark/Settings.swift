@@ -31,13 +31,20 @@ struct HotKeySpec: Equatable {
         return last.count == 1 && last.unicodeScalars.first!.isASCII ? last.lowercased() : ""
     }
 
-    static func from(event: NSEvent) -> HotKeySpec? {
+    /// True when `event` is exactly this key + modifiers (used for in-capture shortcuts).
+    func matches(_ event: NSEvent) -> Bool {
+        UInt32(event.keyCode) == keyCode
+            && event.modifierFlags.intersection([.command, .shift, .option, .control]) == nsModifiers
+    }
+
+    /// `allowPlain`: accept a bare key (or ⇧+key) — fine for shortcuts that only work inside a capture.
+    static func from(event: NSEvent, allowPlain: Bool = false) -> HotKeySpec? {
         let flags = event.modifierFlags.intersection([.command, .shift, .option, .control])
         let code = UInt32(event.keyCode)
         let functionKeys: Set<Int> = [kVK_F1, kVK_F2, kVK_F3, kVK_F4, kVK_F5, kVK_F6, kVK_F7, kVK_F8, kVK_F9, kVK_F10,
                                       kVK_F11, kVK_F12, kVK_F13, kVK_F14, kVK_F15, kVK_F16, kVK_F17, kVK_F18, kVK_F19, kVK_F20]
         let isFunctionKey = functionKeys.contains(Int(event.keyCode))
-        guard !flags.isEmpty || isFunctionKey else { return nil }
+        guard allowPlain || !flags.subtracting(.shift).isEmpty || isFunctionKey else { return nil }
         if event.keyCode == 53 { return nil } // esc
 
         var carbon: UInt32 = 0
@@ -128,6 +135,44 @@ enum Settings {
         }
     }
 
+    /// Configurable shortcuts besides the capture hotkey.
+    enum Shortcut: String, CaseIterable {
+        case history   // global: open Clipboard Images
+        case mosaic    // in a capture: mosaic / blur tool
+        case ocr       // in a capture: extract text
+
+        var defaultSpec: HotKeySpec {
+            switch self {
+            // ⌃⌘V ("paste from history"): clear of the ⇧⌘-digit combos people use for capture.
+            case .history: return HotKeySpec(keyCode: UInt32(kVK_ANSI_V), carbonModifiers: UInt32(cmdKey | controlKey), display: "⌃⌘V")
+            case .mosaic:  return HotKeySpec(keyCode: UInt32(kVK_ANSI_B), carbonModifiers: 0, display: "B")
+            case .ocr:     return HotKeySpec(keyCode: UInt32(kVK_ANSI_C), carbonModifiers: UInt32(cmdKey | shiftKey), display: "⇧⌘C")
+            }
+        }
+        /// In-capture shortcuts may be a bare key; global ones need a modifier.
+        var allowsPlainKey: Bool { self != .history }
+    }
+
+    static func shortcut(_ s: Shortcut) -> HotKeySpec {
+        let k = "shortcut.\(s.rawValue)"
+        guard d.object(forKey: k + ".code") != nil else { return s.defaultSpec }
+        let code = UInt32(d.integer(forKey: k + ".code")), mods = UInt32(d.integer(forKey: k + ".mods"))
+        return HotKeySpec(keyCode: code, carbonModifiers: mods,
+                          display: HotKeySpec.normalizedDisplay(keyCode: code, carbonModifiers: mods, fallback: d.string(forKey: k + ".display") ?? "?"))
+    }
+
+    static func setShortcut(_ s: Shortcut, _ spec: HotKeySpec?) {
+        let k = "shortcut.\(s.rawValue)"
+        if let spec {
+            d.set(Int(spec.keyCode), forKey: k + ".code")
+            d.set(Int(spec.carbonModifiers), forKey: k + ".mods")
+            d.set(spec.display, forKey: k + ".display")
+        } else {
+            [".code", ".mods", ".display"].forEach { d.removeObject(forKey: k + $0) }
+        }
+        NotificationCenter.default.post(name: .settingsChanged, object: nil)
+    }
+
     static var defaultFolder: URL {
         FileManager.default.urls(for: .desktopDirectory, in: .userDomainMask).first
             ?? FileManager.default.homeDirectoryForCurrentUser
@@ -165,6 +210,7 @@ enum Settings {
 final class HotKeyRecorderView: NSView {
     var spec: HotKeySpec = Settings.hotKey { didSet { needsDisplay = true } }
     var onChange: ((HotKeySpec) -> Void)?
+    var allowsPlainKeys = false
     private var recording = false { didSet { needsDisplay = true } }
 
     override var acceptsFirstResponder: Bool { true }
@@ -199,7 +245,7 @@ final class HotKeyRecorderView: NSView {
     override func keyDown(with event: NSEvent) {
         guard recording else { super.keyDown(with: event); return }
         if event.keyCode == 53 { recording = false; window?.makeFirstResponder(nil); return }
-        if let s = HotKeySpec.from(event: event) {
+        if let s = HotKeySpec.from(event: event, allowPlain: allowsPlainKeys) {
             spec = s
             recording = false
             window?.makeFirstResponder(nil)
@@ -230,10 +276,11 @@ final class SettingsWindowController: NSWindowController {
     private let saveCopiesCheckbox = NSButton(checkboxWithTitle: L("⌘S 저장할 때 클립보드에도 복사", "⌘S also copies to the clipboard"), target: nil, action: nil)
     private let copySavesCheckbox = NSButton(checkboxWithTitle: L("⌘C 복사할 때 저장 폴더에도 PNG 저장", "⌘C also saves a PNG to the folder"), target: nil, action: nil)
     private var colorWells: [NSColorWell] = []
-    private let historyCheckbox = NSButton(checkboxWithTitle: L("복사한 이미지 기록 (최근 30개, ⌘⇧8로 보기)", "Keep copied images (last 30, open with ⌘⇧8)"), target: nil, action: nil)
+    private var shortcutRecorders: [Settings.Shortcut: HotKeyRecorderView] = [:]
+    private let historyCheckbox = NSButton(checkboxWithTitle: L("복사한 이미지 기록 (최근 30개)", "Keep copied images (last 30)"), target: nil, action: nil)
 
     private init() {
-        let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: L10n.isKorean ? 480 : 520, height: 420),
+        let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: L10n.isKorean ? 500 : 540, height: 520),
                               styleMask: [.titled, .closable], backing: .buffered, defer: false)
         window.title = L("ShotPark 설정", "ShotPark Settings")
         window.isReleasedWhenClosed = false
@@ -335,9 +382,42 @@ final class SettingsWindowController: NSWindowController {
         historyHint.textColor = .secondaryLabelColor
         historyHint.preferredMaxLayoutWidth = L10n.isKorean ? 330 : 340
 
+        // other shortcuts: clipboard images (global), mosaic + text extraction (inside a capture)
+        func shortcutRow(_ s: Settings.Shortcut, note: String) -> NSView {
+            let rec = HotKeyRecorderView()
+            rec.allowsPlainKeys = s.allowsPlainKey
+            rec.spec = Settings.shortcut(s)
+            rec.onChange = { [weak self] spec in
+                if s == .history && spec.keyCode == Settings.hotKey.keyCode && spec.carbonModifiers == Settings.hotKey.carbonModifiers {
+                    NSSound.beep(); self?.refresh(); return   // same as the capture hotkey
+                }
+                Settings.setShortcut(s, spec); self?.refresh()
+            }
+            rec.widthAnchor.constraint(equalToConstant: 120).isActive = true
+            rec.heightAnchor.constraint(equalToConstant: 24).isActive = true
+            shortcutRecorders[s] = rec
+            let reset = NSButton(title: L("기본값", "Default"), target: self, action: #selector(resetShortcut(_:)))
+            reset.bezelStyle = .rounded
+            reset.controlSize = .small
+            reset.tag = Settings.Shortcut.allCases.firstIndex(of: s) ?? 0
+            let n = NSTextField(labelWithString: note)
+            n.font = .systemFont(ofSize: 11)
+            n.textColor = .secondaryLabelColor
+            let row = NSStackView(views: [rec, reset, n])
+            row.spacing = 8
+            row.alignment = .centerY
+            return row
+        }
+        let historyKeyRow = shortcutRow(.history, note: L("어디서나", "anywhere"))
+        let mosaicKeyRow = shortcutRow(.mosaic, note: L("캡처 중", "during a capture"))
+        let ocrKeyRow = shortcutRow(.ocr, note: L("캡처 중", "during a capture"))
+
         let grid = NSGridView(views: [
             [label(L("캡처 단축키", "Capture hotkey")), hotkeyRow],
             [NSGridCell.emptyContentView, hotkeyHint],
+            [label(L("클립보드 이미지", "Clipboard images")), historyKeyRow],
+            [label(L("모자이크", "Mosaic / blur")), mosaicKeyRow],
+            [label(L("텍스트 추출", "Extract text")), ocrKeyRow],
             [label(L("저장 폴더", "Save folder")), folderRow],
             [NSGridCell.emptyContentView, directCheckbox],
             [NSGridCell.emptyContentView, saveCopiesCheckbox],
@@ -350,15 +430,13 @@ final class SettingsWindowController: NSWindowController {
         grid.rowSpacing = 10
         grid.columnSpacing = 12
         grid.column(at: 0).xPlacement = .trailing
-        grid.column(at: 0).width = L10n.isKorean ? 90 : 110
+        grid.column(at: 0).width = L10n.isKorean ? 100 : 120
         grid.column(at: 1).width = L10n.isKorean ? 340 : 350
         grid.rowAlignment = .firstBaseline
-        grid.row(at: 0).yPlacement = .center
-        grid.row(at: 2).yPlacement = .center
-        grid.row(at: 6).yPlacement = .center
-        grid.row(at: 6).topPadding = 6
-        grid.row(at: 8).yPlacement = .center
-        grid.row(at: 8).topPadding = 6
+        for r in [0, 2, 3, 4, 5, 9, 11] { grid.row(at: r).yPlacement = .center }
+        grid.row(at: 5).topPadding = 6   // save folder
+        grid.row(at: 9).topPadding = 6   // palette
+        grid.row(at: 11).topPadding = 6  // clipboard
         grid.translatesAutoresizingMaskIntoConstraints = false
         content.addSubview(grid)
 
@@ -393,6 +471,7 @@ final class SettingsWindowController: NSWindowController {
         saveCopiesCheckbox.state = Settings.saveAlsoCopies ? .on : .off
         copySavesCheckbox.state = Settings.copyAlsoSaves ? .on : .off
         historyCheckbox.state = ClipboardHistory.isEnabled ? .on : .off
+        for (s, rec) in shortcutRecorders { rec.spec = Settings.shortcut(s) }
         let palette = Preferences.palette
         for (i, well) in colorWells.enumerated() where i < palette.count { well.color = palette[i] }
     }
@@ -416,6 +495,12 @@ final class SettingsWindowController: NSWindowController {
     @objc private func clearHistory() {
         ClipboardHistory.shared.clear()
         Toast.show(L("클립보드 이미지 기록을 지웠습니다", "Clipboard image history cleared"), duration: 1.4)
+    }
+
+    @objc private func resetShortcut(_ sender: NSButton) {
+        let s = Settings.Shortcut.allCases[sender.tag]
+        Settings.setShortcut(s, nil)
+        refresh()
     }
 
     @objc private func resetHotKey() {

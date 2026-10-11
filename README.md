@@ -51,13 +51,15 @@ If you used Lightshot or PicPick on Windows, you already know how it works: hotk
 - Pen · line · arrow · rectangle · ellipse · marker (highlighter) · multi-line text · numbered stamps · emoji stamps · **image stamps** (your signature, logo or any picture); 10-color palette (customizable in Settings), 3 stroke widths plus a **dashed** toggle, arrow heads as an open **chevron (>)** or a **circle** "pointer", undo/redo.
 - Drag any annotation to move it, nudge with arrow keys, Delete to remove; double-click text to edit it again.
 - Text: 3 size presets or 8–200 free entry, togglable shadow / outline / background box (any combination), box color and opacity. `⌘+` / `⌘-` to resize.
+- **Mosaic / blur** (`B`): drag over names, numbers or emails to hide them — pixelate or blur, light / medium / strong. Taken from the original screen, so arrows and text on top stay sharp; move, erase and undo like any annotation.
 - What you see is exactly what gets exported (same renderer).
 
 **Export**
 - `⌘C` or `Enter` copies to the clipboard and closes.
+- **Extract text** (`⌘⇧C`, the text icon): reads the text in the selection (Korean + English, on-device with Apple's Vision — nothing is uploaded) and copies it as plain text.
 - `⌘S` saves a PNG (`shotpark-yyyyMMdd-HHmmss.png`) straight into your chosen folder (or shows a save dialog); click the toast to reveal it in Finder. Optionally also copy on save / also save on copy.
 - **Share** (`⌘⇧S`): straight to Claude · ChatGPT · Gemini · Slack · KakaoTalk (ChatGPT / Gemini fall back to the web app when the desktop app isn't installed), or the macOS share sheet (Mail, Messages, AirDrop, Notes…).
-- **Clipboard images** (`⌘⇧8`): the last 30 images you copied — from ShotPark or any other app — in a thumbnail grid. Click or `↩` to copy one again, drag it into another app, right-click to save / show in Finder / remove. Stored only on your Mac; items marked as concealed (password managers) are skipped; turn it off or clear it in Settings.
+- **Clipboard images** (`⌃⌘V`): the last 30 images you copied — from ShotPark or any other app — in a thumbnail grid. Click or `↩` to copy one again, drag it into another app, right-click to save / show in Finder / remove. Stored only on your Mac; items marked as concealed (password managers) are skipped; turn it off or clear it in Settings.
 
 **And**
 - Menu-bar only (no Dock icon), optional launch at login, English or Korean UI following your macOS language.
@@ -117,7 +119,8 @@ Needs only the Xcode Command Line Tools (`xcode-select --install`). `./build.sh`
 | Action | Keys |
 |---|---|
 | Start a region capture | `⌘⇧9` (default, change in Settings) · menu bar icon → Capture Region |
-| Clipboard images | `⌘⇧8` · menu bar icon → Clipboard Images |
+| Clipboard images | `⌃⌘V` · menu bar icon → Clipboard Images |
+| Mosaic / blur tool · Extract text (during a capture) | `B` · `⌘⇧C` |
 | Select the whole screen | `⌘A` |
 | Pen / line / arrow / rectangle / ellipse / marker / text / number / emoji / eraser | `P` / `L` / `A` / `R` / `E` / `M` / `T` / `N` / `S` / `X` |
 | Select (move / resize) mode | `V` or click the active tool again |

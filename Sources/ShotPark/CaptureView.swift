@@ -79,6 +79,14 @@ final class CaptureView: NSView, NSTextViewDelegate {
     private let palette = ColorPaletteView()
     private let textOptions = TextOptionsView()
     private let strokeOptions = StrokeOptionsView()
+    private let mosaicOptions = MosaicOptionsView()
+    private lazy var mosaicBackdrop = MosaicBackdrop(screenshot: screenshot, viewSize: bounds.size)
+    var mosaicStyle: MosaicStyle = Preferences.mosaicStyle {
+        didSet { mosaicOptions.style = mosaicStyle; Preferences.mosaicStyle = mosaicStyle }
+    }
+    var mosaicLevel: Int = Preferences.mosaicLevel {
+        didSet { mosaicOptions.level = mosaicLevel; Preferences.mosaicLevel = mosaicLevel }
+    }
     private let emojiOptions = EmojiOptionsView()
     var emoji: String = Preferences.emoji { didSet { emojiOptions.emoji = emoji; Preferences.emoji = emoji; window?.invalidateCursorRects(for: self) } }
     /// Selected user image for the stamp tool (nil = use the emoji).
@@ -149,6 +157,13 @@ final class CaptureView: NSView, NSTextViewDelegate {
         strokeOptions.onArrowHead = { [weak self] v in self?.arrowHead = v; self?.applyToSelection { if $0.tool == .arrow { $0.arrowHead = v } } }
         addSubview(strokeOptions)
 
+        mosaicOptions.isHidden = true
+        mosaicOptions.style = mosaicStyle
+        mosaicOptions.level = mosaicLevel
+        mosaicOptions.onStyle = { [weak self] v in self?.mosaicStyle = v; self?.applyToSelection { if $0.tool == .mosaic { $0.mosaicStyle = v } } }
+        mosaicOptions.onLevel = { [weak self] v in self?.mosaicLevel = v; self?.applyToSelection { if $0.tool == .mosaic { $0.mosaicLevel = v } } }
+        addSubview(mosaicOptions)
+
         emojiOptions.isHidden = true
         emojiOptions.emoji = emoji
         emojiOptions.emojiSize = emojiSize
@@ -216,6 +231,7 @@ final class CaptureView: NSView, NSTextViewDelegate {
         palette.isHidden = true
         textOptions.isHidden = true
         strokeOptions.isHidden = true
+        mosaicOptions.isHidden = true
         emojiOptions.isHidden = true
         window?.invalidateCursorRects(for: self)
         needsDisplay = true
@@ -414,7 +430,7 @@ final class CaptureView: NSView, NSTextViewDelegate {
     }
 
     private func layoutToolbar() {
-        guard state == .selected else { toolbar.isHidden = true; palette.isHidden = true; textOptions.isHidden = true; strokeOptions.isHidden = true; emojiOptions.isHidden = true; return }
+        guard state == .selected else { toolbar.isHidden = true; palette.isHidden = true; textOptions.isHidden = true; strokeOptions.isHidden = true; emojiOptions.isHidden = true; mosaicOptions.isHidden = true; return }
         let size = toolbar.intrinsicContentSize
         let gap: CGFloat = 8
         var x = selection.minX
@@ -450,9 +466,11 @@ final class CaptureView: NSView, NSTextViewDelegate {
         strokeOptions.showsDash = [.line, .arrow, .rect, .ellipse].contains(ot)
         strokeOptions.showsHead = ot == .arrow
         if drawing.contains(ot) { place(strokeOptions) }
+        mosaicOptions.isHidden = ot != .mosaic
+        if ot == .mosaic { place(mosaicOptions) }
         emojiOptions.isHidden = tool != .emoji
         if tool == .emoji { place(emojiOptions) }
-        place(palette)
+        if ot != .mosaic { place(palette) } else { palette.isHidden = true }
     }
 
     static let strokeTools: Set<Tool> = [.pen, .line, .arrow, .rect, .ellipse, .marker]
@@ -495,7 +513,8 @@ final class CaptureView: NSView, NSTextViewDelegate {
                 textOptions.boxColor = sh.boxColor
                 textOptions.boxAlpha = sh.boxAlpha
             }
-            if sh.tool != .emoji { palette.selected = sh.color; toolbar.currentColor = sh.color }
+            if sh.tool == .mosaic { mosaicOptions.style = sh.mosaicStyle; mosaicOptions.level = sh.mosaicLevel }
+            if sh.tool != .emoji && sh.tool != .mosaic { palette.selected = sh.color; toolbar.currentColor = sh.color }
         } else {
             strokeOptions.lineWidth = lineWidth
             strokeOptions.dashed = dashed
@@ -505,6 +524,8 @@ final class CaptureView: NSView, NSTextViewDelegate {
             textOptions.style = textStyle
             textOptions.boxColor = boxColor
             textOptions.boxAlpha = boxAlpha
+            mosaicOptions.style = mosaicStyle
+            mosaicOptions.level = mosaicLevel
             palette.selected = color
             toolbar.currentColor = color
         }
@@ -528,6 +549,8 @@ final class CaptureView: NSView, NSTextViewDelegate {
             saveToFile()
         case .share:
             showShareMenu()
+        case .ocr:
+            extractText()
         case .close:
             session?.cancel()
         }
@@ -693,6 +716,7 @@ final class CaptureView: NSView, NSTextViewDelegate {
                     return
                 }
                 currentShape = Shape(tool: tool, points: [p, p], color: color, lineWidth: lineWidth, dashed: dashed, arrowHead: arrowHead)
+                if tool == .mosaic { currentShape?.mosaicStyle = mosaicStyle; currentShape?.mosaicLevel = mosaicLevel }
                 drag = .draw
                 needsDisplay = true
                 return
@@ -788,7 +812,7 @@ final class CaptureView: NSView, NSTextViewDelegate {
                 state = .idle; selection = .zero; shapes = []
             }
         case .draw:
-            if let s = currentShape {
+            if let s = currentShape, !(s.tool == .mosaic && (s.rect.width < 3 || s.rect.height < 3)) {
                 shapes.append(s); redoStack = []
                 // Keep the new shape "current": width / dash / colour changes right after drawing apply to it.
                 selectedShape = shapes.count - 1
@@ -889,6 +913,10 @@ final class CaptureView: NSView, NSTextViewDelegate {
         if code == 36 || code == 76 { // return / enter
             if state == .selected { copyToClipboard() }
             return
+        }
+        if state == .selected, textEditor == nil {
+            if Settings.shortcut(.ocr).matches(event) { extractText(); return }
+            if Settings.shortcut(.mosaic).matches(event) { tool = tool == .mosaic ? .move : .mosaic; return }
         }
         if flags.contains(.command) {
             switch code {
@@ -1213,6 +1241,7 @@ final class CaptureView: NSView, NSTextViewDelegate {
         // annotations (clipped to selection)
         ctx.saveGState()
         ctx.clip(to: selection)
+        ShapeRenderer.backdrop = mosaicBackdrop
         ShapeRenderer.draw(shapes, in: ctx)
         if let c = currentShape { ShapeRenderer.draw(c, in: ctx) }
         if textEditor != nil, let o = editingTextOrigin {
@@ -1354,6 +1383,40 @@ final class CaptureView: NSView, NSTextViewDelegate {
 
     // MARK: export
 
+    // MARK: text extraction (OCR)
+
+    /// The selection from the original screenshot (no annotations), in pixels.
+    private func selectionPixels() -> CGImage? {
+        let s = pixelScale
+        let pixelRect = CGRect(x: selection.minX * s, y: (bounds.height - selection.maxY) * s,
+                               width: selection.width * s, height: selection.height * s).integral
+        return screenshot.cropping(to: pixelRect)
+    }
+
+    func extractText() {
+        guard state == .selected, selection.width >= 4, selection.height >= 4, let img = selectionPixels() else { return }
+        commitText()
+        NSCursor.operationNotAllowed.set()
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            let text = TextRecognizer.recognize(img)
+            DispatchQueue.main.async {
+                guard let self else { return }
+                self.window?.invalidateCursorRects(for: self)
+                guard !text.isEmpty else {
+                    NSSound.beep()
+                    Toast.show(L("글자를 찾지 못했습니다", "No text found"), duration: 1.6)
+                    return
+                }
+                let pb = NSPasteboard.general
+                pb.clearContents()
+                pb.setString(text, forType: .string)
+                self.session?.cancel()
+                let first = text.split(separator: "\n").first.map(String.init) ?? text
+                Toast.show(L("텍스트 \(text.count)자 복사됨", "Copied \(text.count) characters"), subtitle: first, duration: 2.0)
+            }
+        }
+    }
+
     func renderResult() -> NSImage? {
         guard state == .selected, selection.width >= 1, selection.height >= 1 else { return nil }
         commitText()
@@ -1375,6 +1438,7 @@ final class CaptureView: NSView, NSTextViewDelegate {
 
         NSGraphicsContext.saveGraphicsState()
         NSGraphicsContext.current = NSGraphicsContext(cgContext: ctx, flipped: false)
+        ShapeRenderer.backdrop = mosaicBackdrop
         ShapeRenderer.draw(shapes, in: ctx)
         NSGraphicsContext.restoreGraphicsState()
 
@@ -1431,6 +1495,14 @@ enum Preferences {
     static var arrowHead: ArrowHead {
         get { ArrowHead(rawValue: UserDefaults.standard.integer(forKey: arrowHeadKey)) ?? .chevron }
         set { UserDefaults.standard.set(newValue.rawValue, forKey: arrowHeadKey) }
+    }
+    static var mosaicStyle: MosaicStyle {
+        get { MosaicStyle(rawValue: UserDefaults.standard.integer(forKey: "annotationMosaicStyle")) ?? .pixelate }
+        set { UserDefaults.standard.set(newValue.rawValue, forKey: "annotationMosaicStyle") }
+    }
+    static var mosaicLevel: Int {
+        get { UserDefaults.standard.object(forKey: "annotationMosaicLevel") == nil ? 1 : UserDefaults.standard.integer(forKey: "annotationMosaicLevel") }
+        set { UserDefaults.standard.set(newValue, forKey: "annotationMosaicLevel") }
     }
     private static let lineWidthKey = "annotationLineWidth"
     static var lineWidth: CGFloat {
@@ -1702,6 +1774,67 @@ extension CaptureView {
             erase(at: CGPoint(x: 3, y: 3)) // empty spot: nothing to erase
             check("eraser on empty spot does nothing", shapes.count == n)
             tool = .move
+        }
+
+        // 5g. mosaic: shortcut, drawing, options, and the effect itself on a synthetic image
+        do {
+            let saved = (mosaicStyle, mosaicLevel)
+            defer { mosaicStyle = saved.0; mosaicLevel = saved.1 }
+            tool = .move
+            key(11) // B (default shortcut)
+            check("mosaic shortcut selects the tool", tool == .mosaic)
+            let n = shapes.count
+            dragFrom(CGPoint(x: 130, y: H - 140), to: CGPoint(x: 260, y: H - 200))
+            check("mosaic area added", shapes.count == n + 1 && shapes.last?.tool == .mosaic)
+            if let i = shapes.indices.last, shapes[i].tool == .mosaic {
+                check("mosaic bar shown", !mosaicOptions.isHidden)
+                mosaicOptions.onStyle?(.blur); mosaicOptions.onLevel?(2)
+                check("mosaic options apply to the area just drawn", shapes[i].mosaicStyle == .blur && shapes[i].mosaicLevel == 2)
+            }
+            dragFrom(CGPoint(x: 300, y: H - 140), to: CGPoint(x: 301, y: H - 141))
+            check("tiny mosaic drag is ignored", shapes.count == n + 1)
+            check("render with mosaic works", renderResult() != nil)
+            // synthetic stripes: 1-px alternating columns
+            let w = 120, h = 80
+            let cs = CGColorSpace(name: CGColorSpace.sRGB)!
+            if let c = CGContext(data: nil, width: w, height: h, bitsPerComponent: 8, bytesPerRow: 0, space: cs,
+                                 bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue) {
+                for x in 0..<w { c.setFillColor(x % 2 == 0 ? CGColor(red: 1, green: 0, blue: 0, alpha: 1) : CGColor(red: 0, green: 0, blue: 1, alpha: 1)); c.fill(CGRect(x: x, y: 0, width: 1, height: h)) }
+                if let src = c.makeImage() {
+                    let bd = MosaicBackdrop(screenshot: src, viewSize: CGSize(width: w, height: h))
+                    func px(_ img: CGImage, _ x: Int, _ y: Int) -> [UInt8] {
+                        var buf = [UInt8](repeating: 0, count: 4)
+                        let cc = CGContext(data: &buf, width: 1, height: 1, bitsPerComponent: 8, bytesPerRow: 4, space: cs, bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)!
+                        cc.draw(img, in: CGRect(x: -x, y: -(img.height - 1 - y), width: img.width, height: img.height))
+                        return buf
+                    }
+                    if let m = bd.image(for: CGRect(x: 10, y: 10, width: 80, height: 50), style: .pixelate, level: 1) {
+                        check("pixelate makes neighbours equal", px(m, 2, 2) == px(m, 3, 2), "\(px(m, 2, 2)) vs \(px(m, 3, 2))")
+                    } else { check("pixelate image", false) }
+                    if let b = bd.image(for: CGRect(x: 10, y: 10, width: 80, height: 50), style: .blur, level: 1) {
+                        let a = px(b, 20, 20), d = px(b, 21, 20)
+                        check("blur mixes the stripes", abs(Int(a[0]) - Int(d[0])) < 60 && a[0] > 40 && a[2] > 40, "\(a) \(d)")
+                    } else { check("blur image", false) }
+                }
+            }
+            tool = .move
+        }
+
+        // 5h. OCR on a rendered sample
+        do {
+            let sample = NSImage(size: NSSize(width: 520, height: 120), flipped: false) { r in
+                NSColor.white.setFill(); r.fill()
+                NSAttributedString(string: "ShotPark 테스트 123", attributes: [.font: NSFont.systemFont(ofSize: 40, weight: .medium), .foregroundColor: NSColor.black])
+                    .draw(at: NSPoint(x: 20, y: 35))
+                return true
+            }
+            if let cg = sample.cgImage(forProposedRect: nil, context: nil, hints: nil) {
+                let t = TextRecognizer.recognize(cg)
+                check("OCR reads English + digits", t.contains("ShotPark") && t.contains("123"), t)
+                check("OCR reads Korean", t.contains("테스트"), t)
+            }
+            key(8, flags: [.command, .shift]) // ⌘⇧C must not copy the image
+            check("⌘⇧C does not end the capture as an image copy", state == .selected)
         }
 
         // 6. click outside with annotations → idle and annotations cleared

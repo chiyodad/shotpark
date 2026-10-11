@@ -7,6 +7,7 @@ enum ToolbarAction {
     case copy
     case save
     case share
+    case ocr
     case close
 }
 
@@ -76,7 +77,8 @@ final class ToolbarView: NSView {
         Item(symbol: "arrow.up.right",       tip: L("화살표 (A)", "Arrow (A)"),  action: .selectTool(.arrow)),
         Item(symbol: "rectangle",            tip: L("사각형 (R)", "Rectangle (R)"),  action: .selectTool(.rect)),
         Item(symbol: "circle",               tip: L("타원 (E)", "Ellipse (E)"),    action: .selectTool(.ellipse)),
-        Item(symbol: "highlighter",          tip: L("마커 (M)", "Marker (M)"),    action: .selectTool(.marker), separatorBefore: true),
+        Item(symbol: "checkerboard.rectangle", tip: L("모자이크 · 블러 (\(Settings.shortcut(.mosaic).display)) — 가릴 영역을 드래그", "Pixelate · blur (\(Settings.shortcut(.mosaic).display)) — drag over what to hide"), action: .selectTool(.mosaic), separatorBefore: true),
+        Item(symbol: "highlighter",          tip: L("마커 (M)", "Marker (M)"),    action: .selectTool(.marker)),
         Item(symbol: "character",            tip: L("텍스트 (T) — ⇧↩ 줄바꿈, 크기·스타일은 아래 옵션 바", "Text (T) — ⇧↩ new line; size & style in the bar below"), action: .selectTool(.text)),
         Item(symbol: "1.circle",             tip: L("번호 스탬프 (N) — 클릭할 때마다 ①, ②, ③… 순서 표시", "Number stamp (N) — each click places ①, ②, ③…"), action: .selectTool(.number)),
         Item(symbol: "face.smiling",         tip: L("이모지 도장 (S) — 아래에서 이모지를 고르고 클릭해 찍기", "Emoji stamp (S) — pick an emoji below, then click to place"), action: .selectTool(.emoji)),
@@ -84,6 +86,7 @@ final class ToolbarView: NSView {
         Item(symbol: "paintpalette.fill",    tip: L("색상", "Color"),        action: .color),
         Item(symbol: "arrow.uturn.backward", tip: L("실행 취소 (⌘Z)", "Undo (⌘Z)"), action: .undo),
         Item(symbol: "doc.on.doc",           tip: L("클립보드로 복사 (⌘C / Enter)", "Copy to clipboard (⌘C / Enter)"), action: .copy, separatorBefore: true),
+        Item(symbol: "text.viewfinder",      tip: L("텍스트 추출 (\(Settings.shortcut(.ocr).display)) — 영역의 글자를 텍스트로 복사", "Extract text (\(Settings.shortcut(.ocr).display)) — copy the text in the selection"), action: .ocr),
         Item(symbol: "square.and.arrow.down", tip: L("저장 (⌘S)", "Save (⌘S)"),  action: .save),
         Item(symbol: "square.and.arrow.up",  tip: L("공유 — Claude · ChatGPT · Gemini · Slack · 카카오톡 (⌘⇧S)", "Share — Claude · ChatGPT · Gemini · Slack · KakaoTalk (⌘⇧S)"), action: .share),
         Item(symbol: "xmark",                tip: L("닫기 (Esc)", "Close (Esc)"),  action: .close),
@@ -913,4 +916,75 @@ extension NSColor {
             abs(a.greenComponent - b.greenComponent) < 0.02 &&
             abs(a.blueComponent - b.blueComponent) < 0.02
     }
+}
+
+/// Options bar for the mosaic tool: pixelate / blur and strength.
+final class MosaicOptionsView: NSView {
+    static let height: CGFloat = 34
+    var style: MosaicStyle = .pixelate { didSet { needsDisplay = true } }
+    var level: Int = 1 { didSet { needsDisplay = true } }
+    var onStyle: ((MosaicStyle) -> Void)?
+    var onLevel: ((Int) -> Void)?
+    private var hoverIndex: Int?   // 0/1 styles, 10…12 levels
+
+    private let styleLabels = [L("모자이크", "Pixelate"), L("블러", "Blur")]
+    private let levelLabels = [L("약", "Light"), L("중", "Medium"), L("강", "Strong")]
+    private let styleW: CGFloat = L10n.isKorean ? 68 : 66
+    private let levelW: CGFloat = L10n.isKorean ? 40 : 60
+
+    private func styleRects() -> [NSRect] { (0..<2).map { NSRect(x: 6 + CGFloat($0) * styleW, y: 4, width: styleW, height: Self.height - 8) } }
+    private var sepX: CGFloat { 6 + styleW * 2 + 8 }
+    private func levelRects() -> [NSRect] { (0..<3).map { NSRect(x: sepX + 9 + CGFloat($0) * levelW, y: 4, width: levelW, height: Self.height - 8) } }
+
+    init() {
+        super.init(frame: .zero)
+        setFrameSize(NSSize(width: levelRects().last!.maxX + 6, height: Self.height))
+        wantsLayer = true
+        layer?.shadowColor = NSColor.black.cgColor
+        layer?.shadowOpacity = 0.5
+        layer?.shadowRadius = 8
+        layer?.masksToBounds = false
+    }
+    required init?(coder: NSCoder) { fatalError() }
+
+    override func updateTrackingAreas() {
+        super.updateTrackingAreas()
+        trackingAreas.forEach(removeTrackingArea)
+        addTrackingArea(NSTrackingArea(rect: bounds, options: [.mouseMoved, .mouseEnteredAndExited, .activeAlways], owner: self, userInfo: nil))
+    }
+
+    override func draw(_ dirtyRect: NSRect) {
+        let bg = NSBezierPath(roundedRect: bounds, xRadius: 8, yRadius: 8)
+        NSColor(calibratedWhite: 0.12, alpha: 0.94).setFill(); bg.fill()
+        NSColor.white.withAlphaComponent(0.18).setStroke(); bg.stroke()
+        func cell(_ r: NSRect, _ text: String, selected: Bool, hover: Bool) {
+            if selected || hover {
+                NSColor.white.withAlphaComponent(selected ? 0.28 : 0.12).setFill()
+                NSBezierPath(roundedRect: r.insetBy(dx: 2, dy: 1), xRadius: 6, yRadius: 6).fill()
+            }
+            let str = NSAttributedString(string: text, attributes: [.font: NSFont.systemFont(ofSize: 12, weight: .medium), .foregroundColor: NSColor.white])
+            str.draw(at: NSPoint(x: r.midX - str.size().width / 2, y: r.midY - str.size().height / 2))
+        }
+        for (i, r) in styleRects().enumerated() { cell(r, styleLabels[i], selected: style.rawValue == i, hover: hoverIndex == i) }
+        NSColor.white.withAlphaComponent(0.18).setFill()
+        NSRect(x: sepX, y: 8, width: 1, height: Self.height - 16).fill()
+        for (i, r) in levelRects().enumerated() { cell(r, levelLabels[i], selected: level == i, hover: hoverIndex == 10 + i) }
+    }
+
+    private func index(at p: NSPoint) -> Int? {
+        if let i = styleRects().firstIndex(where: { $0.contains(p) }) { return i }
+        if let i = levelRects().firstIndex(where: { $0.contains(p) }) { return 10 + i }
+        return nil
+    }
+    override func mouseMoved(with event: NSEvent) {
+        let i = index(at: convert(event.locationInWindow, from: nil))
+        if i != hoverIndex { hoverIndex = i; needsDisplay = true }
+    }
+    override func mouseExited(with event: NSEvent) { hoverIndex = nil; needsDisplay = true }
+    override func mouseDown(with event: NSEvent) {
+        guard let i = index(at: convert(event.locationInWindow, from: nil)) else { return }
+        if i < 10 { style = MosaicStyle(rawValue: i) ?? .pixelate; onStyle?(style) }
+        else { level = i - 10; onLevel?(level) }
+    }
+    override func resetCursorRects() { addCursorRect(bounds, cursor: .arrow) }
 }

@@ -1,7 +1,7 @@
 import AppKit
 
 enum Tool: Int, CaseIterable {
-    case move, pen, line, arrow, rect, ellipse, marker, text, number, emoji, eraser
+    case move, pen, line, arrow, rect, ellipse, marker, text, number, emoji, eraser, mosaic
 }
 
 /// How annotation text is set off from the background. Any combination can be on at once.
@@ -42,6 +42,9 @@ struct Shape {
     var imageName: String? = nil
     /// Rotation in radians (counter-clockwise) around the centre of the unrotated bounds. Text and emoji/image stamps only.
     var rotation: CGFloat = 0
+    /// Mosaic tool: pixelate or blur, strength 0…2.
+    var mosaicStyle: MosaicStyle = .pixelate
+    var mosaicLevel: Int = 1
 
     var isRotatable: Bool { tool == .text || tool == .emoji }
     var pivot: CGPoint { let b = unrotatedBounds; return CGPoint(x: b.midX, y: b.midY) }
@@ -184,6 +187,8 @@ extension Shape {
         case .rect:
             let r = rect
             return r.insetBy(dx: -tol, dy: -tol).contains(p) && !r.insetBy(dx: tol, dy: tol).contains(p)
+        case .mosaic:
+            return rect.insetBy(dx: -3, dy: -3).contains(p)   // the whole area is the object
         case .ellipse:
             let r = rect
             guard r.width > 0, r.height > 0 else { return false }
@@ -211,6 +216,8 @@ extension Shape {
 /// Draws shapes in a non-flipped (bottom-left origin) CoreGraphics context.
 /// The same routine is used on screen and when exporting, so output matches preview.
 enum ShapeRenderer {
+    /// Source for mosaic / blur areas (the capture's screenshot). Set by the capture view while drawing.
+    static var backdrop: MosaicBackdrop?
     static func draw(_ shapes: [Shape], in ctx: CGContext) {
         for s in shapes { draw(s, in: ctx) }
     }
@@ -237,6 +244,16 @@ enum ShapeRenderer {
         switch s.tool {
         case .move, .eraser:
             break
+
+        case .mosaic:
+            let r = s.rect.standardized
+            if let img = backdrop?.image(for: r, style: s.mosaicStyle, level: s.mosaicLevel) {
+                ctx.interpolationQuality = .none
+                ctx.draw(img, in: r.intersection(CGRect(origin: .zero, size: backdrop!.viewSize)))
+            } else {
+                ctx.setFillColor(NSColor.gray.cgColor)
+                ctx.fill(r)
+            }
 
         case .pen, .marker:
             guard let first = s.points.first else { return }
