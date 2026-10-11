@@ -51,6 +51,7 @@ If you used Lightshot or PicPick on Windows, you already know how it works: hotk
 - Pen · line · arrow · rectangle · ellipse · marker (highlighter) · multi-line text · numbered stamps · emoji stamps · **image stamps** (your signature, logo or any picture); 10-color palette (customizable in Settings), 3 stroke widths plus a **dashed** toggle, arrow heads as an open **chevron (>)** or a **circle** "pointer", undo/redo.
 - Drag any annotation to move it, nudge with arrow keys, Delete to remove; double-click text to edit it again.
 - Text: 3 size presets or 8–200 free entry, togglable shadow / outline / background box (any combination), box color and opacity. `⌘+` / `⌘-` to resize.
+- **Fill** for rectangles and ellipses: none or filled in the shape's color, with an opacity slider (10–100%) — handy for translucent highlight boxes.
 - **Mosaic / blur** (`B`): drag over names, numbers or emails to hide them — pixelate or blur, light / medium / strong. Taken from the original screen, so arrows and text on top stay sharp; move, erase and undo like any annotation.
 - What you see is exactly what gets exported (same renderer).
 

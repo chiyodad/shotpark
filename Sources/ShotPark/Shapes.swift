@@ -45,6 +45,9 @@ struct Shape {
     /// Mosaic tool: pixelate or blur, strength 0…2.
     var mosaicStyle: MosaicStyle = .pixelate
     var mosaicLevel: Int = 1
+    /// Rectangle / ellipse fill in the shape's colour: 0 none, 1 filled (at `fillAlpha` opacity).
+    var fill: Int = 0
+    var fillAlpha: CGFloat = 0.3
 
     var isRotatable: Bool { tool == .text || tool == .emoji }
     var pivot: CGPoint { let b = unrotatedBounds; return CGPoint(x: b.midX, y: b.midY) }
@@ -186,6 +189,7 @@ extension Shape {
             return hypot(p.x - c.x, p.y - c.y) <= stampRadius + 2
         case .rect:
             let r = rect
+            if fill > 0 { return r.insetBy(dx: -tol, dy: -tol).contains(p) }
             return r.insetBy(dx: -tol, dy: -tol).contains(p) && !r.insetBy(dx: tol, dy: tol).contains(p)
         case .mosaic:
             return rect.insetBy(dx: -3, dy: -3).contains(p)   // the whole area is the object
@@ -195,7 +199,7 @@ extension Shape {
             let nx = (p.x - r.midX) / (r.width / 2), ny = (p.y - r.midY) / (r.height / 2)
             let d = sqrt(nx * nx + ny * ny) // 1 == on the ellipse
             let band = tol / max(1, min(r.width, r.height) / 2)
-            return abs(d - 1) <= band
+            return fill > 0 ? d <= 1 + band : abs(d - 1) <= band
         case .line, .arrow:
             guard points.count >= 2 else { return false }
             return Shape.distance(p, toSegment: points[0], points[1]) <= tol
@@ -319,9 +323,17 @@ enum ShapeRenderer {
             }
 
         case .rect:
+            if s.fill > 0 {
+                ctx.setFillColor(s.color.withAlphaComponent(s.fillAlpha).cgColor)
+                ctx.fill(s.rect)
+            }
             ctx.stroke(s.rect)
 
         case .ellipse:
+            if s.fill > 0 {
+                ctx.setFillColor(s.color.withAlphaComponent(s.fillAlpha).cgColor)
+                ctx.fillEllipse(in: s.rect)
+            }
             ctx.strokeEllipse(in: s.rect)
 
         case .emoji:

@@ -66,6 +66,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 self.openSettings()
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
                     if let v = SettingsWindowController.shared.window?.contentView?.superview { save(v, "/tmp/sp-settings.png") }
+                    let bar = StrokeOptionsView()
+                    bar.showsDash = true; bar.showsFill = true; bar.fill = 1; bar.fillAlpha = 0.45; bar.color = .systemRed
+                    let holder = NSWindow(contentRect: NSRect(origin: .zero, size: bar.frame.size), styleMask: [.borderless], backing: .buffered, defer: false)
+                    holder.contentView = bar
+                    save(bar, "/tmp/sp-strokebar.png")
                     let sample = NSImage(size: NSSize(width: 600, height: 200), flipped: false) { r in
                         NSColor.white.setFill(); r.fill()
                         NSAttributedString(string: "홍길동 010-1234-5678\nhong@example.com", attributes: [.font: NSFont.systemFont(ofSize: 30), .foregroundColor: NSColor.black]).draw(at: NSPoint(x: 20, y: 60))

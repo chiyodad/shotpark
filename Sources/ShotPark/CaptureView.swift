@@ -71,6 +71,12 @@ final class CaptureView: NSView, NSTextViewDelegate {
     var dashed: Bool = Preferences.dashed {
         didSet { strokeOptions.dashed = dashed; Preferences.dashed = dashed }
     }
+    var shapeFill: Int = Preferences.shapeFill {
+        didSet { strokeOptions.fill = shapeFill; Preferences.shapeFill = shapeFill }
+    }
+    var shapeFillAlpha: CGFloat = Preferences.shapeFillAlpha {
+        didSet { strokeOptions.fillAlpha = shapeFillAlpha; Preferences.shapeFillAlpha = shapeFillAlpha }
+    }
     var arrowHead: ArrowHead = Preferences.arrowHead {
         didSet { strokeOptions.arrowHead = arrowHead; Preferences.arrowHead = arrowHead }
     }
@@ -154,6 +160,14 @@ final class CaptureView: NSView, NSTextViewDelegate {
         strokeOptions.dashed = dashed
         strokeOptions.arrowHead = arrowHead
         strokeOptions.onDashed = { [weak self] v in self?.dashed = v; self?.applyToSelection { if Self.strokeTools.contains($0.tool) { $0.dashed = v } } }
+        strokeOptions.fill = shapeFill
+        strokeOptions.fillAlpha = shapeFillAlpha
+        strokeOptions.onFillAlpha = { [weak self] v in self?.shapeFillAlpha = v; self?.applyToSelection { if $0.tool == .rect || $0.tool == .ellipse { $0.fillAlpha = v } } }
+        strokeOptions.onFill = { [weak self] v in
+            self?.shapeFill = v
+            self?.applyToSelection { if $0.tool == .rect || $0.tool == .ellipse { $0.fill = v } }
+            self?.layoutToolbar() // the bar grows / shrinks with the opacity slider
+        }
         strokeOptions.onArrowHead = { [weak self] v in self?.arrowHead = v; self?.applyToSelection { if $0.tool == .arrow { $0.arrowHead = v } } }
         addSubview(strokeOptions)
 
@@ -465,6 +479,7 @@ final class CaptureView: NSView, NSTextViewDelegate {
         strokeOptions.isHidden = !drawing.contains(ot)
         strokeOptions.showsDash = [.line, .arrow, .rect, .ellipse].contains(ot)
         strokeOptions.showsHead = ot == .arrow
+        strokeOptions.showsFill = ot == .rect || ot == .ellipse
         if drawing.contains(ot) { place(strokeOptions) }
         mosaicOptions.isHidden = ot != .mosaic
         if ot == .mosaic { place(mosaicOptions) }
@@ -506,6 +521,8 @@ final class CaptureView: NSView, NSTextViewDelegate {
             strokeOptions.lineWidth = sh.lineWidth
             strokeOptions.dashed = sh.dashed
             strokeOptions.arrowHead = sh.arrowHead
+            strokeOptions.fill = sh.fill
+            strokeOptions.fillAlpha = sh.fillAlpha
             strokeOptions.color = sh.color
             if sh.tool == .text || sh.tool == .number { textOptions.fontSize = sh.fontSize }
             if sh.tool == .text {
@@ -519,6 +536,8 @@ final class CaptureView: NSView, NSTextViewDelegate {
             strokeOptions.lineWidth = lineWidth
             strokeOptions.dashed = dashed
             strokeOptions.arrowHead = arrowHead
+            strokeOptions.fill = shapeFill
+            strokeOptions.fillAlpha = shapeFillAlpha
             strokeOptions.color = color
             textOptions.fontSize = textSize
             textOptions.style = textStyle
@@ -717,6 +736,7 @@ final class CaptureView: NSView, NSTextViewDelegate {
                 }
                 currentShape = Shape(tool: tool, points: [p, p], color: color, lineWidth: lineWidth, dashed: dashed, arrowHead: arrowHead)
                 if tool == .mosaic { currentShape?.mosaicStyle = mosaicStyle; currentShape?.mosaicLevel = mosaicLevel }
+                if tool == .rect || tool == .ellipse { currentShape?.fill = shapeFill; currentShape?.fillAlpha = shapeFillAlpha }
                 drag = .draw
                 needsDisplay = true
                 return
@@ -1496,6 +1516,14 @@ enum Preferences {
         get { ArrowHead(rawValue: UserDefaults.standard.integer(forKey: arrowHeadKey)) ?? .chevron }
         set { UserDefaults.standard.set(newValue.rawValue, forKey: arrowHeadKey) }
     }
+    static var shapeFill: Int {
+        get { UserDefaults.standard.integer(forKey: "annotationShapeFill") }
+        set { UserDefaults.standard.set(newValue, forKey: "annotationShapeFill") }
+    }
+    static var shapeFillAlpha: CGFloat {
+        get { let v = UserDefaults.standard.double(forKey: "annotationShapeFillAlpha"); return v > 0 ? CGFloat(v) : 0.3 }
+        set { UserDefaults.standard.set(Double(newValue), forKey: "annotationShapeFillAlpha") }
+    }
     static var mosaicStyle: MosaicStyle {
         get { MosaicStyle(rawValue: UserDefaults.standard.integer(forKey: "annotationMosaicStyle")) ?? .pixelate }
         set { UserDefaults.standard.set(newValue.rawValue, forKey: "annotationMosaicStyle") }
@@ -1773,6 +1801,26 @@ extension CaptureView {
             check("⌘Z brings the erased line back", shapes.count == n && shapes[li].tool == .line)
             erase(at: CGPoint(x: 3, y: 3)) // empty spot: nothing to erase
             check("eraser on empty spot does nothing", shapes.count == n)
+            tool = .move
+        }
+
+        // 5f2. rectangle fill: translucent fill applies and makes the inside clickable
+        do {
+            let saved = shapeFill
+            defer { shapeFill = saved }
+            tool = .rect
+            dragFrom(CGPoint(x: 140, y: H - 382), to: CGPoint(x: 240, y: H - 418))
+            if let i = shapes.indices.last, shapes[i].tool == .rect {
+                check("fill picker shown for rectangles", !strokeOptions.isHidden && strokeOptions.showsFill)
+                check("inside of an unfilled rect is not the shape", !shapes[i].hitTest(CGPoint(x: 190, y: H - 392)))
+                strokeOptions.onFill?(1)
+                check("fill applies to the rect just drawn", shapes[i].fill == 1)
+                check("filled rect is hit inside", shapes[i].hitTest(CGPoint(x: 190, y: H - 392)))
+                let savedA = shapeFillAlpha
+                strokeOptions.onFillAlpha?(0.8)
+                check("fill opacity applies", abs(shapes[i].fillAlpha - 0.8) < 0.001)
+                shapeFillAlpha = savedA
+            } else { check("rect for fill test", false, "sel=\(selection) state=\(state)") }
             tool = .move
         }
 

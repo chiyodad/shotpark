@@ -780,6 +780,13 @@ final class StrokeOptionsView: NSView {
     /// Which extra controls to show: dash toggle (line/arrow/rect/ellipse) and head picker (arrow only).
     var showsDash: Bool = true { didSet { relayout() } }
     var showsHead: Bool = false { didSet { relayout() } }
+    /// Fill picker (rectangle / ellipse): none / filled, plus an opacity slider when filled.
+    var showsFill: Bool = false { didSet { relayout() } }
+    var fill: Int = 0 { didSet { relayout() } }
+    var fillAlpha: CGFloat = 0.3 { didSet { fillSlider.doubleValue = fillAlpha; needsDisplay = true } }
+    var onFill: ((Int) -> Void)?
+    var onFillAlpha: ((CGFloat) -> Void)?
+    private let fillSlider = NSSlider(value: 0.3, minValue: 0.1, maxValue: 1.0, target: nil, action: nil)
     var onChange: ((CGFloat) -> Void)?
     var onDashed: ((Bool) -> Void)?
     var onArrowHead: ((ArrowHead) -> Void)?
@@ -788,6 +795,17 @@ final class StrokeOptionsView: NSView {
     private let widthsEnd: CGFloat = 50 + 3 * 64
     private var dashRect: NSRect { NSRect(x: widthsEnd + 10, y: 4, width: 58, height: Self.height - 8) }
     private var headLabelX: CGFloat { (showsDash ? dashRect.maxX : widthsEnd) + 10 }
+    private var fillLabelX: CGFloat { (showsDash ? dashRect.maxX : widthsEnd) + 10 }
+    private static let fillLabels = [L("없음", "None"), L("채움", "Fill")]
+    private func fillRects() -> [NSRect] {
+        let labelW: CGFloat = L10n.isKorean ? 44 : 30
+        let w: CGFloat = L10n.isKorean ? 56 : 58
+        return (0..<2).map { NSRect(x: fillLabelX + labelW + CGFloat($0) * w, y: 4, width: w, height: Self.height - 8) }
+    }
+    @objc private func fillSliderChanged() {
+        fillAlpha = CGFloat(fillSlider.doubleValue)
+        onFillAlpha?(fillAlpha)
+    }
     private func headRects() -> [NSRect] {
         (0..<2).map { NSRect(x: headLabelX + 34 + CGFloat($0) * 40, y: 4, width: 38, height: Self.height - 8) }
     }
@@ -799,6 +817,13 @@ final class StrokeOptionsView: NSView {
         layer?.shadowOpacity = 0.5
         layer?.shadowRadius = 8
         layer?.masksToBounds = false
+        fillSlider.controlSize = .mini
+        fillSlider.isContinuous = true
+        fillSlider.target = self
+        fillSlider.action = #selector(fillSliderChanged)
+        fillSlider.toolTip = L("채우기 투명도", "Fill opacity")
+        fillSlider.isHidden = true
+        addSubview(fillSlider)
         relayout()
     }
     required init?(coder: NSCoder) { fatalError() }
@@ -807,6 +832,13 @@ final class StrokeOptionsView: NSView {
         var w = widthsEnd + 6
         if showsDash { w = dashRect.maxX + 6 }
         if showsHead { w = headRects().last!.maxX + 6 }
+        if showsFill { w = fillRects().last!.maxX + 6 }
+        let sliderOn = showsFill && fill > 0
+        fillSlider.isHidden = !sliderOn
+        if sliderOn {
+            fillSlider.frame = NSRect(x: fillRects().last!.maxX + 8, y: (Self.height - 16) / 2, width: 80, height: 16)
+            w = fillSlider.frame.maxX + 44
+        }
         setFrameSize(NSSize(width: w, height: Self.height))
         needsDisplay = true
     }
@@ -883,10 +915,28 @@ final class StrokeOptionsView: NSView {
                 }
             }
         }
+        if showsFill {
+            separator(at: fillLabelX - 6)
+            NSAttributedString(string: L("채우기", "Fill"), attributes: labelAttrs).draw(at: NSPoint(x: fillLabelX, y: (bounds.height - 13) / 2))
+            for (i, r) in fillRects().enumerated() {
+                pill(r, on: fill == i, hover: hoverIndex == 30 + i)
+                let sw = NSRect(x: r.minX + 7, y: r.midY - 6, width: 12, height: 12)
+                let sp = NSBezierPath(roundedRect: sw, xRadius: 2, yRadius: 2)
+                if i > 0 { color.withAlphaComponent(max(fillAlpha, 0.2)).setFill(); sp.fill() }
+                color.setStroke(); sp.lineWidth = 1.5; sp.stroke()
+                let str = NSAttributedString(string: Self.fillLabels[i], attributes: itemAttrs)
+                str.draw(at: NSPoint(x: sw.maxX + 5, y: r.midY - str.size().height / 2))
+            }
+            if !fillSlider.isHidden {
+                let pct = NSAttributedString(string: "\(Int((fillAlpha * 100).rounded()))%", attributes: labelAttrs)
+                pct.draw(at: NSPoint(x: fillSlider.frame.maxX + 6, y: (bounds.height - 13) / 2))
+            }
+        }
     }
 
     private func hit(_ p: NSPoint) -> Int? {
         if let i = rects().firstIndex(where: { $0.contains(p) }) { return i }
+        if showsFill, let i = fillRects().firstIndex(where: { $0.contains(p) }) { return 30 + i }
         if showsDash, dashRect.contains(p) { return 10 }
         if showsHead, let i = headRects().firstIndex(where: { $0.contains(p) }) { return 20 + i }
         return nil
@@ -903,6 +953,7 @@ final class StrokeOptionsView: NSView {
         case 0...2: lineWidth = Self.widths[i]; onChange?(lineWidth)
         case 10: dashed.toggle(); onDashed?(dashed)
         case 20, 21: arrowHead = ArrowHead(rawValue: i - 20) ?? .chevron; onArrowHead?(arrowHead)
+        case 30, 31: fill = i - 30; onFill?(fill)
         default: break
         }
     }
