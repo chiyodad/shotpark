@@ -129,7 +129,6 @@ final class ToolbarView: NSView {
         layer?.shadowRadius = 8
         layer?.shadowOffset = CGSize(width: 0, height: -2)
         layer?.masksToBounds = false
-        rebuildToolTips()
     }
 
     required init?(coder: NSCoder) { fatalError() }
@@ -150,22 +149,46 @@ final class ToolbarView: NSView {
         return rects
     }
 
-    private func rebuildToolTips() {
-        removeAllToolTips()
-        tooltipOwners = []
-        for (i, r) in itemRects().enumerated() {
-            let owner = ToolTipOwner(items[i].tip)
-            tooltipOwners.append(owner) // addToolTip does not retain the owner
-            addToolTip(r, owner: owner, userData: nil)
+    // MARK: tooltips
+    // System tooltips open in a window below the capture overlay (shielding level), so they never
+    // show. Draw our own bubble inside the overlay instead.
+
+    private let tipBubble = TipBubble()
+    private var tipTimer: Timer?
+
+    private func updateTip() {
+        tipTimer?.invalidate()
+        guard let i = hoverIndex, pressedIndex == nil else { tipBubble.removeFromSuperview(); return }
+        let show = { [weak self] in self?.showTip(for: i) }
+        if tipBubble.superview != nil { show() }   // already showing: follow the mouse right away
+        else {
+            let t = Timer(timeInterval: 0.45, repeats: false) { _ in show() }
+            RunLoop.main.add(t, forMode: .common)
+            tipTimer = t
         }
     }
 
-    private var tooltipOwners: [ToolTipOwner] = []
-    private final class ToolTipOwner: NSObject, NSViewToolTipOwner {
-        let text: String
-        init(_ t: String) { text = t }
-        func view(_ view: NSView, stringForToolTip tag: NSView.ToolTipTag, point: NSPoint, userData data: UnsafeMutableRawPointer?) -> String { text }
+    private func showTip(for i: Int) {
+        guard i < items.count, let host = superview, hoverIndex == i else { return }
+        tipBubble.text = items[i].tip
+        let size = tipBubble.fittingSize
+        let item = convert(itemRects()[i], to: host)
+        let mine = convert(bounds, to: host)
+        var x = item.midX - size.width / 2
+        x = min(max(x, host.bounds.minX + 4), host.bounds.maxX - size.width - 4)
+        var y = mine.minY - size.height - 6                      // below the toolbar
+        if y < host.bounds.minY + 4 { y = mine.maxY + 6 }        // no room: above it
+        tipBubble.frame = NSRect(x: x.rounded(), y: y.rounded(), width: size.width, height: size.height)
+        if tipBubble.superview !== host { host.addSubview(tipBubble, positioned: .above, relativeTo: nil) }
     }
+
+    func hideTip() {
+        tipTimer?.invalidate()
+        tipBubble.removeFromSuperview()
+    }
+
+    /// Tip text (for tests).
+    var visibleTip: String? { tipBubble.superview == nil ? nil : tipBubble.text }
 
     override func updateTrackingAreas() {
         super.updateTrackingAreas()
@@ -236,19 +259,26 @@ final class ToolbarView: NSView {
     override func mouseMoved(with event: NSEvent) {
         let p = convert(event.locationInWindow, from: nil)
         let idx = index(at: p)
-        if idx != hoverIndex { hoverIndex = idx; needsDisplay = true }
+        if idx != hoverIndex { hoverIndex = idx; needsDisplay = true; updateTip() }
     }
 
     override func mouseExited(with event: NSEvent) {
         hoverIndex = nil
         needsDisplay = true
+        hideTip()
     }
 
     override func mouseDown(with event: NSEvent) {
         let p = convert(event.locationInWindow, from: nil)
         pressedIndex = index(at: p)
         needsDisplay = true
+        hideTip()
     }
+
+    override var isHidden: Bool { didSet { if isHidden { hideTip() } } }
+
+    /// Test hook: hover an item and show its tip immediately.
+    func debugHover(_ i: Int) { hoverIndex = i; showTip(for: i) }
 
     override func mouseUp(with event: NSEvent) {
         let p = convert(event.locationInWindow, from: nil)
@@ -1044,4 +1074,29 @@ final class MosaicOptionsView: NSView {
         else { level = i - 10; onLevel?(level) }
     }
     override func resetCursorRects() { addCursorRect(bounds, cursor: .arrow) }
+}
+
+
+/// Small dark tooltip bubble drawn inside the capture overlay.
+final class TipBubble: NSView {
+    var text: String = "" { didSet { needsDisplay = true } }
+    private static let font = NSFont.systemFont(ofSize: 12, weight: .medium)
+    private static let maxWidth: CGFloat = 280
+    private static let pad = NSSize(width: 9, height: 6)
+
+    private var attributed: NSAttributedString {
+        let ps = NSMutableParagraphStyle(); ps.lineBreakMode = .byWordWrapping
+        return NSAttributedString(string: text, attributes: [.font: Self.font, .foregroundColor: NSColor.white, .paragraphStyle: ps])
+    }
+    override var fittingSize: NSSize {
+        let r = attributed.boundingRect(with: NSSize(width: Self.maxWidth, height: 400), options: [.usesLineFragmentOrigin])
+        return NSSize(width: ceil(r.width) + Self.pad.width * 2, height: ceil(r.height) + Self.pad.height * 2)
+    }
+    override func draw(_ dirtyRect: NSRect) {
+        let bg = NSBezierPath(roundedRect: bounds, xRadius: 6, yRadius: 6)
+        NSColor(calibratedWhite: 0.08, alpha: 0.95).setFill(); bg.fill()
+        NSColor.white.withAlphaComponent(0.2).setStroke(); bg.lineWidth = 1; bg.stroke()
+        attributed.draw(with: bounds.insetBy(dx: Self.pad.width, dy: Self.pad.height), options: [.usesLineFragmentOrigin])
+    }
+    override func hitTest(_ point: NSPoint) -> NSView? { nil } // never steals clicks
 }
