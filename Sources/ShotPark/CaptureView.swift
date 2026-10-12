@@ -572,6 +572,11 @@ final class CaptureView: NSView, NSTextViewDelegate {
             extractText()
         case .pin:
             pinSelection()
+        case .beautify:
+            Beautify.isOn.toggle()
+            toolbar.beautifyOn = Beautify.isOn
+            Toast.show(Beautify.isOn ? L("꾸미기 켜짐 · 복사·저장·공유에 적용", "Beautify on · applies to copy, save, share")
+                                     : L("꾸미기 꺼짐", "Beautify off"), duration: 1.2)
         case .close:
             session?.cancel()
         }
@@ -1418,7 +1423,7 @@ final class CaptureView: NSView, NSTextViewDelegate {
 
     /// Pin the (annotated) selection on screen as a floating window and end the capture.
     func pinSelection() {
-        guard state == .selected, let image = renderResult(), let win = window else { return }
+        guard state == .selected, let image = renderResult(decorated: false), let win = window else { return }
         let frame = win.convertToScreen(convert(selection, to: nil))
         session?.cancel()
         PinWindow.pin(image, at: frame)
@@ -1461,7 +1466,8 @@ final class CaptureView: NSView, NSTextViewDelegate {
         }
     }
 
-    func renderResult() -> NSImage? {
+    /// `decorated`: apply the Beautify export option when it is on (copy / save / share do; pin doesn't).
+    func renderResult(decorated: Bool = true) -> NSImage? {
         guard state == .selected, selection.width >= 1, selection.height >= 1 else { return nil }
         commitText()
         let s = pixelScale
@@ -1487,6 +1493,10 @@ final class CaptureView: NSView, NSTextViewDelegate {
         NSGraphicsContext.restoreGraphicsState()
 
         guard let out = ctx.makeImage() else { return nil }
+        if decorated && Beautify.isOn, let pretty = Beautify.apply(to: out, scale: CGFloat(w) / selection.width) {
+            return NSImage(cgImage: pretty, size: NSSize(width: CGFloat(pretty.width) * selection.width / CGFloat(w),
+                                                         height: CGFloat(pretty.height) * selection.width / CGFloat(w)))
+        }
         return NSImage(cgImage: out, size: selection.size)
     }
 
@@ -1907,6 +1917,19 @@ extension CaptureView {
             }
             key(8, flags: [.command, .shift]) // ⌘⇧C must not copy the image
             check("⌘⇧C does not end the capture as an image copy", state == .selected)
+        }
+
+        // 5j. beautify adds padding at the same pixel scale, keeps the capture inside
+        do {
+            let cs = CGColorSpace(name: CGColorSpace.sRGB)!
+            if let c = CGContext(data: nil, width: 200, height: 100, bitsPerComponent: 8, bytesPerRow: 0, space: cs, bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue) {
+                c.setFillColor(CGColor(red: 1, green: 0, blue: 0, alpha: 1)); c.fill(CGRect(x: 0, y: 0, width: 200, height: 100))
+                if let src = c.makeImage(), let out = Beautify.apply(to: src, scale: 2, background: 1, padding: 0, shadow: true, rounded: true) {
+                    check("beautify size = image + 2×padding", out.width == 200 + 96 && out.height == 100 + 96, "\(out.width)x\(out.height)")
+                    let none = Beautify.apply(to: src, scale: 2, background: 0, padding: 1, shadow: false, rounded: false)
+                    check("no background + no shadow adds no padding", none?.width == 200 && none?.height == 100)
+                } else { check("beautify output", false) }
+            }
         }
 
         // 5i. QR detection on a generated code

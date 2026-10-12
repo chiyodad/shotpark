@@ -78,6 +78,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                         return true
                     }
                     guard let cg = sample.cgImage(forProposedRect: nil, context: nil, hints: nil) else { exit(1) }
+                    if let pretty = Beautify.apply(to: cg, scale: 1, background: 1, padding: 1, shadow: true, rounded: true) {
+                        try? NSBitmapImageRep(cgImage: pretty).representation(using: .png, properties: [:])?.write(to: URL(fileURLWithPath: "/tmp/sp-beautify.png"))
+                    }
                     let bd = MosaicBackdrop(screenshot: cg, viewSize: CGSize(width: 600, height: 200))
                     let out = NSImage(size: NSSize(width: 600, height: 600), flipped: false) { _ in
                         guard let ctx = NSGraphicsContext.current?.cgContext else { return false }

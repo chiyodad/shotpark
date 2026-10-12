@@ -278,11 +278,15 @@ final class SettingsWindowController: NSWindowController {
     private let saveCopiesCheckbox = NSButton(checkboxWithTitle: L("⌘S 저장할 때 클립보드에도 복사", "⌘S also copies to the clipboard"), target: nil, action: nil)
     private let copySavesCheckbox = NSButton(checkboxWithTitle: L("⌘C 복사할 때 저장 폴더에도 PNG 저장", "⌘C also saves a PNG to the folder"), target: nil, action: nil)
     private var colorWells: [NSColorWell] = []
+    private let beautifyBG = NSPopUpButton(frame: .zero, pullsDown: false)
+    private let beautifyPad = NSPopUpButton(frame: .zero, pullsDown: false)
+    private let beautifyShadow = NSButton(checkboxWithTitle: L("그림자", "Shadow"), target: nil, action: nil)
+    private let beautifyRound = NSButton(checkboxWithTitle: L("둥근 모서리", "Rounded"), target: nil, action: nil)
     private var shortcutRecorders: [Settings.Shortcut: HotKeyRecorderView] = [:]
     private let historyCheckbox = NSButton(checkboxWithTitle: L("복사한 이미지 기록 (최근 30개)", "Keep copied images (last 30)"), target: nil, action: nil)
 
     private init() {
-        let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: L10n.isKorean ? 500 : 540, height: 556),
+        let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: L10n.isKorean ? 520 : 560, height: 672),
                               styleMask: [.titled, .closable], backing: .buffered, defer: false)
         window.title = L("ShotPark 설정", "ShotPark Settings")
         window.isReleasedWhenClosed = false
@@ -415,6 +419,19 @@ final class SettingsWindowController: NSWindowController {
         let ocrKeyRow = shortcutRow(.ocr, note: L("캡처 중", "during a capture"))
         let pinKeyRow = shortcutRow(.pin, note: L("캡처 중", "during a capture"))
 
+        // beautify (export style)
+        beautifyBG.addItems(withTitles: Beautify.backgrounds.map(\.name))
+        beautifyPad.addItems(withTitles: Beautify.paddings.map { L("여백 ", "Padding ") + $0.name })
+        for c in [beautifyBG, beautifyPad] { c.controlSize = .small; c.font = .systemFont(ofSize: 12); c.target = self; c.action = #selector(beautifyChanged) }
+        for c in [beautifyShadow, beautifyRound] { c.font = .systemFont(ofSize: 12); c.target = self; c.action = #selector(beautifyChanged) }
+        let beautifyRow = NSStackView(views: [beautifyBG, beautifyPad, beautifyShadow, beautifyRound])
+        beautifyRow.spacing = 8
+        beautifyRow.alignment = .centerY
+        let beautifyHint = NSTextField(wrappingLabelWithString: L("캡처 툴바의 꾸미기(마술봉) 버튼으로 켜고 끕니다. 켜면 복사·저장·공유하는 이미지에 적용됩니다.", "Turn it on or off with the Beautify (magic wand) button in the capture toolbar; it applies to copy, save and share."))
+        beautifyHint.font = .systemFont(ofSize: 11)
+        beautifyHint.textColor = .secondaryLabelColor
+        beautifyHint.preferredMaxLayoutWidth = L10n.isKorean ? 330 : 340
+
         let grid = NSGridView(views: [
             [label(L("캡처 단축키", "Capture hotkey")), hotkeyRow],
             [NSGridCell.emptyContentView, hotkeyHint],
@@ -428,6 +445,8 @@ final class SettingsWindowController: NSWindowController {
             [NSGridCell.emptyContentView, copySavesCheckbox],
             [label(L("주석 색상", "Palette")), paletteRow],
             [NSGridCell.emptyContentView, paletteHint],
+            [label(L("꾸미기", "Beautify")), beautifyRow],
+            [NSGridCell.emptyContentView, beautifyHint],
             [label(L("클립보드", "Clipboard")), historyRow],
             [NSGridCell.emptyContentView, historyHint],
         ])
@@ -437,10 +456,11 @@ final class SettingsWindowController: NSWindowController {
         grid.column(at: 0).width = L10n.isKorean ? 100 : 120
         grid.column(at: 1).width = L10n.isKorean ? 340 : 350
         grid.rowAlignment = .firstBaseline
-        for r in [0, 2, 3, 4, 5, 6, 10, 12] { grid.row(at: r).yPlacement = .center }
+        for r in [0, 2, 3, 4, 5, 6, 10, 12, 14] { grid.row(at: r).yPlacement = .center }
         grid.row(at: 6).topPadding = 6   // save folder
         grid.row(at: 10).topPadding = 6  // palette
-        grid.row(at: 12).topPadding = 6  // clipboard
+        grid.row(at: 12).topPadding = 6  // beautify
+        grid.row(at: 14).topPadding = 6  // clipboard
         grid.translatesAutoresizingMaskIntoConstraints = false
         content.addSubview(grid)
 
@@ -476,6 +496,10 @@ final class SettingsWindowController: NSWindowController {
         copySavesCheckbox.state = Settings.copyAlsoSaves ? .on : .off
         historyCheckbox.state = ClipboardHistory.isEnabled ? .on : .off
         for (s, rec) in shortcutRecorders { rec.spec = Settings.shortcut(s) }
+        beautifyBG.selectItem(at: Beautify.background)
+        beautifyPad.selectItem(at: Beautify.padding)
+        beautifyShadow.state = Beautify.shadow ? .on : .off
+        beautifyRound.state = Beautify.rounded ? .on : .off
         let palette = Preferences.palette
         for (i, well) in colorWells.enumerated() where i < palette.count { well.color = palette[i] }
     }
@@ -499,6 +523,13 @@ final class SettingsWindowController: NSWindowController {
     @objc private func clearHistory() {
         ClipboardHistory.shared.clear()
         Toast.show(L("클립보드 이미지 기록을 지웠습니다", "Clipboard image history cleared"), duration: 1.4)
+    }
+
+    @objc private func beautifyChanged() {
+        Beautify.background = beautifyBG.indexOfSelectedItem
+        Beautify.padding = beautifyPad.indexOfSelectedItem
+        Beautify.shadow = beautifyShadow.state == .on
+        Beautify.rounded = beautifyRound.state == .on
     }
 
     @objc private func resetShortcut(_ sender: NSButton) {
