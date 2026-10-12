@@ -14,7 +14,9 @@ enum ToolbarAction {
 }
 
 func symbolImage(_ name: String, color: NSColor, pointSize: CGFloat, weight: NSFont.Weight = .medium) -> NSImage? {
-    guard let base = NSImage(systemSymbolName: name, accessibilityDescription: nil) else { return nil }
+    // "a|b": use the first symbol this macOS has (newer symbols fall back to older ones).
+    guard let base = name.split(separator: "|").lazy.compactMap({ NSImage(systemSymbolName: String($0), accessibilityDescription: nil) }).first
+    else { return nil }
     let cfg = NSImage.SymbolConfiguration(pointSize: pointSize, weight: weight)
     let configured = base.withSymbolConfiguration(cfg) ?? base
     let size = configured.size
@@ -74,7 +76,7 @@ final class ToolbarView: NSView {
     static let height: CGFloat = 44
 
     let items: [Item] = [
-        Item(symbol: "pencil",               tip: L("펜 (P)", "Pen (P)"),      action: .selectTool(.pen)),
+        Item(symbol: "pencil.and.scribble|scribble.variable|scribble", tip: L("펜 (P) — 자유롭게 그리기", "Pen (P) — freehand drawing"),      action: .selectTool(.pen)),
         Item(symbol: "line.diagonal",        tip: L("선 (L)", "Line (L)"),      action: .selectTool(.line)),
         Item(symbol: "arrow.up.right",       tip: L("화살표 (A)", "Arrow (A)"),  action: .selectTool(.arrow)),
         Item(symbol: "rectangle",            tip: L("사각형 (R)", "Rectangle (R)"),  action: .selectTool(.rect)),
