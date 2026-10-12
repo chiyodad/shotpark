@@ -3,6 +3,18 @@ import Vision
 
 /// On-device text recognition (Vision). Korean + English, reading order top-to-bottom, left-to-right.
 enum TextRecognizer {
+    /// Payloads of QR codes (and other 2D/1D barcodes) in the image, top to bottom.
+    static func barcodes(_ image: CGImage) -> [String] {
+        let request = VNDetectBarcodesRequest()
+        let handler = VNImageRequestHandler(cgImage: image, options: [:])
+        do { try handler.perform([request]) } catch { return [] }
+        var seen = Set<String>()
+        return (request.results ?? [])
+            .sorted { $0.boundingBox.midY > $1.boundingBox.midY }
+            .compactMap { $0.payloadStringValue }
+            .filter { !$0.isEmpty && seen.insert($0).inserted }
+    }
+
     static func recognize(_ image: CGImage) -> String {
         let request = VNRecognizeTextRequest()
         request.recognitionLevel = .accurate

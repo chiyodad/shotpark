@@ -57,7 +57,8 @@ If you used Lightshot or PicPick on Windows, you already know how it works: hotk
 
 **Export**
 - `⌘C` or `Enter` copies to the clipboard and closes.
-- **Extract text** (`⌘⇧C`, the text icon): reads the text in the selection (Korean + English, on-device with Apple's Vision — nothing is uploaded) and copies it as plain text.
+- **Extract text** (`⌘⇧C`, the text icon): reads the text in the selection (Korean + English, on-device with Apple's Vision — nothing is uploaded) and copies it as plain text. If there is a **QR code**, its content is copied instead (click the toast to open a link).
+- **Pin to screen** (`⌘⇧P`, the pin icon): keeps the capture floating on top of other windows — drag to move, scroll to resize, double-click or `Esc` to close, right-click for copy / save / opacity. Menu bar → Close All Pinned Captures.
 - `⌘S` saves a PNG (`shotpark-yyyyMMdd-HHmmss.png`) straight into your chosen folder (or shows a save dialog); click the toast to reveal it in Finder. Optionally also copy on save / also save on copy.
 - **Share** (`⌘⇧S`): straight to Claude · ChatGPT · Gemini · Slack · KakaoTalk (ChatGPT / Gemini fall back to the web app when the desktop app isn't installed), or the macOS share sheet (Mail, Messages, AirDrop, Notes…).
 - **Clipboard images** (`⌃⌘V`): the last 30 images you copied — from ShotPark or any other app — in a thumbnail grid. Click or `↩` to copy one again, drag it into another app, right-click to save / show in Finder / remove. Stored only on your Mac; items marked as concealed (password managers) are skipped; turn it off or clear it in Settings.
@@ -121,7 +122,7 @@ Needs only the Xcode Command Line Tools (`xcode-select --install`). `./build.sh`
 |---|---|
 | Start a region capture | `⌘⇧9` (default, change in Settings) · menu bar icon → Capture Region |
 | Clipboard images | `⌃⌘V` · menu bar icon → Clipboard Images |
-| Mosaic / blur tool · Extract text (during a capture) | `B` · `⌘⇧C` |
+| Mosaic / blur tool · Extract text · Pin to screen (during a capture) | `B` · `⌘⇧C` · `⌘⇧P` |
 | Select the whole screen | `⌘A` |
 | Pen / line / arrow / rectangle / ellipse / marker / text / number / emoji / eraser | `P` / `L` / `A` / `R` / `E` / `M` / `T` / `N` / `S` / `X` |
 | Select (move / resize) mode | `V` or click the active tool again |

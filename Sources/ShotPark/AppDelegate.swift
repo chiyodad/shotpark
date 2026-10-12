@@ -10,6 +10,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var loginItem: NSMenuItem!
     private var captureItem: NSMenuItem!
     private var historyItem: NSMenuItem?
+    private var pinsItem: NSMenuItem!
     private var updateItem: NSMenuItem!
 
     func applicationDidFinishLaunching(_ notification: Notification) {
@@ -269,6 +270,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         captureItem = NSMenuItem(title: L("영역 캡처", "Capture Region"), action: #selector(captureAction), keyEquivalent: "")
         captureItem.target = self
         menu.addItem(captureItem)
+        pinsItem = NSMenuItem(title: "", action: #selector(closePins), keyEquivalent: "")
+        pinsItem.target = self
+        pinsItem.isHidden = true
+        menu.addItem(pinsItem)
         let history = NSMenuItem(title: L("클립보드 이미지", "Clipboard Images"), action: #selector(openClipboardHistory), keyEquivalent: "")
         history.target = self
         menu.addItem(history)
@@ -377,6 +382,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         DispatchQueue.main.asyncAfter(deadline: .now() + 5) { h.clear(); exit(0) }
     }
 
+    @objc private func closePins() { PinWindow.closeAll() }
+
     @objc private func openClipboardHistory() {
         ClipboardHistoryWindowController.shared.show()
     }
@@ -470,5 +477,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 extension AppDelegate: NSMenuDelegate {
     func menuWillOpen(_ menu: NSMenu) {
         loginItem.state = SMAppService.mainApp.status == .enabled ? .on : .off
+        pinsItem.isHidden = PinWindow.count == 0
+        pinsItem.title = L("고정한 캡처 모두 닫기 (\(PinWindow.count))", "Close All Pinned Captures (\(PinWindow.count))")
     }
 }

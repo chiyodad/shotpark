@@ -570,6 +570,8 @@ final class CaptureView: NSView, NSTextViewDelegate {
             showShareMenu()
         case .ocr:
             extractText()
+        case .pin:
+            pinSelection()
         case .close:
             session?.cancel()
         }
@@ -936,6 +938,7 @@ final class CaptureView: NSView, NSTextViewDelegate {
         }
         if state == .selected, textEditor == nil {
             if Settings.shortcut(.ocr).matches(event) { extractText(); return }
+            if Settings.shortcut(.pin).matches(event) { pinSelection(); return }
             if Settings.shortcut(.mosaic).matches(event) { tool = tool == .mosaic ? .move : .mosaic; return }
         }
         if flags.contains(.command) {
@@ -1413,15 +1416,36 @@ final class CaptureView: NSView, NSTextViewDelegate {
         return screenshot.cropping(to: pixelRect)
     }
 
+    /// Pin the (annotated) selection on screen as a floating window and end the capture.
+    func pinSelection() {
+        guard state == .selected, let image = renderResult(), let win = window else { return }
+        let frame = win.convertToScreen(convert(selection, to: nil))
+        session?.cancel()
+        PinWindow.pin(image, at: frame)
+    }
+
     func extractText() {
         guard state == .selected, selection.width >= 4, selection.height >= 4, let img = selectionPixels() else { return }
         commitText()
         NSCursor.operationNotAllowed.set()
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
-            let text = TextRecognizer.recognize(img)
+            let codes = TextRecognizer.barcodes(img)
+            let text = codes.isEmpty ? TextRecognizer.recognize(img) : ""
             DispatchQueue.main.async {
                 guard let self else { return }
                 self.window?.invalidateCursorRects(for: self)
+                if !codes.isEmpty {
+                    // A QR code wins: its content is usually what you wanted.
+                    let payload = codes.joined(separator: "\n")
+                    let pb = NSPasteboard.general
+                    pb.clearContents()
+                    pb.setString(payload, forType: .string)
+                    self.session?.cancel()
+                    let url = codes.first.flatMap { URL(string: $0) }.flatMap { ["http", "https"].contains($0.scheme?.lowercased() ?? "") ? $0 : nil }
+                    Toast.show(url != nil ? L("QR 링크 복사됨 · 클릭하면 열기", "QR link copied · click to open") : L("QR 코드 내용 복사됨", "QR code content copied"),
+                               subtitle: codes.first, duration: 2.6, onClick: url.map { u in { NSWorkspace.shared.open(u) } })
+                    return
+                }
                 guard !text.isEmpty else {
                     NSSound.beep()
                     Toast.show(L("글자를 찾지 못했습니다", "No text found"), duration: 1.6)
@@ -1885,6 +1909,17 @@ extension CaptureView {
             check("⌘⇧C does not end the capture as an image copy", state == .selected)
         }
 
+        // 5i. QR detection on a generated code
+        do {
+            let f = CIFilter(name: "CIQRCodeGenerator")!
+            f.setValue("https://shotpark.site/".data(using: .utf8), forKey: "inputMessage")
+            if let ci = f.outputImage?.transformed(by: CGAffineTransform(scaleX: 8, y: 8)),
+               let cg = CIContext().createCGImage(ci.clampedToExtent().cropped(to: ci.extent.insetBy(dx: -40, dy: -40)), from: ci.extent.insetBy(dx: -40, dy: -40)) {
+                let codes = TextRecognizer.barcodes(cg)
+                check("QR code is read", codes.first == "https://shotpark.site/", "\(codes)")
+            } else { check("QR test image", false) }
+        }
+
         // 6. click outside with annotations → idle and annotations cleared
         click(CGPoint(x: 20, y: 20))
         check("click outside clears selection + shapes", state == .idle && shapes.isEmpty)
@@ -1893,6 +1928,13 @@ extension CaptureView {
         dragFrom(CGPoint(x: 100, y: H - 100), to: CGPoint(x: 300, y: H - 200))
         key(53)
         check("Esc on selection → idle", state == .idle)
+        // 8. pin window (last: it ends the capture)
+        dragFrom(CGPoint(x: 100, y: H - 100), to: CGPoint(x: 300, y: H - 200))
+        let pinsBefore = PinWindow.count
+        pinSelection()
+        check("pin creates a floating window", PinWindow.count == pinsBefore + 1)
+        PinWindow.closeAll()
+        check("pins close", PinWindow.count == 0)
         return out
     }
 }

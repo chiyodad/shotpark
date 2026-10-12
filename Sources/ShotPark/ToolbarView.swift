@@ -8,6 +8,7 @@ enum ToolbarAction {
     case save
     case share
     case ocr
+    case pin
     case close
 }
 
@@ -87,6 +88,7 @@ final class ToolbarView: NSView {
         Item(symbol: "arrow.uturn.backward", tip: L("실행 취소 (⌘Z)", "Undo (⌘Z)"), action: .undo),
         Item(symbol: "doc.on.doc",           tip: L("클립보드로 복사 (⌘C / Enter)", "Copy to clipboard (⌘C / Enter)"), action: .copy, separatorBefore: true),
         Item(symbol: "text.viewfinder",      tip: L("텍스트 추출 (\(Settings.shortcut(.ocr).display)) — 영역의 글자를 텍스트로 복사", "Extract text (\(Settings.shortcut(.ocr).display)) — copy the text in the selection"), action: .ocr),
+        Item(symbol: "pin",                  tip: L("화면에 고정 (\(Settings.shortcut(.pin).display)) — 캡처를 떠 있는 창으로", "Pin to screen (\(Settings.shortcut(.pin).display)) — keep the capture floating on top"), action: .pin),
         Item(symbol: "square.and.arrow.down", tip: L("저장 (⌘S)", "Save (⌘S)"),  action: .save),
         Item(symbol: "square.and.arrow.up",  tip: L("공유 — Claude · ChatGPT · Gemini · Slack · 카카오톡 (⌘⇧S)", "Share — Claude · ChatGPT · Gemini · Slack · KakaoTalk (⌘⇧S)"), action: .share),
         Item(symbol: "xmark",                tip: L("닫기 (Esc)", "Close (Esc)"),  action: .close),
