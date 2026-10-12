@@ -96,16 +96,26 @@ curl -fsSL https://shotpark.site/install.sh | sh
 
 [최신 릴리즈](https://github.com/chiyodad/shotpark/releases/latest)에서 `ShotPark-x.y.z.zip`을 받아 압축을 풀고 `ShotPark.app`을 응용 프로그램 폴더로 옮깁니다.
 
-### 2. Gatekeeper 통과하기 (최초 1회)
+> **처음 한 번, Gatekeeper 통과하기** (Homebrew · CLI · 소스 빌드는 필요 없음)
+>
+> ShotPark은 Apple 개발자 서명이 없는 오픈소스 앱이라 처음 열 때 macOS가 "확인할 수 없는 개발자"라며 막습니다. 아래 둘 중 한 방법으로 한 번만 열어 주면 그 뒤로는 묻지 않습니다.
+>
+> - **방법 A — 터미널 한 줄** (가장 확실): `xattr -d com.apple.quarantine /Applications/ShotPark.app`
+> - **방법 B — 설정에서 허용**: 앱을 더블클릭해 경고를 닫은 뒤, 시스템 설정 → 개인정보 보호 및 보안 맨 아래의 **"그래도 열기"** 를 누릅니다.
 
-**3) 다운로드로 설치한 경우에만 해당합니다. 1) Homebrew · 2) CLI로 설치했다면 이 단계는 자동 처리되므로 건너뛰세요.**
+**4) 소스에서 빌드**
 
-ShotPark은 Apple 개발자 서명이 없는 오픈소스 앱이라 처음 열 때 macOS가 "확인할 수 없는 개발자"라며 막습니다. 아래 둘 중 한 방법으로 한 번만 열어 주면 그 뒤로는 묻지 않습니다.
+Xcode Command Line Tools만 있으면 됩니다(`xcode-select --install`).
 
-- **방법 A — 터미널 한 줄** (가장 확실): `xattr -d com.apple.quarantine /Applications/ShotPark.app`
-- **방법 B — 설정에서 허용**: 앱을 더블클릭해 경고를 닫은 뒤, 시스템 설정 → 개인정보 보호 및 보안 맨 아래의 **"그래도 열기"** 를 누릅니다.
+```sh
+git clone https://github.com/chiyodad/shotpark.git
+cd shotpark
+./build.sh --install     # 빌드 → 앱 번들 생성 → /Applications 설치 → 실행
+```
 
-### 3. 화면 기록 권한 부여
+`./build.sh`만 실행하면 `build/ShotPark.app`만 만들고 설치는 하지 않습니다.
+
+### 2. 화면 기록 권한 부여
 
 첫 캡처(`⌘⇧9`) 때 권한 요청 창이 뜹니다. **"시스템 설정 열기"** 를 누르고 목록에서 **ShotPark**을 켠 뒤, 앱을 한 번 종료했다가(메뉴 막대 아이콘 → ShotPark 종료) 다시 실행하세요.
 
@@ -115,18 +125,6 @@ ShotPark은 Apple 개발자 서명이 없는 오픈소스 앱이라 처음 열 �
     <td valign="top" align="center" width="50%"><img src="docs/img/screen-recording.png" width="380" alt="시스템 설정에서 ShotPark 켜기"><br><sub>② 시스템 설정에서 ShotPark 켜기</sub></td>
   </tr>
 </table>
-
-### 소스에서 빌드
-
-Xcode Command Line Tools만 있으면 됩니다(`xcode-select --install`). 직접 빌드하면 2단계는 필요 없습니다.
-
-```sh
-git clone https://github.com/chiyodad/shotpark.git
-cd shotpark
-./build.sh --install     # 빌드 → 앱 번들 생성 → /Applications 설치 → 실행
-```
-
-`./build.sh`만 실행하면 `build/ShotPark.app`만 만들고 설치는 하지 않습니다.
 
 ## 사용법
 
@@ -176,7 +174,7 @@ cd shotpark
 대부분 화면 기록 권한이 아직 없어서입니다. 메뉴 막대 아이콘 → "화면 기록 권한 설정…"으로 설정 창을 열어 ShotPark을 켜고, 앱을 종료했다가 다시 실행하세요. 다른 앱이 같은 단축키를 쓰고 있다면 설정에서 다른 조합으로 바꿔 보세요.
 
 **"손상되었기 때문에 열 수 없습니다"라고 떠요.**
-다운로드한 파일에 붙는 격리 속성 때문입니다. 설치 2단계의 `xattr -d com.apple.quarantine /Applications/ShotPark.app`으로 해제하면 됩니다.
+다운로드한 파일에 붙는 격리 속성 때문입니다. 설치 방법 3) 다운로드 아래의 `xattr -d com.apple.quarantine /Applications/ShotPark.app`으로 해제하면 됩니다.
 
 **업데이트했더니 화면 기록 권한을 다시 물어봐요.**
 정상입니다. 서명이 바뀐 새 빌드는 macOS가 새 앱으로 취급해서 한 번 더 묻습니다. 직접 빌드하는 경우 키체인에 `ShotPark Developer`라는 코드 서명 인증서를 만들어 두면 `build.sh`가 자동으로 그 인증서로 서명해 재빌드 후에도 권한이 유지됩니다.

@@ -94,20 +94,14 @@ curl -fsSL https://shotpark.site/install.sh | sh
 
 Grab `ShotPark-x.y.z.zip` from the [latest release](https://github.com/chiyodad/shotpark/releases/latest), unzip it and move `ShotPark.app` into your Applications folder.
 
-### 2. Get past Gatekeeper once
+> **First launch: get past Gatekeeper** (not needed for Homebrew, CLI or building from source)
+>
+> ShotPark is an open-source app without an Apple Developer signature, so the first launch is blocked as coming from an "unidentified developer". Use either method once; macOS won't ask again.
+>
+> - **Method A — one line in Terminal** (most reliable): `xattr -d com.apple.quarantine /Applications/ShotPark.app`
+> - **Method B — allow in settings**: double-click the app once more to dismiss the warning, then System Settings → Privacy & Security → scroll down → **"Open Anyway"**.
 
-**Only if you installed via 3) Download. The CLI and Homebrew installs handle this automatically — skip this step.**
-
-ShotPark is an open-source app without an Apple Developer signature, so the first launch is blocked as coming from an "unidentified developer". Use either method once; macOS won't ask again.
-
-- **Method A — one line in Terminal** (most reliable): `xattr -d com.apple.quarantine /Applications/ShotPark.app`
-- **Method B — allow in settings**: double-click the app once more to dismiss the warning, then System Settings → Privacy & Security → scroll down → **"Open Anyway"**.
-
-### 3. Allow Screen Recording
-
-On your first capture (`⌘⇧9`) macOS asks for Screen Recording permission. Click **"Open System Settings"**, turn **ShotPark** on in the list, then quit the app once (menu bar icon → Quit) and relaunch it. The first-launch welcome window walks you through this.
-
-### Build from source
+**4) Build from source**
 
 ```sh
 git clone https://github.com/chiyodad/shotpark.git
@@ -115,7 +109,11 @@ cd shotpark
 ./build.sh --install     # build → .app bundle → /Applications → launch
 ```
 
-Needs only the Xcode Command Line Tools (`xcode-select --install`). `./build.sh` alone builds `build/ShotPark.app` without installing; `SHOTPARK_ARCH=arm64 ./build.sh` skips the Intel slice for faster local builds. Building from source skips step 2.
+Needs only the Xcode Command Line Tools (`xcode-select --install`). `./build.sh` alone builds `build/ShotPark.app` without installing; `SHOTPARK_ARCH=arm64 ./build.sh` skips the Intel slice for faster local builds.
+
+### 2. Allow Screen Recording
+
+On your first capture (`⌘⇧9`) macOS asks for Screen Recording permission. Click **"Open System Settings"**, turn **ShotPark** on in the list, then quit the app once (menu bar icon → Quit) and relaunch it. The first-launch welcome window walks you through this.
 
 ## Usage
 
@@ -162,7 +160,7 @@ Needs only the Xcode Command Line Tools (`xcode-select --install`). `./build.sh`
 Screen Recording permission hasn't been granted yet. Menu bar icon → "Screen Recording Permission…", enable ShotPark and relaunch. If another app owns the same global hotkey, change the combination in Settings.
 
 **macOS says the app "is damaged and can't be opened".**
-That's the quarantine flag on downloaded files. Clear it with `xattr -d com.apple.quarantine /Applications/ShotPark.app` (install step 2).
+That's the quarantine flag on downloaded files. Clear it with `xattr -d com.apple.quarantine /Applications/ShotPark.app` (install method 3, Download).
 
 **After updating it asks for Screen Recording again.**
 Expected: a build with a different signature is a new app to macOS. Enable it and relaunch. If you build from source, creating a self-signed code-signing certificate named `ShotPark Developer` in Keychain makes `build.sh` sign with it, so permission survives rebuilds.

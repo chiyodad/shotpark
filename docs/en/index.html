@@ -133,6 +133,8 @@
   .step .fig img { display: block; width: 100%; }
   .two { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; align-items: start; }
   @media (max-width: 680px) { .two { grid-template-columns: 1fr; } }
+  .sub { margin: 4px 0 18px 4px; padding: 2px 0 2px 16px; border-left: 3px solid var(--line); }
+  .sub p { font-size: 14px; }
   .settings-fig { max-width: 460px; margin: 48px auto 0; filter: drop-shadow(0 12px 28px rgba(0,0,0,.22)); }
   .settings-fig + .caption { text-align: center; max-width: 620px; margin: 16px auto 0; }
   .settings-fig img { display: block; width: 100%; }
@@ -292,23 +294,21 @@
         <p><b>2) CLI</b> — downloads the latest release → Applications → clears the quarantine flag → launches:</p>
         <pre><code>curl -fsSL https://shotpark.site/install.sh | sh</code></pre>
         <p><b>3) Download</b> — grab <code>ShotPark-x.y.z.zip</code> from the <a href="https://github.com/chiyodad/shotpark/releases/latest">latest release</a>, unzip it and move <b>ShotPark.app</b> into your Applications folder.</p>
+        <div class="sub">
+          <p><b>First launch: get past Gatekeeper</b> — ShotPark is an open-source app without an Apple Developer signature, so the first launch is blocked as coming from an "unidentified developer". Use either method once; macOS won't ask again. Not needed for Homebrew, CLI or source builds.</p>
+          <p><b>Method A — one line in Terminal</b> (most reliable):</p>
+          <pre><code>xattr -d com.apple.quarantine /Applications/ShotPark.app</code></pre>
+          <p><b>Method B — allow in settings</b>: double-click the app once more to dismiss the warning, then open <b>System Settings → Privacy &amp; Security</b>, scroll to the bottom and click <b>"Open Anyway"</b>.</p>
+        </div>
+        <p><b>4) Build from source</b> — all you need is the Xcode Command Line Tools.</p>
+        <pre><code>git clone https://github.com/chiyodad/shotpark.git
+cd shotpark
+./build.sh --install</code></pre>
       </div>
     </div>
 
     <div class="step">
       <div class="n">2</div>
-      <div>
-        <h3>Get past Gatekeeper once</h3>
-        <p><b>Only if you installed via 3) Download.</b> The 1) Homebrew and 2) CLI installs handle this automatically — skip this step.</p>
-        <p>ShotPark is an open-source app without an Apple Developer signature, so the first launch is blocked as coming from an "unidentified developer". Use either method once; macOS won't ask again.</p>
-        <p><b>Method A — one line in Terminal</b> (most reliable):</p>
-        <pre><code>xattr -d com.apple.quarantine /Applications/ShotPark.app</code></pre>
-        <p><b>Method B — allow in settings</b>: double-click the app once more to dismiss the warning, then open <b>System Settings → Privacy &amp; Security</b>, scroll to the bottom and click <b>"Open Anyway"</b>.</p>
-      </div>
-    </div>
-
-    <div class="step">
-      <div class="n">3</div>
       <div>
         <h3>Allow Screen Recording</h3>
         <p>On your first capture (<kbd>⌘⇧9</kbd>) macOS asks for Screen Recording permission. Here is what you'll see, in order:</p>
@@ -317,17 +317,12 @@
         ③ Quit ShotPark from the menu bar icon and open it again. The dialog won't appear again for this build.</p>
       </div>
     </div>
-
-    <p class="note">Building from source skips step 2. All you need is the Xcode Command Line Tools.</p>
-    <pre><code>git clone https://github.com/chiyodad/shotpark.git
-cd shotpark
-./build.sh --install</code></pre>
   </section>
 
   <section id="faq">
     <h2>FAQ</h2>
     <details><summary>Nothing happens when I press the hotkey</summary><p>Screen Recording permission hasn't been granted yet. Menu bar icon → "Screen Recording permission…", enable ShotPark and relaunch the app. If another app already owns the same global hotkey, change the combination in settings.</p></details>
-    <details><summary>macOS says the app "is damaged and can't be opened"</summary><p>That's the quarantine flag attached to downloaded files. Clear it with <code>xattr -d com.apple.quarantine /Applications/ShotPark.app</code> from step 2.</p></details>
+    <details><summary>macOS says the app "is damaged and can't be opened"</summary><p>That's the quarantine flag attached to downloaded files. Clear it with <code>xattr -d com.apple.quarantine /Applications/ShotPark.app</code> (see install method 3) Download).</p></details>
     <details><summary>After updating, it asks for Screen Recording again</summary><p>Expected. A new build with a different signature is treated by macOS as a new app, so it asks once more. Enable it and relaunch.</p></details>
     <details><summary>How does sharing to Slack / KakaoTalk / ChatGPT / Gemini work?</summary><p>The image is copied to the clipboard and the file is handed to the app. Apps that accept files (like Slack) open their upload sheet immediately; apps that don't are simply brought to the front, so just paste with ⌘V. Without the ChatGPT / Gemini desktop app, the web app opens instead — paste there.</p></details>
     <details><summary>Scrolling (long) capture?</summary><p>Not yet. For long web pages, use the browser's full-page capture (Chrome / Edge: <kbd>⌥⌘I</kbd> → <kbd>⌘⇧P</kbd> → "Capture full size screenshot"; Firefox: right-click → Take Screenshot → Save full page). If you need it for app windows, add a 👍 to <a href="https://github.com/chiyodad/shotpark/issues/1">this issue</a>.</p></details>
