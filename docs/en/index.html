@@ -149,6 +149,27 @@
   header.top nav .lang a.on { background: var(--accent); color: #fff; }
   header.top nav .lang a:hover { text-decoration: none; }
   @media (max-width: 680px) { header.top nav a { margin-left: 12px; } }
+  /* mobile: one-line header, compact hero so the demo shows on the first screen */
+  @media (max-width: 680px) {
+    header.top { padding: 10px 0; gap: 10px; }
+    header.top .brand { font-size: 15px; gap: 8px; flex-shrink: 0; }
+    header.top .brand img { width: 24px; height: 24px; }
+    header.top nav { display: flex; align-items: center; flex-wrap: nowrap; white-space: nowrap; overflow-x: auto; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
+    header.top nav::-webkit-scrollbar { display: none; }
+    header.top nav a { margin-left: 10px; font-size: 13px; }
+    .hide-sm { display: none !important; }
+    .hero > img { display: none; }
+    .lang { margin-left: 10px; font-size: 12px; }
+    header.top nav .lang a { padding: 2px 8px; }
+    .hero { padding: 14px 0 12px; }
+    .hero h1 { font-size: 28px; margin: 4px 0 6px; }
+    .hero p.lead { font-size: 15px; margin-bottom: 12px; }
+    .hero p.lead br { display: none; }
+    .hero p.switch { font-size: 13px; margin: 0 auto 12px; padding: 6px 12px; }
+    .cta { gap: 8px; }
+    .cta .btn { padding: 9px 14px; font-size: 14px; }
+    .shot { margin-top: 16px; }
+  }
 </style>
 </head>
 <body>
@@ -156,12 +177,12 @@
   <header class="top">
     <a class="brand" href="./"><img src="../icon.png" alt="">ShotPark</a>
     <nav>
-      <a href="#lightshot">Why · Compare</a>
+      <a href="#lightshot">Compare</a>
       <a href="#features">Features</a>
-      <a href="#keys">Shortcuts</a>
+      <a class="hide-sm" href="#keys">Shortcuts</a>
       <a href="#install">Install</a>
-      <a href="#faq">FAQ</a>
-      <a href="https://github.com/chiyodad/shotpark">GitHub</a>
+      <a class="hide-sm" href="#faq">FAQ</a>
+      <a class="hide-sm" href="https://github.com/chiyodad/shotpark">GitHub</a>
       <span class="lang"><a href="../">한국어</a><a class="on" href="./">English</a></span>
     </nav>
   </header>
@@ -169,9 +190,9 @@
   <section class="hero">
     <img src="../icon.png" alt="ShotPark icon">
     <h1>ShotPark</h1>
-    <p class="lead">A Lightshot alternative for Mac. One hotkey to select a region, annotate it on the spot, and copy, save or share it.<br>Native on Apple Silicon and Intel, zero dependencies, lives quietly in the menu bar.</p>
+    <p class="lead">A Lightshot alternative for Mac. One hotkey to select a region, annotate it on the spot, and copy, save or share it. <br>Native on Apple Silicon and Intel, zero dependencies, lives quietly in the menu bar.</p>
     <div class="cta">
-      <a class="btn primary" href="https://github.com/chiyodad/shotpark/releases/latest">⬇ Download (macOS 13+ · Apple Silicon · Intel)</a>
+      <a class="btn primary" href="https://github.com/chiyodad/shotpark/releases/latest">⬇ Download<span class="hide-sm"> (macOS 13+ · Apple Silicon · Intel)</span></a>
       <a class="btn" href="https://github.com/chiyodad/shotpark">View source</a>
     </div>
     <div class="meta">Free · MIT license · everything is processed locally, nothing is ever uploaded</div>
