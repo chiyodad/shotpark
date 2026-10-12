@@ -465,6 +465,7 @@ final class CaptureView: NSView, NSTextViewDelegate {
         // secondary bars stack under (or above) the toolbar: text options (when text tool), then palette
         let below = toolbar.frame.minY - 6 - max(palette.frame.height, textOptions.frame.height) >= 0
         var nextY = below ? toolbar.frame.minY - 6 : toolbar.frame.maxY + 6
+        toolbar.tipsAbove = below
         func place(_ v: NSView) {
             let w = v.frame.width, h = v.frame.height
             let y = below ? nextY - h : nextY

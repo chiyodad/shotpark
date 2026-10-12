@@ -156,6 +156,8 @@ final class ToolbarView: NSView {
     // show. Draw our own bubble inside the overlay instead.
 
     private let tipBubble = TipBubble()
+    /// Set by the capture view: true when the option bars are below the toolbar.
+    var tipsAbove = true
     private var tipTimer: Timer?
 
     private func updateTip() {
@@ -178,8 +180,11 @@ final class ToolbarView: NSView {
         let mine = convert(bounds, to: host)
         var x = item.midX - size.width / 2
         x = min(max(x, host.bounds.minX + 4), host.bounds.maxX - size.width - 4)
-        var y = mine.minY - size.height - 6                      // below the toolbar
-        if y < host.bounds.minY + 4 { y = mine.maxY + 6 }        // no room: above it
+        // On the side away from the option bars (they stack below the toolbar unless there's no room).
+        let above = mine.maxY + 6, below = mine.minY - size.height - 6
+        var y = tipsAbove ? above : below
+        if y + size.height > host.bounds.maxY - 4 { y = below }
+        if y < host.bounds.minY + 4 { y = above }
         tipBubble.frame = NSRect(x: x.rounded(), y: y.rounded(), width: size.width, height: size.height)
         if tipBubble.superview !== host { host.addSubview(tipBubble, positioned: .above, relativeTo: nil) }
     }
@@ -1096,8 +1101,8 @@ final class TipBubble: NSView {
     }
     override func draw(_ dirtyRect: NSRect) {
         let bg = NSBezierPath(roundedRect: bounds, xRadius: 6, yRadius: 6)
-        NSColor(calibratedWhite: 0.08, alpha: 0.95).setFill(); bg.fill()
-        NSColor.white.withAlphaComponent(0.2).setStroke(); bg.lineWidth = 1; bg.stroke()
+        NSColor(calibratedWhite: 0.34, alpha: 0.96).setFill(); bg.fill()   // lighter than the toolbar so it reads as a hint
+        NSColor.white.withAlphaComponent(0.25).setStroke(); bg.lineWidth = 1; bg.stroke()
         attributed.draw(with: bounds.insetBy(dx: Self.pad.width, dy: Self.pad.height), options: [.usesLineFragmentOrigin])
     }
     override func hitTest(_ point: NSPoint) -> NSView? { nil } // never steals clicks
