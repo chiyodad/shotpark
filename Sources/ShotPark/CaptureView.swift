@@ -1925,10 +1925,10 @@ extension CaptureView {
             let cs = CGColorSpace(name: CGColorSpace.sRGB)!
             if let c = CGContext(data: nil, width: 200, height: 100, bitsPerComponent: 8, bytesPerRow: 0, space: cs, bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue) {
                 c.setFillColor(CGColor(red: 1, green: 0, blue: 0, alpha: 1)); c.fill(CGRect(x: 0, y: 0, width: 200, height: 100))
-                if let src = c.makeImage(), let out = Beautify.apply(to: src, scale: 2, background: 1, padding: 0, shadow: true, rounded: true) {
-                    check("beautify size = image + 2×padding", out.width == 200 + 96 && out.height == 100 + 96, "\(out.width)x\(out.height)")
-                    let none = Beautify.apply(to: src, scale: 2, background: 0, padding: 1, shadow: false, rounded: false)
-                    check("no background + no shadow adds no padding", none?.width == 200 && none?.height == 100)
+                if let src = c.makeImage(), let out = Beautify.apply(to: src, scale: 2, shadow: true, rounded: true) {
+                    check("beautify size = image + 2×10pt margin", out.width == 200 + 40 && out.height == 100 + 40, "\(out.width)x\(out.height)")
+                    let none = Beautify.apply(to: src, scale: 2, shadow: false, rounded: true)
+                    check("no shadow adds no margin", none?.width == 200 && none?.height == 100)
                 } else { check("beautify output", false) }
             }
         }

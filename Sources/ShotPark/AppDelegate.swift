@@ -85,7 +85,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                     host.addSubview(tb)
                     tb.debugHover(3)
                     save(host, "/tmp/sp-tooltip.png")
-                    if let pretty = Beautify.apply(to: cg, scale: 1, background: 1, padding: 1, shadow: true, rounded: true) {
+                    if let pretty = Beautify.apply(to: cg, scale: 1, shadow: true, rounded: true) {
                         try? NSBitmapImageRep(cgImage: pretty).representation(using: .png, properties: [:])?.write(to: URL(fileURLWithPath: "/tmp/sp-beautify.png"))
                     }
                     let bd = MosaicBackdrop(screenshot: cg, viewSize: CGSize(width: 600, height: 200))

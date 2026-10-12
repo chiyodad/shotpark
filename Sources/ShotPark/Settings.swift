@@ -278,8 +278,6 @@ final class SettingsWindowController: NSWindowController {
     private let saveCopiesCheckbox = NSButton(checkboxWithTitle: L("⌘S 저장할 때 클립보드에도 복사", "⌘S also copies to the clipboard"), target: nil, action: nil)
     private let copySavesCheckbox = NSButton(checkboxWithTitle: L("⌘C 복사할 때 저장 폴더에도 PNG 저장", "⌘C also saves a PNG to the folder"), target: nil, action: nil)
     private var colorWells: [NSColorWell] = []
-    private let beautifyBG = NSPopUpButton(frame: .zero, pullsDown: false)
-    private let beautifyPad = NSPopUpButton(frame: .zero, pullsDown: false)
     private let beautifyShadow = NSButton(checkboxWithTitle: L("그림자", "Shadow"), target: nil, action: nil)
     private let beautifyRound = NSButton(checkboxWithTitle: L("둥근 모서리", "Rounded"), target: nil, action: nil)
     private var shortcutRecorders: [Settings.Shortcut: HotKeyRecorderView] = [:]
@@ -420,14 +418,11 @@ final class SettingsWindowController: NSWindowController {
         let pinKeyRow = shortcutRow(.pin, note: L("캡처 중", "during a capture"))
 
         // beautify (export style)
-        beautifyBG.addItems(withTitles: Beautify.backgrounds.map(\.name))
-        beautifyPad.addItems(withTitles: Beautify.paddings.map { L("여백 ", "Padding ") + $0.name })
-        for c in [beautifyBG, beautifyPad] { c.controlSize = .small; c.font = .systemFont(ofSize: 12); c.target = self; c.action = #selector(beautifyChanged) }
         for c in [beautifyShadow, beautifyRound] { c.font = .systemFont(ofSize: 12); c.target = self; c.action = #selector(beautifyChanged) }
-        let beautifyRow = NSStackView(views: [beautifyBG, beautifyPad, beautifyShadow, beautifyRound])
+        let beautifyRow = NSStackView(views: [beautifyShadow, beautifyRound])
         beautifyRow.spacing = 8
         beautifyRow.alignment = .centerY
-        let beautifyHint = NSTextField(wrappingLabelWithString: L("캡처 툴바의 꾸미기(마술봉) 버튼으로 켜고 끕니다. 켜면 복사·저장·공유하는 이미지에 적용됩니다.", "Turn it on or off with the Beautify (magic wand) button in the capture toolbar; it applies to copy, save and share."))
+        let beautifyHint = NSTextField(wrappingLabelWithString: L("캡처 툴바의 꾸미기(마술봉) 버튼으로 켜고 끕니다. 켜면 복사·저장·공유하는 이미지에 10pt 여백과 그림자·둥근 모서리가 적용됩니다.", "Turn it on or off with the Beautify (magic wand) button in the capture toolbar; copy, save and share then get a 10 pt margin with a shadow and rounded corners."))
         beautifyHint.font = .systemFont(ofSize: 11)
         beautifyHint.textColor = .secondaryLabelColor
         beautifyHint.preferredMaxLayoutWidth = L10n.isKorean ? 330 : 340
@@ -496,8 +491,6 @@ final class SettingsWindowController: NSWindowController {
         copySavesCheckbox.state = Settings.copyAlsoSaves ? .on : .off
         historyCheckbox.state = ClipboardHistory.isEnabled ? .on : .off
         for (s, rec) in shortcutRecorders { rec.spec = Settings.shortcut(s) }
-        beautifyBG.selectItem(at: Beautify.background)
-        beautifyPad.selectItem(at: Beautify.padding)
         beautifyShadow.state = Beautify.shadow ? .on : .off
         beautifyRound.state = Beautify.rounded ? .on : .off
         let palette = Preferences.palette
@@ -527,8 +520,6 @@ final class SettingsWindowController: NSWindowController {
 
 
     @objc private func beautifyChanged() {
-        Beautify.background = beautifyBG.indexOfSelectedItem
-        Beautify.padding = beautifyPad.indexOfSelectedItem
         Beautify.shadow = beautifyShadow.state == .on
         Beautify.rounded = beautifyRound.state == .on
     }
