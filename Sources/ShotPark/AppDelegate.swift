@@ -83,6 +83,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                     host.wantsLayer = true; host.layer?.backgroundColor = NSColor.darkGray.cgColor
                     tb.frame.origin = NSPoint(x: 20, y: 80)
                     host.addSubview(tb)
+                    save(tb, "/tmp/sp-toolbar.png")
                     tb.debugHover(3)
                     save(host, "/tmp/sp-tooltip.png")
                     if let pretty = Beautify.apply(to: cg, scale: 1, shadow: true, rounded: true) {

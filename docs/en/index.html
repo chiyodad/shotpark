@@ -92,7 +92,7 @@
   .meta { color: var(--muted); font-size: 13px; margin-top: 14px; }
 
   .shot { margin: 36px auto 0; max-width: 860px; border-radius: 14px; overflow: hidden; border: 1px solid var(--line); box-shadow: 0 30px 80px rgba(0,0,0,.28); background: #1d1f26; }
-  .shot img { display: block; width: 100%; }
+  .shot img, .shot video { display: block; width: 100%; height: auto; }
   .caption { color: var(--muted); font-size: 13.5px; margin-top: 12px; }
 
   section { padding: 48px 0 8px; }
@@ -198,9 +198,12 @@
     <div class="meta">Free · MIT license · everything is processed locally, nothing is ever uploaded</div>
 
     <div class="shot">
-      <img src="../img/demo-map.jpg" alt="A map captured with ShotPark, with the route from Gyeongbokgung Palace to Anguk Station marked up">
+      <video poster="../img/demo-poster.jpg" autoplay muted loop playsinline preload="auto" width="1280" height="800" aria-label="ShotPark demo: pick a region with the hotkey, add a box, arrow, text, numbered stamps and a mosaic, then copy to the clipboard">
+        <source src="../img/demo.mp4" type="video/mp4">
+        <source src="../img/demo.webm" type="video/webm">
+      </video>
     </div>
-    <p class="caption">Real output from ShotPark. Press <kbd>⌘⇧9</kbd>, drag over the map, drop in a few circles, arrows and labels, hit <kbd>⌘C</kbd> — done.</p>
+    <p class="caption"><kbd>⌘⇧9</kbd> → drag to select → box, arrow, text, numbered stamps → mosaic over personal info → <kbd>⌘C</kbd> to copy. Done. (The page shown is a made-up store.)</p>
     <div class="bmc"><span class="why">Free to use — if it saves you time, a coffee is always welcome ☕</span><script type="text/javascript" src="https://cdnjs.buymeacoffee.com/1.0.0/button.prod.min.js" data-name="bmc-button" data-slug="chiyodad" data-color="#FFDD00" data-emoji=""  data-font="Cookie" data-text="Buy me a coffee" data-outline-color="#000000" data-font-color="#000000" data-coffee-color="#ffffff" ></script></div>
   </section>
 

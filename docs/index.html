@@ -92,7 +92,7 @@
   .meta { color: var(--muted); font-size: 13px; margin-top: 14px; }
 
   .shot { margin: 36px auto 0; max-width: 860px; border-radius: 14px; overflow: hidden; border: 1px solid var(--line); box-shadow: 0 30px 80px rgba(0,0,0,.28); background: #1d1f26; }
-  .shot img { display: block; width: 100%; }
+  .shot img, .shot video { display: block; width: 100%; height: auto; }
   .caption { color: var(--muted); font-size: 13.5px; margin-top: 12px; }
 
   section { padding: 48px 0 8px; }
@@ -200,9 +200,12 @@
     <div class="meta">무료 · MIT 라이선스 · 캡처는 모두 로컬에서 처리, 어디에도 업로드하지 않습니다</div>
 
     <div class="shot">
-      <img src="img/demo-map.jpg" alt="ShotPark으로 지도를 캡처해 경복궁에서 안국역까지 경로를 표시한 결과물">
+      <video poster="img/demo-poster.jpg" autoplay muted loop playsinline preload="auto" width="1280" height="800" aria-label="ShotPark 사용 예시: 단축키로 영역을 고르고 사각형·화살표·텍스트·번호·모자이크를 넣은 뒤 클립보드로 복사">
+        <source src="img/demo.mp4" type="video/mp4">
+        <source src="img/demo.webm" type="video/webm">
+      </video>
     </div>
-    <p class="caption">ShotPark으로 캡처하고 주석을 단 실제 결과물입니다. <kbd>⌘⇧9</kbd>를 누르고 지도 위를 드래그한 뒤, 원·화살표·텍스트를 넣고 <kbd>⌘C</kbd>로 복사하면 끝.</p>
+    <p class="caption"><kbd>⌘⇧9</kbd> → 드래그로 영역 선택 → 사각형·화살표·텍스트·번호 도장 → 개인정보는 모자이크 → <kbd>⌘C</kbd>로 복사하면 끝. (예시 화면은 가상의 쇼핑몰입니다)</p>
     <div class="bmc"><span class="why">무료로 쓰시다가 마음에 드시면 커피 한 잔으로 응원해 주세요 ☕</span><script type="text/javascript" src="https://cdnjs.buymeacoffee.com/1.0.0/button.prod.min.js" data-name="bmc-button" data-slug="chiyodad" data-color="#FFDD00" data-emoji=""  data-font="Cookie" data-text="Buy me a coffee" data-outline-color="#000000" data-font-color="#000000" data-coffee-color="#ffffff" ></script></div>
   </section>
 
