@@ -71,23 +71,23 @@ If you used Lightshot or PicPick on Windows, you already know how it works: hotk
 - No external libraries. The whole app is a handful of Swift files.
 
 <p align="center">
-  <img src="docs/en/img/settings-window.png" width="520" alt="ShotPark settings window">
+  <img src="docs/en/img/settings-window.png" width="440" alt="ShotPark settings window">
 </p>
 
 ## Install
 
 ### 1. Pick an install method
 
-**1) CLI** (downloads the latest release → Applications → clears the quarantine flag → launches):
-
-```sh
-curl -fsSL https://shotpark.site/install.sh | sh
-```
-
-**2) Homebrew**
+**1) Homebrew** (recommended)
 
 ```sh
 brew install --cask chiyodad/tap/shotpark
+```
+
+**2) CLI** (downloads the latest release → Applications → clears the quarantine flag → launches):
+
+```sh
+curl -fsSL https://shotpark.site/install.sh | sh
 ```
 
 **3) Download**

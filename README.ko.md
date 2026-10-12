@@ -73,23 +73,23 @@ Windows에서 **PicPick**·**Lightshot**을 쓰셨다면, macOS에서는 ShotPar
 - 외부 라이브러리 없이 Swift만으로 만들었습니다.
 
 <p align="center">
-  <img src="docs/img/settings-window.png" width="520" alt="ShotPark 설정 창">
+  <img src="docs/img/settings-window.png" width="440" alt="ShotPark 설정 창">
 </p>
 
 ## 설치
 
 ### 1. 설치 방법
 
-**1) CLI** — 최신 버전을 받아 응용 프로그램 폴더에 넣고, 격리 속성을 해제한 뒤 실행합니다:
-
-```sh
-curl -fsSL https://shotpark.site/install.sh | sh
-```
-
-**2) Homebrew**
+**1) Homebrew** (추천)
 
 ```sh
 brew install --cask chiyodad/tap/shotpark
+```
+
+**2) CLI** — 최신 버전을 받아 응용 프로그램 폴더에 넣고, 격리 속성을 해제한 뒤 실행합니다:
+
+```sh
+curl -fsSL https://shotpark.site/install.sh | sh
 ```
 
 **3) 다운로드**
@@ -98,7 +98,7 @@ brew install --cask chiyodad/tap/shotpark
 
 ### 2. Gatekeeper 통과하기 (최초 1회)
 
-**3) 다운로드로 설치한 경우에만 해당합니다. 1) CLI · 2) Homebrew로 설치했다면 이 단계는 자동 처리되므로 건너뛰세요.**
+**3) 다운로드로 설치한 경우에만 해당합니다. 1) Homebrew · 2) CLI로 설치했다면 이 단계는 자동 처리되므로 건너뛰세요.**
 
 ShotPark은 Apple 개발자 서명이 없는 오픈소스 앱이라 처음 열 때 macOS가 "확인할 수 없는 개발자"라며 막습니다. 아래 둘 중 한 방법으로 한 번만 열어 주면 그 뒤로는 묻지 않습니다.
 
