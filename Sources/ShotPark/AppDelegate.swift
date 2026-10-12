@@ -442,32 +442,35 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     @objc private func showAbout() {
+        let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "?"
         let alert = NSAlert()
-        alert.messageText = "ShotPark"
+        alert.messageText = "ShotPark \(version)"
         alert.informativeText = L10n.isKorean ? """
-        가벼운 맥 네이티브 영역 캡처 도구 (Apple Silicon · Intel)
+        ShotPark을 이용해 주셔서 감사합니다.
 
-        \(Settings.hotKey.display)  영역 캡처 시작 (설정에서 변경 가능)
-        드래그  영역 선택 · 핸들로 크기 조절 · 안쪽 드래그로 이동
-        P 펜 · L 선 · A 화살표 · R 사각형 · E 타원 · M 마커 · T 텍스트 · N 번호 · S 이모지 도장 · V 선택
-        Enter / ⌘C  클립보드로 복사   ⌘S  PNG 저장   ⌘⇧S  공유(Claude·Slack·카카오톡)
-        ⌘Z  실행 취소   Esc  취소
+        ShotPark은 스크린샷에 필요한 기능을 한곳에 편하게 'Park'해 둔 macOS용 캡처 도구입니다. 단축키 한 번으로 영역을 캡처하고, 그 자리에서 주석을 달아 바로 복사·저장·공유할 수 있습니다.
 
-        저장 폴더: \((Settings.saveFolder.path as NSString).abbreviatingWithTildeInPath)
+        캡처 단축키: \(Settings.hotKey.display) (설정에서 변경)
+        무료 · 오픈소스(MIT) · 캡처는 모두 내 맥에서만 처리됩니다.
+
+        Copyright © chiyodad
         """ : """
-        A lightweight native Mac region capture tool (Apple Silicon · Intel) — a Lightshot / PicPick alternative
+        Thank you for using ShotPark.
 
-        \(Settings.hotKey.display)  start a region capture (change it in Settings)
-        Drag to select · handles to resize · drag inside to move
-        P pen · L line · A arrow · R rectangle · E ellipse · M marker · T text · N number · S emoji stamp · V select
-        Enter / ⌘C  copy to clipboard   ⌘S  save PNG   ⌘⇧S  share (Claude · Slack · KakaoTalk)
-        ⌘Z  undo   Esc  cancel
+        ShotPark is a macOS screenshot tool that "parks" everything you need for screenshots in one comfortable place. Capture an area with one hotkey, annotate it right there, then copy, save or share it.
 
-        Save folder: \((Settings.saveFolder.path as NSString).abbreviatingWithTildeInPath)
+        Capture hotkey: \(Settings.hotKey.display) (change it in Settings)
+        Free · open source (MIT) · everything stays on your Mac.
+
+        Copyright © chiyodad
         """
         alert.addButton(withTitle: L("확인", "OK"))
+        alert.addButton(withTitle: L("홈페이지", "Website"))
         NSApp.activate(ignoringOtherApps: true)
-        alert.runModal()
+        if alert.runModal() == .alertSecondButtonReturn,
+           let url = URL(string: L10n.isKorean ? "https://shotpark.site/" : "https://shotpark.site/en/") {
+            NSWorkspace.shared.open(url)
+        }
     }
 
     // MARK: capture
