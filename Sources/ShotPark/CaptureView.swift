@@ -763,6 +763,7 @@ final class CaptureView: NSView, NSTextViewDelegate {
 
     override func mouseDragged(with event: NSEvent) {
         let p = clamp(convert(event.locationInWindow, from: nil))
+        updateCursor(p)
         switch drag {
         case .none:
             return
@@ -862,6 +863,7 @@ final class CaptureView: NSView, NSTextViewDelegate {
     }
 
     override func mouseMoved(with event: NSEvent) {
+        updateCursor(convert(event.locationInWindow, from: nil))
         if state == .selected, tool == .eraser {
             let p = convert(event.locationInWindow, from: nil)
             let i = shapes.indices.reversed().first { shapes[$0].hitTest(p, tolerance: 10) }
@@ -875,6 +877,7 @@ final class CaptureView: NSView, NSTextViewDelegate {
     }
 
     override func mouseExited(with event: NSEvent) {
+        if cursorPoint != nil { cursorPoint = nil; needsDisplay = true } // the loupe follows the mouse to the other screen
         if hoverWindowRect != nil { hoverWindowRect = nil; needsDisplay = true }
     }
 
@@ -883,6 +886,7 @@ final class CaptureView: NSView, NSTextViewDelegate {
         guard state == .idle, let win = window else { return }
         let p = convert(win.mouseLocationOutsideOfEventStream, from: nil)
         hoverWindowRect = bounds.contains(p) ? windowFrames.first { $0.contains(p) }?.intersection(bounds) : nil
+        if bounds.contains(p) { cursorPoint = p }
         needsDisplay = true
     }
 
@@ -939,6 +943,12 @@ final class CaptureView: NSView, NSTextViewDelegate {
         }
         if code == 36 || code == 76 { // return / enter
             if state == .selected { copyToClipboard() }
+            return
+        }
+        // C / ⇧C: copy the colour under the cursor (any state; text typing never reaches here)
+        if code == 8, flags.isEmpty || flags == .shift, textEditor == nil, cursorPoint != nil,
+           !(state == .selected && Settings.shortcut(.mosaic).matches(event)) {
+            copyColorUnderCursor(rgb: flags == .shift)
             return
         }
         if state == .selected, textEditor == nil {
@@ -1256,6 +1266,7 @@ final class CaptureView: NSView, NSTextViewDelegate {
                 o.stroke()
             }
             drawIdleHint()
+            drawLoupe()
             return
         }
 
@@ -1341,6 +1352,132 @@ final class CaptureView: NSView, NSTextViewDelegate {
         }
 
         drawSizeLabel()
+        drawLoupe()
+    }
+
+    // MARK: loupe (magnifier + colour under the cursor)
+
+    static var loupeEnabled: Bool {
+        get { UserDefaults.standard.object(forKey: "loupeEnabled") == nil ? true : UserDefaults.standard.bool(forKey: "loupeEnabled") }
+        set { UserDefaults.standard.set(newValue, forKey: "loupeEnabled") }
+    }
+    /// Last mouse position (view coordinates) — for the loupe and the colour-copy keys.
+    private var cursorPoint: CGPoint?
+    private static let loupePixels = 15        // source pixels across
+    private static let loupeZoom: CGFloat = 8  // points per source pixel
+
+    /// Shown while choosing an area: before the drag, during it, and while resizing with a handle.
+    private var loupeVisible: Bool {
+        guard Self.loupeEnabled, cursorPoint != nil, textEditor == nil else { return false }
+        switch drag {
+        case .select, .resize: return true
+        case .none: return state == .idle
+        default: return false
+        }
+    }
+
+    private func loupeFrame(at p: CGPoint) -> CGRect {
+        let side = CGFloat(Self.loupePixels) * Self.loupeZoom, labelH: CGFloat = 24
+        var r = CGRect(x: p.x + 22, y: p.y - 22 - side - labelH, width: side, height: side + labelH)
+        if r.maxX > bounds.maxX - 4 { r.origin.x = p.x - 22 - side }
+        if r.minY < bounds.minY + 4 { r.origin.y = p.y + 22 }
+        r.origin.y = min(max(r.origin.y, bounds.minY + 4), bounds.maxY - r.height - 4)
+        r.origin.x = min(max(r.origin.x, bounds.minX + 4), bounds.maxX - r.width - 4)
+        return r
+    }
+
+    private func updateCursor(_ p: CGPoint) {
+        if let old = cursorPoint { setNeedsDisplay(loupeFrame(at: old).insetBy(dx: -4, dy: -4)) }
+        cursorPoint = p
+        if loupeVisible { setNeedsDisplay(loupeFrame(at: p).insetBy(dx: -4, dy: -4)) }
+    }
+
+    /// Colour of the screenshot pixel under view point `p`, in sRGB.
+    func pixelColor(at p: CGPoint) -> (r: Int, g: Int, b: Int)? {
+        let s = pixelScale
+        let px = Int((p.x * s).rounded(.down)), py = Int(((bounds.height - p.y) * s).rounded(.down))
+        guard px >= 0, py >= 0, px < screenshot.width, py < screenshot.height,
+              let one = screenshot.cropping(to: CGRect(x: px, y: py, width: 1, height: 1)) else { return nil }
+        var buf = [UInt8](repeating: 0, count: 4)
+        guard let c = CGContext(data: &buf, width: 1, height: 1, bitsPerComponent: 8, bytesPerRow: 4,
+                                space: CGColorSpace(name: CGColorSpace.sRGB)!, bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue) else { return nil }
+        c.draw(one, in: CGRect(x: 0, y: 0, width: 1, height: 1))
+        return (Int(buf[0]), Int(buf[1]), Int(buf[2]))
+    }
+
+    static func hex(_ c: (r: Int, g: Int, b: Int)) -> String { String(format: "#%02X%02X%02X", c.r, c.g, c.b) }
+
+    /// C → "#RRGGBB", ⇧C → "rgb(r, g, b)" of the pixel under the cursor.
+    @discardableResult
+    func copyColorUnderCursor(rgb: Bool) -> String? {
+        guard let p = cursorPoint, let c = pixelColor(at: p) else { return nil }
+        let text = rgb ? "rgb(\(c.r), \(c.g), \(c.b))" : Self.hex(c)
+        let pb = NSPasteboard.general
+        pb.clearContents()
+        pb.setString(text, forType: .string)
+        Toast.show(L("\(text) 복사됨", "Copied \(text)"), duration: 1.0)
+        return text
+    }
+
+    /// Render-test helper: the idle overlay with the loupe at `p`.
+    func debugLoupeSnapshot(at p: CGPoint) -> NSBitmapImageRep? {
+        cursorPoint = p
+        guard let rep = bitmapImageRepForCachingDisplay(in: bounds) else { return nil }
+        cacheDisplay(in: bounds, to: rep)
+        return rep
+    }
+
+    private func drawLoupe() {
+        guard loupeVisible, let p = cursorPoint, let ctx = NSGraphicsContext.current?.cgContext else { return }
+        let frame = loupeFrame(at: p)
+        let side = CGFloat(Self.loupePixels) * Self.loupeZoom
+        let box = CGRect(x: frame.minX, y: frame.maxY - side, width: side, height: side)
+        let s = pixelScale
+        let n = Self.loupePixels, half = n / 2
+        let cx = Int((p.x * s).rounded(.down)), cy = Int(((bounds.height - p.y) * s).rounded(.down))
+        ctx.saveGState()
+        let clip = CGPath(roundedRect: frame, cornerWidth: 8, cornerHeight: 8, transform: nil)
+        ctx.setShadow(offset: CGSize(width: 0, height: -2), blur: 8, color: NSColor.black.withAlphaComponent(0.5).cgColor)
+        ctx.addPath(clip); ctx.setFillColor(NSColor(calibratedWhite: 0.1, alpha: 0.95).cgColor); ctx.fillPath()
+        ctx.setShadow(offset: .zero, blur: 0, color: nil)
+        ctx.addPath(clip); ctx.clip()
+        // source pixels, clipped to the screenshot; destination shifted to match
+        let src = CGRect(x: cx - half, y: cy - half, width: n, height: n)
+        let valid = src.intersection(CGRect(x: 0, y: 0, width: screenshot.width, height: screenshot.height))
+        if !valid.isNull, let crop = screenshot.cropping(to: valid) {
+            let z = Self.loupeZoom
+            let dst = CGRect(x: box.minX + (valid.minX - src.minX) * z,
+                             y: box.maxY - (valid.maxY - src.minY) * z,
+                             width: valid.width * z, height: valid.height * z)
+            ctx.interpolationQuality = .none
+            ctx.draw(crop, in: dst)
+        }
+        // faint pixel grid + centre pixel
+        ctx.setStrokeColor(NSColor.white.withAlphaComponent(0.12).cgColor)
+        ctx.setLineWidth(0.5)
+        for i in 1..<n {
+            let o = CGFloat(i) * Self.loupeZoom
+            ctx.move(to: CGPoint(x: box.minX + o, y: box.minY)); ctx.addLine(to: CGPoint(x: box.minX + o, y: box.maxY))
+            ctx.move(to: CGPoint(x: box.minX, y: box.minY + o)); ctx.addLine(to: CGPoint(x: box.maxX, y: box.minY + o))
+        }
+        ctx.strokePath()
+        let center = CGRect(x: box.minX + CGFloat(half) * Self.loupeZoom, y: box.minY + CGFloat(half) * Self.loupeZoom,
+                            width: Self.loupeZoom, height: Self.loupeZoom)
+        ctx.setStrokeColor(NSColor.white.cgColor); ctx.setLineWidth(1.5); ctx.stroke(center.insetBy(dx: -0.75, dy: -0.75))
+        ctx.setStrokeColor(NSColor.black.withAlphaComponent(0.8).cgColor); ctx.setLineWidth(0.75); ctx.stroke(center.insetBy(dx: -2, dy: -2))
+        ctx.restoreGState()
+        // label: swatch + HEX + hint
+        if let c = pixelColor(at: p) {
+            let labelRect = CGRect(x: frame.minX, y: frame.minY, width: frame.width, height: frame.height - side)
+            let sw = CGRect(x: labelRect.minX + 7, y: labelRect.midY - 6, width: 12, height: 12)
+            NSColor(srgbRed: CGFloat(c.r) / 255, green: CGFloat(c.g) / 255, blue: CGFloat(c.b) / 255, alpha: 1).setFill()
+            NSBezierPath(roundedRect: sw, xRadius: 3, yRadius: 3).fill()
+            NSColor.white.withAlphaComponent(0.6).setStroke()
+            NSBezierPath(roundedRect: sw, xRadius: 3, yRadius: 3).stroke()
+            let str = NSAttributedString(string: "\(Self.hex(c))  ·  C", attributes: [
+                .font: NSFont.monospacedSystemFont(ofSize: 11, weight: .medium), .foregroundColor: NSColor.white])
+            str.draw(at: NSPoint(x: sw.maxX + 7, y: labelRect.midY - str.size().height / 2))
+        }
     }
 
     private func drawSizeLabel() {
@@ -1930,6 +2067,22 @@ extension CaptureView {
                     check("no background + no shadow adds no padding", none?.width == 200 && none?.height == 100)
                 } else { check("beautify output", false) }
             }
+        }
+
+        // 5k. colour under the cursor + loupe
+        do {
+            let pt = CGPoint(x: 150, y: H - 150)
+            cursorPoint = pt
+            let c = pixelColor(at: pt)
+            check("pixel colour reads", c != nil)
+            let pb = NSPasteboard.general
+            let saved = pb.string(forType: .string)
+            key(8) // C
+            check("C copies #RRGGBB", pb.string(forType: .string).map { $0.count == 7 && $0.hasPrefix("#") } ?? false, pb.string(forType: .string) ?? "nil")
+            key(8, flags: .shift)
+            check("⇧C copies rgb()", pb.string(forType: .string)?.hasPrefix("rgb(") ?? false)
+            pb.clearContents(); if let saved { pb.setString(saved, forType: .string) }
+            check("loupe hidden once an area is selected", state != .selected || !loupeVisible)
         }
 
         // 5i. QR detection on a generated code

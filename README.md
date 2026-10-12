@@ -45,6 +45,7 @@ If you used Lightshot or PicPick on Windows, you already know how it works: hotk
 - One global hotkey (default `⌘⇧9`, changeable) dims the screen; drag to select a region.
 - Handles on all 8 sides/corners to resize, drag inside to move, arrow keys to nudge 1 px (`⇧` for 10 px), live pixel dimensions, `⌘A` for the whole screen.
 - **Click a window** to grab it whole (a dashed outline shows which one as you hover).
+- **Magnifier & color picker**: while choosing an area, a loupe next to the cursor shows the pixels 8× and their color; press `C` to copy the HEX (`#5B4BDB`) or `⇧C` for `rgb(…)`. Can be turned off in Settings.
 - Multi-monitor, Retina-resolution capture via ScreenCaptureKit (macOS 14+, automatic fallback below).
 
 **Annotate**

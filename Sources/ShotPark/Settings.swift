@@ -282,11 +282,12 @@ final class SettingsWindowController: NSWindowController {
     private let beautifyPad = NSPopUpButton(frame: .zero, pullsDown: false)
     private let beautifyShadow = NSButton(checkboxWithTitle: L("그림자", "Shadow"), target: nil, action: nil)
     private let beautifyRound = NSButton(checkboxWithTitle: L("둥근 모서리", "Rounded"), target: nil, action: nil)
+    private let loupeCheckbox = NSButton(checkboxWithTitle: L("영역 선택 중 돋보기·색상 표시 (C: HEX, ⇧C: rgb 복사)", "Show magnifier and colour while selecting (C: copy HEX, ⇧C: rgb)"), target: nil, action: nil)
     private var shortcutRecorders: [Settings.Shortcut: HotKeyRecorderView] = [:]
     private let historyCheckbox = NSButton(checkboxWithTitle: L("복사한 이미지 기록 (최근 30개)", "Keep copied images (last 30)"), target: nil, action: nil)
 
     private init() {
-        let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: L10n.isKorean ? 520 : 560, height: 672),
+        let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: L10n.isKorean ? 520 : 560, height: 706),
                               styleMask: [.titled, .closable], backing: .buffered, defer: false)
         window.title = L("ShotPark 설정", "ShotPark Settings")
         window.isReleasedWhenClosed = false
@@ -420,6 +421,9 @@ final class SettingsWindowController: NSWindowController {
         let pinKeyRow = shortcutRow(.pin, note: L("캡처 중", "during a capture"))
 
         // beautify (export style)
+        loupeCheckbox.font = .systemFont(ofSize: 12)
+        loupeCheckbox.target = self
+        loupeCheckbox.action = #selector(toggleLoupe)
         beautifyBG.addItems(withTitles: Beautify.backgrounds.map(\.name))
         beautifyPad.addItems(withTitles: Beautify.paddings.map { L("여백 ", "Padding ") + $0.name })
         for c in [beautifyBG, beautifyPad] { c.controlSize = .small; c.font = .systemFont(ofSize: 12); c.target = self; c.action = #selector(beautifyChanged) }
@@ -439,6 +443,7 @@ final class SettingsWindowController: NSWindowController {
             [label(L("모자이크", "Mosaic / blur")), mosaicKeyRow],
             [label(L("텍스트 추출", "Extract text")), ocrKeyRow],
             [label(L("화면에 고정", "Pin to screen")), pinKeyRow],
+            [label(L("돋보기", "Magnifier")), loupeCheckbox],
             [label(L("저장 폴더", "Save folder")), folderRow],
             [NSGridCell.emptyContentView, directCheckbox],
             [NSGridCell.emptyContentView, saveCopiesCheckbox],
@@ -456,11 +461,11 @@ final class SettingsWindowController: NSWindowController {
         grid.column(at: 0).width = L10n.isKorean ? 100 : 120
         grid.column(at: 1).width = L10n.isKorean ? 340 : 350
         grid.rowAlignment = .firstBaseline
-        for r in [0, 2, 3, 4, 5, 6, 10, 12, 14] { grid.row(at: r).yPlacement = .center }
-        grid.row(at: 6).topPadding = 6   // save folder
-        grid.row(at: 10).topPadding = 6  // palette
-        grid.row(at: 12).topPadding = 6  // beautify
-        grid.row(at: 14).topPadding = 6  // clipboard
+        for r in [0, 2, 3, 4, 5, 6, 7, 11, 13, 15] { grid.row(at: r).yPlacement = .center }
+        grid.row(at: 7).topPadding = 6   // save folder
+        grid.row(at: 11).topPadding = 6  // palette
+        grid.row(at: 13).topPadding = 6  // beautify
+        grid.row(at: 15).topPadding = 6  // clipboard
         grid.translatesAutoresizingMaskIntoConstraints = false
         content.addSubview(grid)
 
@@ -496,6 +501,7 @@ final class SettingsWindowController: NSWindowController {
         copySavesCheckbox.state = Settings.copyAlsoSaves ? .on : .off
         historyCheckbox.state = ClipboardHistory.isEnabled ? .on : .off
         for (s, rec) in shortcutRecorders { rec.spec = Settings.shortcut(s) }
+        loupeCheckbox.state = CaptureView.loupeEnabled ? .on : .off
         beautifyBG.selectItem(at: Beautify.background)
         beautifyPad.selectItem(at: Beautify.padding)
         beautifyShadow.state = Beautify.shadow ? .on : .off
@@ -524,6 +530,8 @@ final class SettingsWindowController: NSWindowController {
         ClipboardHistory.shared.clear()
         Toast.show(L("클립보드 이미지 기록을 지웠습니다", "Clipboard image history cleared"), duration: 1.4)
     }
+
+    @objc private func toggleLoupe() { CaptureView.loupeEnabled = loupeCheckbox.state == .on }
 
     @objc private func beautifyChanged() {
         Beautify.background = beautifyBG.indexOfSelectedItem

@@ -78,6 +78,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                         return true
                     }
                     guard let cg = sample.cgImage(forProposedRect: nil, context: nil, hints: nil) else { exit(1) }
+                    let lv = CaptureView(frame: NSRect(x: 0, y: 0, width: 600, height: 200), screenshot: cg)
+                    if let rep = lv.debugLoupeSnapshot(at: CGPoint(x: 60, y: 125)) {
+                        try? rep.representation(using: .png, properties: [:])?.write(to: URL(fileURLWithPath: "/tmp/sp-loupe.png"))
+                    }
                     if let pretty = Beautify.apply(to: cg, scale: 1, background: 1, padding: 1, shadow: true, rounded: true) {
                         try? NSBitmapImageRep(cgImage: pretty).representation(using: .png, properties: [:])?.write(to: URL(fileURLWithPath: "/tmp/sp-beautify.png"))
                     }
