@@ -171,6 +171,9 @@ Expected: a build with a different signature is a new app to macOS. Enable it an
 **How does sharing to Slack / KakaoTalk / ChatGPT / Gemini work?**
 The image is copied to the clipboard and the file is handed to the app. Apps that accept files (like Slack) open an upload sheet; the others are just brought to the front, so paste with `⌘V`. Without the ChatGPT / Gemini desktop app, the web app opens instead — paste with `⌘V` there.
 
+**Scrolling (long) capture?**
+Not yet. For long web pages, use the browser's full-page capture (Chrome / Edge: `⌥⌘I` → `⌘⇧P` → "Capture full size screenshot"; Firefox: right-click → Take Screenshot → Save full page). If you need it for app windows, add a 👍 to [this issue](https://github.com/chiyodad/shotpark/issues/1).
+
 **Intel Macs?**
 Supported: since 1.9.2 the release is a universal binary. Same zip, same install commands.
 
