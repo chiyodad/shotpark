@@ -89,7 +89,7 @@ final class ToolbarView: NSView {
         Item(symbol: "eraser",               tip: L("지우개 (X) — 지울 주석을 클릭하거나 문지르기", "Eraser (X) — click or scrub over annotations to remove them"), action: .selectTool(.eraser), separatorBefore: true),
         Item(symbol: "paintpalette.fill",    tip: L("색상", "Color"),        action: .color),
         Item(symbol: "arrow.uturn.backward", tip: L("실행 취소 (⌘Z)", "Undo (⌘Z)"), action: .undo),
-        Item(symbol: "wand.and.stars",       tip: L("꾸미기 켜기/끄기 — 그림자·둥근 모서리 (설정에서 선택)", "Beautify on/off — shadow, rounded corners (choose in Settings)"), action: .beautify, separatorBefore: true),
+        Item(symbol: "wand.and.stars",       tip: L("꾸미기 — 그림자·둥근 모서리 (설정에서 선택)", "Beautify — shadow, rounded corners (choose in Settings)"), action: .beautify, separatorBefore: true),
         Item(symbol: "doc.on.doc",           tip: L("클립보드로 복사 (⌘C / Enter)", "Copy to clipboard (⌘C / Enter)"), action: .copy),
         Item(symbol: "text.viewfinder",      tip: L("텍스트 추출 (\(Settings.shortcut(.ocr).display)) — 영역의 글자를 텍스트로 복사", "Extract text (\(Settings.shortcut(.ocr).display)) — copy the text in the selection"), action: .ocr),
         Item(symbol: "pin",                  tip: L("화면에 고정 (\(Settings.shortcut(.pin).display)) — 캡처를 떠 있는 창으로", "Pin to screen (\(Settings.shortcut(.pin).display)) — keep the capture floating on top"), action: .pin),
