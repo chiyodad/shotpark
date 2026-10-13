@@ -130,7 +130,7 @@ cd shotpark
 
 Windows용 네이티브 버전이 [`windows/`](windows/) 폴더에 있습니다(C# / .NET 10, WinForms). 아직 초기 미리보기로, 여러 모니터 영역 캡처, 펜·선·화살표·사각형·타원·모자이크·텍스트·번호, 색상·굵기, 실행 취소, 복사(`Ctrl+C` / `Enter`)·저장(`Ctrl+S`), 트레이 아이콘과 설정을 지원합니다. 기본 단축키는 `Ctrl+Shift+9`이고, 설정에서 `PrtSc`로 바꿀 수도 있습니다. 텍스트 추출, 화면 고정, 공유, 클립보드 기록은 순서대로 추가할 예정입니다.
 
-.NET을 따로 설치할 필요 없는 `ShotPark.exe` 파일 하나로 실행됩니다. 첫 Windows 릴리즈 전까지는 [Windows 워크플로](https://github.com/chiyodad/shotpark/actions/workflows/windows.yml)의 Artifacts에서 최신 빌드를 받거나 직접 빌드하세요.
+.NET을 따로 설치할 필요 없는 `ShotPark.exe` 파일 하나로 실행됩니다. [ShotPark-Windows-x64.zip](https://github.com/chiyodad/shotpark/releases/latest/download/ShotPark-Windows-x64.zip)(일반 PC) 또는 [ShotPark-Windows-arm64.zip](https://github.com/chiyodad/shotpark/releases/latest/download/ShotPark-Windows-arm64.zip)(ARM)을 받아 압축을 풀고 실행하세요. 코드 서명이 없어 SmartScreen 경고가 뜨면 **추가 정보 → 실행**을 누르면 됩니다. 직접 빌드하려면:
 
 ```sh
 cd windows

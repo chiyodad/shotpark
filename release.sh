@@ -1,5 +1,5 @@
 #!/bin/sh
-# Build, zip, publish a GitHub release, and update the Homebrew cask.
+# Build, zip, publish a GitHub release (macOS + Windows zips), and update the Homebrew cask.
 #   ./release.sh            # uses CFBundleShortVersionString from Info.plist
 #   ./release.sh --notes "…"
 set -eu
@@ -18,12 +18,34 @@ ditto -c -k --keepParent build/ShotPark.app "$ZIP"
 SHA=$(shasum -a 256 "$ZIP" | cut -d' ' -f1)
 echo "▶ $ZIP  sha256=$SHA"
 
+# Windows build (cross-published from the Mac): single-file exes, same version number.
+# Version-free names keep https://github.com/$REPO/releases/latest/download/ShotPark-Windows-x64.zip stable.
+DOTNET=$(command -v dotnet || echo "$HOME/.dotnet/dotnet")
+WINZIPS=""
+if [ -x "$DOTNET" ]; then
+  for RID in x64 arm64; do
+    OUT="dist/win-$RID"
+    rm -rf "$OUT"
+    DOTNET_CLI_TELEMETRY_OPTOUT=1 DOTNET_NOLOGO=1 "$DOTNET" publish windows/src/ShotPark.Win/ShotPark.Win.csproj \
+      -c Release -r "win-$RID" --self-contained true -p:Version="$VER" \
+      -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true \
+      -p:EnableCompressionInSingleFile=true -p:DebugType=none -o "$OUT" >/dev/null
+    WZ="dist/ShotPark-Windows-$RID.zip"
+    rm -f "$WZ"
+    (cd "$OUT" && zip -q "../ShotPark-Windows-$RID.zip" ShotPark.exe)
+    WINZIPS="$WINZIPS $WZ"
+    echo "▶ $WZ"
+  done
+else
+  echo "⚠ dotnet not found — skipping the Windows build"
+fi
+
 git tag -f "v$VER"
 git push -q origin main && git push -q -f origin "v$VER"
 if gh release view "v$VER" -R "$REPO" >/dev/null 2>&1; then
-  gh release upload "v$VER" "$ZIP" -R "$REPO" --clobber
+  gh release upload "v$VER" "$ZIP" $WINZIPS -R "$REPO" --clobber
 else
-  gh release create "v$VER" "$ZIP" -R "$REPO" --title "ShotPark $VER" --notes "$NOTES"
+  gh release create "v$VER" "$ZIP" $WINZIPS -R "$REPO" --title "ShotPark $VER" --notes "$NOTES"
 fi
 
 # Homebrew cask in the tap repo (edited via the GitHub API, no clone needed)
