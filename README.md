@@ -119,7 +119,7 @@ On your first capture (`⌘⇧9`) macOS asks for Screen Recording permission. Cl
 
 A native Windows version lives in [`windows/`](windows/) (C# / .NET 10, WinForms). It is an early preview: region capture over all monitors, pen / line / arrow / rectangle / ellipse / mosaic / text / number, colors and widths, undo, copy (`Ctrl+C` / `Enter`) and save (`Ctrl+S`), a tray icon and settings. The default hotkey is `Ctrl+Shift+9` (`PrtSc` works too, set it in Settings). Text extraction, pinning, sharing and clipboard history are next.
 
-It ships as a single `ShotPark.exe` that needs no .NET install: download [ShotPark-Windows-x64.zip](https://github.com/chiyodad/shotpark/releases/latest/download/ShotPark-Windows-x64.zip) (most PCs) or [ShotPark-Windows-arm64.zip](https://github.com/chiyodad/shotpark/releases/latest/download/ShotPark-Windows-arm64.zip) (ARM), unzip and run it. It isn't code-signed, so if SmartScreen warns, choose **More info → Run anyway**. To build it yourself:
+Download and run **[ShotPark-Windows-Setup.exe](https://github.com/chiyodad/shotpark/releases/latest/download/ShotPark-Windows-Setup.exe)** — a per-user installer (no admin rights) with a Start menu entry and an optional start-at-sign-in, for both x64 and ARM PCs. Prefer no install? The portable [x64 zip](https://github.com/chiyodad/shotpark/releases/latest/download/ShotPark-Windows-x64.zip) / [ARM64 zip](https://github.com/chiyodad/shotpark/releases/latest/download/ShotPark-Windows-arm64.zip) is a single `ShotPark.exe`. No .NET install needed either way. It isn't code-signed, so if SmartScreen warns, choose **More info → Run anyway**. To build it yourself:
 
 ```sh
 cd windows

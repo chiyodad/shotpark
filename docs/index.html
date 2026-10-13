@@ -208,11 +208,11 @@
     <p class="switch">Windows에서 <b>PicPick</b>·<b>Lightshot</b>을 쓰셨다면, macOS에서는 ShotPark.</p>
     <div class="cta">
       <a class="btn primary dl-mac" href="https://github.com/chiyodad/shotpark/releases/latest" title="macOS 13+ · Apple Silicon · Intel">⬇ <span>macOS<span class="hide-sm">용 다운로드</span></span></a>
-      <a class="btn dl-win" href="https://github.com/chiyodad/shotpark/releases/latest/download/ShotPark-Windows-x64.zip" title="Windows 10/11 · x64 (ARM PC: ShotPark-Windows-arm64.zip)">⬇ <span>Windows<span class="hide-sm">용 다운로드</span></span></a>
+      <a class="btn dl-win" href="https://github.com/chiyodad/shotpark/releases/latest/download/ShotPark-Windows-Setup.exe" title="Windows 10/11 · 설치 프로그램 (x64·ARM64)">⬇ <span>Windows<span class="hide-sm">용 다운로드</span></span></a>
       <a class="btn" href="https://github.com/chiyodad/shotpark">소스 보기</a>
     </div>
     <div class="brew"><img class="brew-logo" src="img/homebrew.svg" alt="Homebrew" width="13" height="20"><code>brew install --cask chiyodad/tap/shotpark</code><button type="button" class="brew-copy" data-done="복사됨">복사</button></div>
-    <div class="win-note" hidden>Windows 10/11 · 압축을 풀고 <b>ShotPark.exe</b>를 실행하세요 · .NET 설치 불필요 · <a href="https://github.com/chiyodad/shotpark/releases/latest/download/ShotPark-Windows-arm64.zip">ARM PC용</a></div>
+    <div class="win-note" hidden>Windows 10/11 · 관리자 권한 없이 설치 · 설치 없이 쓰려면 <a href="https://github.com/chiyodad/shotpark/releases/latest/download/ShotPark-Windows-x64.zip">휴대용 zip</a> (<a href="https://github.com/chiyodad/shotpark/releases/latest/download/ShotPark-Windows-arm64.zip">ARM</a>)</div>
     <div class="meta">무료 · MIT 라이선스 · 캡처는 모두 로컬에서 처리, 어디에도 업로드하지 않습니다</div>
 
     <div class="shot">
@@ -329,11 +329,12 @@ cd shotpark
       <div class="n">W</div>
       <div>
         <h3>Windows (미리보기)</h3>
-        <p><a href="https://github.com/chiyodad/shotpark/releases/latest/download/ShotPark-Windows-x64.zip">ShotPark-Windows-x64.zip</a>(일반 PC) 또는 <a href="https://github.com/chiyodad/shotpark/releases/latest/download/ShotPark-Windows-arm64.zip">ShotPark-Windows-arm64.zip</a>(ARM PC)을 받아 원하는 폴더에 압축을 풀고 <b>ShotPark.exe</b>를 실행하세요. .NET 설치나 화면 기록 권한 허용 없이 바로 <kbd>Ctrl+Shift+9</kbd>로 캡처할 수 있습니다.</p>
+        <p><a href="https://github.com/chiyodad/shotpark/releases/latest/download/ShotPark-Windows-Setup.exe"><b>ShotPark-Windows-Setup.exe</b></a>를 받아 실행하세요. 관리자 권한 없이 내 계정에만 설치되고, 시작 메뉴에 등록되며, 설치를 마치면 바로 실행됩니다. 일반 PC와 ARM PC 모두 같은 파일입니다. .NET 설치나 화면 기록 권한 허용 없이 <kbd>Ctrl+Shift+9</kbd>로 바로 캡처할 수 있고, 제거는 Windows 설정 → 앱에서 합니다.</p>
+        <p>설치 없이 쓰려면 휴대용 zip(<a href="https://github.com/chiyodad/shotpark/releases/latest/download/ShotPark-Windows-x64.zip">x64</a> · <a href="https://github.com/chiyodad/shotpark/releases/latest/download/ShotPark-Windows-arm64.zip">ARM64</a>)을 받아 원하는 폴더에 풀고 <b>ShotPark.exe</b>를 실행하세요.</p>
         <ul>
           <li><b>SmartScreen 경고</b> — 코드 서명이 없는 앱이라 처음 실행할 때 "Windows의 PC 보호" 창이 뜨면 <b>추가 정보 → 실행</b>을 누르세요.</li>
           <li><b>트레이 아이콘</b> — Windows 11은 새 아이콘을 작업 표시줄 오른쪽 <b>^</b> 안에 숨겨 둡니다. 거기서 ShotPark 아이콘을 작업 표시줄로 끌어다 놓으면 늘 보입니다. 아이콘을 클릭해도 캡처됩니다.</li>
-          <li><b>자동 실행</b> — 트레이 아이콘 → 설정에서 "Windows에 로그인하면 자동 실행"을 켜세요.</li>
+          <li><b>자동 실행</b> — 설치 프로그램에서 기본으로 켜져 있습니다. 나중에 트레이 아이콘 → 설정에서 끄고 켤 수 있습니다.</li>
           <li><b>PrtSc 키로 쓰려면</b> — Windows 11은 PrtSc를 캡처 도구가 먼저 가져갑니다. <b>설정 → 접근성 → 키보드</b>에서 "Print Screen 키를 사용하여 화면 캡처 열기"를 끈 뒤, ShotPark 설정에서 단축키를 PrtSc로 지정하세요.</li>
         </ul>
         <p>아직 미리보기 버전입니다. 텍스트 추출·화면 고정·공유·클립보드 기록은 순서대로 추가할 예정입니다.</p>

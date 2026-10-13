@@ -206,11 +206,11 @@
     <p class="lead">A Lightshot alternative for Mac. One hotkey to select a region, annotate it on the spot, and copy, save or share it. <br>Native on Apple Silicon and Intel, zero dependencies, lives quietly in the menu bar.</p>
     <div class="cta">
       <a class="btn primary dl-mac" href="https://github.com/chiyodad/shotpark/releases/latest" title="macOS 13+ · Apple Silicon · Intel">⬇ <span><span class="hide-sm">Download for </span>macOS</span></a>
-      <a class="btn dl-win" href="https://github.com/chiyodad/shotpark/releases/latest/download/ShotPark-Windows-x64.zip" title="Windows 10/11 · x64 (ARM PCs: ShotPark-Windows-arm64.zip)">⬇ <span><span class="hide-sm">Download for </span>Windows</span></a>
+      <a class="btn dl-win" href="https://github.com/chiyodad/shotpark/releases/latest/download/ShotPark-Windows-Setup.exe" title="Windows 10/11 · installer (x64 and ARM64)">⬇ <span><span class="hide-sm">Download for </span>Windows</span></a>
       <a class="btn" href="https://github.com/chiyodad/shotpark">View source</a>
     </div>
     <div class="brew"><img class="brew-logo" src="../img/homebrew.svg" alt="Homebrew" width="13" height="20"><code>brew install --cask chiyodad/tap/shotpark</code><button type="button" class="brew-copy" data-done="Copied">Copy</button></div>
-    <div class="win-note" hidden>Windows 10/11 · unzip and run <b>ShotPark.exe</b> · no .NET install needed · <a href="https://github.com/chiyodad/shotpark/releases/latest/download/ShotPark-Windows-arm64.zip">ARM PCs</a></div>
+    <div class="win-note" hidden>Windows 10/11 · installs without admin rights · or use the <a href="https://github.com/chiyodad/shotpark/releases/latest/download/ShotPark-Windows-x64.zip">portable zip</a> (<a href="https://github.com/chiyodad/shotpark/releases/latest/download/ShotPark-Windows-arm64.zip">ARM</a>)</div>
     <div class="meta">Free · MIT license · everything is processed locally, nothing is ever uploaded</div>
 
     <div class="shot">
@@ -326,11 +326,12 @@ cd shotpark
       <div class="n">W</div>
       <div>
         <h3>Windows (preview)</h3>
-        <p>Download <a href="https://github.com/chiyodad/shotpark/releases/latest/download/ShotPark-Windows-x64.zip">ShotPark-Windows-x64.zip</a> (most PCs) or <a href="https://github.com/chiyodad/shotpark/releases/latest/download/ShotPark-Windows-arm64.zip">ShotPark-Windows-arm64.zip</a> (ARM PCs), unzip it into a folder of your choice and run <b>ShotPark.exe</b>. No .NET install and no screen-recording permission — <kbd>Ctrl+Shift+9</kbd> captures right away.</p>
+        <p>Download and run <a href="https://github.com/chiyodad/shotpark/releases/latest/download/ShotPark-Windows-Setup.exe"><b>ShotPark-Windows-Setup.exe</b></a>. It installs for your account only (no admin rights), adds ShotPark to the Start menu and launches it when done — the same file works on regular and ARM PCs. No .NET install and no screen-recording permission: <kbd>Ctrl+Shift+9</kbd> captures right away. Uninstall from Windows Settings → Apps.</p>
+        <p>Prefer no install? Grab the portable zip (<a href="https://github.com/chiyodad/shotpark/releases/latest/download/ShotPark-Windows-x64.zip">x64</a> · <a href="https://github.com/chiyodad/shotpark/releases/latest/download/ShotPark-Windows-arm64.zip">ARM64</a>), unzip it anywhere and run <b>ShotPark.exe</b>.</p>
         <ul>
           <li><b>SmartScreen</b> — the app isn't code-signed, so on first launch "Windows protected your PC" may appear: choose <b>More info → Run anyway</b>.</li>
           <li><b>Tray icon</b> — Windows 11 tucks new icons under the <b>^</b> at the right of the taskbar. Drag ShotPark from there onto the taskbar to keep it visible. Clicking the icon also starts a capture.</li>
-          <li><b>Start at sign-in</b> — tray icon → Settings → "Start when I sign in to Windows".</li>
+          <li><b>Start at sign-in</b> — on by default in the installer; switch it in tray icon → Settings.</li>
           <li><b>Using PrtSc</b> — Windows 11 gives PrtSc to the Snipping Tool. Turn off "Use the Print screen key to open screen capture" in <b>Settings → Accessibility → Keyboard</b>, then set PrtSc as the hotkey in ShotPark's Settings.</li>
         </ul>
         <p>This is an early preview: text extraction, pinning, sharing and clipboard history are coming next.</p>
