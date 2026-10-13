@@ -235,7 +235,6 @@
         <tr><td>Pixelate / blur · extract text (OCR)</td><td class="no">✕</td><td class="so">△ pixelate only</td><td class="no">✕</td><td class="ok">●</td><td class="me ok">●</td></tr>
         <tr><td>Text background (masking) · number · emoji stamps</td><td class="no">✕</td><td class="so">△ some</td><td class="no">✕</td><td class="ok">●</td><td class="me ok">●</td></tr>
         <tr><td>Share straight to Claude · ChatGPT · Gemini · Slack · KakaoTalk</td><td class="no">✕</td><td class="no">✕</td><td class="no">✕</td><td class="no">✕</td><td class="me ok">●</td></tr>
-        <tr><td>No online upload (local only)</td><td class="ok">●</td><td class="so">△ optional</td><td class="so">△ prnt.sc upload</td><td class="so">△ optional cloud</td><td class="me ok">● no upload feature at all</td></tr>
         <tr><td>English · Korean UI</td><td class="ok">●</td><td class="ok">●</td><td class="so">△</td><td class="so">△ English</td><td class="me ok">●</td></tr>
       </table>
       <p class="fine">PicPick's ruler, color picker and whiteboard aren't in ShotPark; it focuses on region capture, annotation and sharing. Based on each product's public information as of October 2026 — <a href="https://github.com/chiyodad/shotpark/issues">tell us</a> if something's off.</p>
@@ -327,7 +326,6 @@ cd shotpark
     <details><summary>How does sharing to Slack / KakaoTalk / ChatGPT / Gemini work?</summary><p>The image is copied to the clipboard and the file is handed to the app. Apps that accept files (like Slack) open their upload sheet immediately; apps that don't are simply brought to the front, so just paste with ⌘V. Without the ChatGPT / Gemini desktop app, the web app opens instead — paste there.</p></details>
     <details><summary>Scrolling (long) capture?</summary><p>Not yet. For long web pages, use the browser's full-page capture (Chrome / Edge: <kbd>⌥⌘I</kbd> → <kbd>⌘⇧P</kbd> → "Capture full size screenshot"; Firefox: right-click → Take Screenshot → Save full page). If you need it for app windows, add a 👍 to <a href="https://github.com/chiyodad/shotpark/issues/1">this issue</a>.</p></details>
     <details><summary>What about Intel Macs?</summary><p>Supported. Since 1.9.2 the release is a universal binary (Apple Silicon + Intel): same zip, same install commands.</p></details>
-    <details><summary>Can I share with an online link like Lightshot's prnt.sc?</summary><p>No, and that's deliberate. Everything stays on your machine; sharing goes through the clipboard, files or the macOS share sheet only.</p></details>
     <details><summary>Is the app in English?</summary><p>Yes. Menus, settings, tooltips and messages follow your macOS language: English by default, Korean when Korean is your primary language. You can also pick a per-app language under System Settings → General → Language &amp; Region → Applications.</p></details>
   </section>
 

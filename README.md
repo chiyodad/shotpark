@@ -175,7 +175,7 @@ Not yet. For long web pages, use the browser's full-page capture (Chrome / Edge:
 Supported: since 1.9.2 the release is a universal binary. Same zip, same install commands.
 
 **Coming from PicPick or Lightshot — what's the same and what's different?**
-Same: global hotkey → drag a region → annotate in place → copy; click a window to grab it. Different: the default hotkey is `⌘⇧9` (changeable); PicPick's ruler, color picker, whiteboard and scrolling capture aren't here; Lightshot's prnt.sc upload isn't either — everything stays on your Mac.
+Same: global hotkey → drag a region → annotate in place → copy; click a window to grab it. Different: the default hotkey is `⌘⇧9` (changeable); PicPick's ruler, color picker, whiteboard and scrolling capture aren't here.
 
 ## Project layout
 
