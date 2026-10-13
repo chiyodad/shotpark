@@ -89,6 +89,7 @@
   .btn { display: inline-flex; align-items: center; gap: 8px; padding: 12px 20px; border-radius: 12px; font-weight: 600; font-size: 15px; border: 1px solid var(--line); background: var(--card); color: var(--fg); }
   .btn.primary { background: linear-gradient(180deg, var(--accent), var(--accent-2)); color: #fff; border: none; box-shadow: 0 8px 24px rgba(91,75,219,.35); }
   .brew { display: flex; align-items: center; gap: 8px; width: fit-content; max-width: 100%; margin: 14px auto 0; padding: 6px 6px 6px 14px; border: 1px solid var(--line); border-radius: 10px; background: var(--code); }
+  .brew-logo { flex: none; width: auto; height: 20px; }
   .brew code { font-size: 13px; white-space: nowrap; overflow-x: auto; }
   .brew-copy { flex: none; border: 1px solid var(--line); background: var(--card); color: var(--fg); border-radius: 7px; padding: 4px 10px; font-size: 12.5px; cursor: pointer; }
   .btn:hover { text-decoration: none; transform: translateY(-1px); }
@@ -173,8 +174,9 @@
     .hero p.switch { font-size: 13px; margin: 0 auto 12px; padding: 6px 12px; }
     .cta { gap: 8px; }
     .cta .btn { padding: 9px 14px; font-size: 14px; }
-    .brew { padding: 5px 5px 5px 10px; gap: 6px; }
-    .brew code { font-size: 11px; }
+    .brew { padding: 5px 5px 5px 8px; gap: 5px; }
+    .brew code { font-size: 10.5px; }
+    .brew-logo { height: 15px; }
     .brew-copy { padding: 3px 8px; font-size: 12px; }
     .shot { margin-top: 16px; }
   }
@@ -203,7 +205,7 @@
       <a class="btn primary" href="https://github.com/chiyodad/shotpark/releases/latest">⬇ Download<span class="hide-sm"> (macOS 13+ · Apple Silicon · Intel)</span></a>
       <a class="btn" href="https://github.com/chiyodad/shotpark">View source</a>
     </div>
-    <div class="brew"><code>brew install --cask chiyodad/tap/shotpark</code><button type="button" class="brew-copy" data-done="Copied">Copy</button></div>
+    <div class="brew"><img class="brew-logo" src="../img/homebrew.svg" alt="Homebrew" width="13" height="20"><code>brew install --cask chiyodad/tap/shotpark</code><button type="button" class="brew-copy" data-done="Copied">Copy</button></div>
     <div class="meta">Free · MIT license · everything is processed locally, nothing is ever uploaded</div>
 
     <div class="shot">
