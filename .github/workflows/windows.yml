@@ -1,0 +1,68 @@
+name: Windows
+
+on:
+  push:
+    paths: ['windows/**', '.github/workflows/windows.yml']
+  pull_request:
+    paths: ['windows/**']
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: 'Attach the Windows zips to this existing release tag (e.g. v1.20.8). Leave empty to skip.'
+        required: false
+        default: ''
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: windows
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Test
+        run: dotnet test tests/ShotPark.Tests -c Release
+
+      - name: Publish (single-file, no .NET install needed)
+        run: |
+          foreach ($rid in 'win-x64', 'win-arm64') {
+            dotnet publish src/ShotPark.Win/ShotPark.Win.csproj -c Release -r $rid --self-contained true `
+              -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true `
+              -p:EnableCompressionInSingleFile=true -p:DebugType=none -o out/$rid
+            if ($LASTEXITCODE -ne 0) { exit 1 }
+          }
+          $v = (Select-Xml -Path Directory.Build.props -XPath '//Version').Node.InnerText
+          Compress-Archive out/win-x64/ShotPark.exe "out/ShotPark-Windows-$v-x64.zip"
+          Compress-Archive out/win-arm64/ShotPark.exe "out/ShotPark-Windows-$v-arm64.zip"
+          Get-ChildItem out/*.zip | Format-Table Name, Length
+
+      - name: Render previews (synthetic screen, no real desktop content)
+        run: |
+          $p = Start-Process out/win-x64/ShotPark.exe -ArgumentList '--rendertest', "$pwd/out/render" -Wait -PassThru
+          Get-Content out/render/rendertest.log
+          if ($p.ExitCode -ne 0) { exit 1 }
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ShotPark-Windows
+          path: windows/out/*.zip
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: render-previews
+          path: windows/out/render
+
+      - name: Attach to release
+        if: ${{ github.event.inputs.release_tag != '' && github.event.inputs.release_tag != null }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release upload "${{ github.event.inputs.release_tag }}" (Get-ChildItem out/ShotPark-Windows-*.zip).FullName --clobber
