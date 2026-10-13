@@ -131,6 +131,8 @@
   .step .n { width: 36px; height: 36px; border-radius: 50%; background: var(--accent); color: #fff; font-weight: 700; display: grid; place-items: center; font-size: 15px; }
   .step h3 { margin: 4px 0 6px; font-size: 17px; }
   .step p { margin: 0 0 10px; color: var(--muted); font-size: 15px; }
+  .step ul { margin: 0 0 12px; padding-left: 20px; color: var(--muted); font-size: 15px; }
+  .step li { margin: 4px 0; }
   .step .fig { border: 1px solid var(--line); border-radius: 12px; overflow: hidden; background: var(--card); max-width: 620px; margin-top: 8px; }
   .step .fig img { display: block; width: 100%; }
   .two { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; align-items: start; }
@@ -324,8 +326,14 @@ cd shotpark
       <div class="n">W</div>
       <div>
         <h3>Windows (preview)</h3>
-        <p>Download <a href="https://github.com/chiyodad/shotpark/releases/latest/download/ShotPark-Windows-x64.zip">ShotPark-Windows-x64.zip</a> (most PCs) or <a href="https://github.com/chiyodad/shotpark/releases/latest/download/ShotPark-Windows-arm64.zip">ShotPark-Windows-arm64.zip</a> (ARM PCs), unzip it and run <b>ShotPark.exe</b> — it lives in the notification area of the taskbar. No .NET install needed. The default hotkey is <kbd>Ctrl+Shift+9</kbd>; change it (to <kbd>PrtSc</kbd>, say) from the tray icon → Settings.</p>
-        <p>The app isn't code-signed, so if SmartScreen warns on first launch, choose <b>More info → Run anyway</b>. It's an early preview: text extraction, pinning, sharing and clipboard history are coming next.</p>
+        <p>Download <a href="https://github.com/chiyodad/shotpark/releases/latest/download/ShotPark-Windows-x64.zip">ShotPark-Windows-x64.zip</a> (most PCs) or <a href="https://github.com/chiyodad/shotpark/releases/latest/download/ShotPark-Windows-arm64.zip">ShotPark-Windows-arm64.zip</a> (ARM PCs), unzip it into a folder of your choice and run <b>ShotPark.exe</b>. No .NET install and no screen-recording permission — <kbd>Ctrl+Shift+9</kbd> captures right away.</p>
+        <ul>
+          <li><b>SmartScreen</b> — the app isn't code-signed, so on first launch "Windows protected your PC" may appear: choose <b>More info → Run anyway</b>.</li>
+          <li><b>Tray icon</b> — Windows 11 tucks new icons under the <b>^</b> at the right of the taskbar. Drag ShotPark from there onto the taskbar to keep it visible. Clicking the icon also starts a capture.</li>
+          <li><b>Start at sign-in</b> — tray icon → Settings → "Start when I sign in to Windows".</li>
+          <li><b>Using PrtSc</b> — Windows 11 gives PrtSc to the Snipping Tool. Turn off "Use the Print screen key to open screen capture" in <b>Settings → Accessibility → Keyboard</b>, then set PrtSc as the hotkey in ShotPark's Settings.</li>
+        </ul>
+        <p>This is an early preview: text extraction, pinning, sharing and clipboard history are coming next.</p>
       </div>
     </div>
   </section>
