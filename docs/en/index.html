@@ -38,7 +38,7 @@
   "ShotPark for Mac"
  ],
  "applicationCategory": "UtilitiesApplication",
- "operatingSystem": "macOS 13 or later (Apple Silicon, Intel)",
+ "operatingSystem": "macOS 13 or later (Apple Silicon, Intel); Windows 10/11 (preview)",
  "url": "https://shotpark.site/en/",
  "downloadUrl": "https://github.com/chiyodad/shotpark/releases/latest",
  "image": "https://shotpark.site/img/demo-map.jpg",
@@ -92,6 +92,8 @@
   .brew-logo { flex: none; width: auto; height: 20px; }
   .brew code { font-size: 13px; white-space: nowrap; overflow-x: auto; }
   .brew-copy { flex: none; border: 1px solid var(--line); background: var(--card); color: var(--fg); border-radius: 7px; padding: 4px 10px; font-size: 12.5px; cursor: pointer; }
+  .win-note { margin: 12px auto 0; font-size: 13px; color: var(--muted); }
+  .win-note[hidden], .brew[hidden] { display: none; }
   .btn:hover { text-decoration: none; transform: translateY(-1px); }
   .meta { color: var(--muted); font-size: 13px; margin-top: 14px; }
 
@@ -201,10 +203,12 @@
     <h1>ShotPark</h1>
     <p class="lead">A Lightshot alternative for Mac. One hotkey to select a region, annotate it on the spot, and copy, save or share it. <br>Native on Apple Silicon and Intel, zero dependencies, lives quietly in the menu bar.</p>
     <div class="cta">
-      <a class="btn primary" href="https://github.com/chiyodad/shotpark/releases/latest">⬇ Download<span class="hide-sm"> (macOS 13+ · Apple Silicon · Intel)</span></a>
+      <a class="btn primary dl-mac" href="https://github.com/chiyodad/shotpark/releases/latest" title="macOS 13+ · Apple Silicon · Intel">⬇ <span><span class="hide-sm">Download for </span>macOS</span></a>
+      <a class="btn dl-win" href="https://github.com/chiyodad/shotpark/releases/latest/download/ShotPark-Windows-x64.zip" title="Windows 10/11 · x64 (ARM PCs: ShotPark-Windows-arm64.zip)">⬇ <span><span class="hide-sm">Download for </span>Windows</span></a>
       <a class="btn" href="https://github.com/chiyodad/shotpark">View source</a>
     </div>
     <div class="brew"><img class="brew-logo" src="../img/homebrew.svg" alt="Homebrew" width="13" height="20"><code>brew install --cask chiyodad/tap/shotpark</code><button type="button" class="brew-copy" data-done="Copied">Copy</button></div>
+    <div class="win-note" hidden>Windows 10/11 · unzip and run <b>ShotPark.exe</b> · no .NET install needed · <a href="https://github.com/chiyodad/shotpark/releases/latest/download/ShotPark-Windows-arm64.zip">ARM PCs</a></div>
     <div class="meta">Free · MIT license · everything is processed locally, nothing is ever uploaded</div>
 
     <div class="shot">
@@ -316,6 +320,14 @@ cd shotpark
         ③ Quit ShotPark from the menu bar icon and open it again. The dialog won't appear again for this build.</p>
       </div>
     </div>
+    <div class="step">
+      <div class="n">W</div>
+      <div>
+        <h3>Windows (preview)</h3>
+        <p>Download <a href="https://github.com/chiyodad/shotpark/releases/latest/download/ShotPark-Windows-x64.zip">ShotPark-Windows-x64.zip</a> (most PCs) or <a href="https://github.com/chiyodad/shotpark/releases/latest/download/ShotPark-Windows-arm64.zip">ShotPark-Windows-arm64.zip</a> (ARM PCs), unzip it and run <b>ShotPark.exe</b> — it lives in the notification area of the taskbar. No .NET install needed. The default hotkey is <kbd>Ctrl+Shift+9</kbd>; change it (to <kbd>PrtSc</kbd>, say) from the tray icon → Settings.</p>
+        <p>The app isn't code-signed, so if SmartScreen warns on first launch, choose <b>More info → Run anyway</b>. It's an early preview: text extraction, pinning, sharing and clipboard history are coming next.</p>
+      </div>
+    </div>
   </section>
 
   <section id="faq">
@@ -340,11 +352,25 @@ cd shotpark
     var a = e.target.closest('a'); if (!a || !window.goatcounter || !goatcounter.count) return;
     var h = a.getAttribute('href') || '';
     var ev = null;
-    if (/releases\/latest/.test(h)) ev = 'click-download';
+    if (/ShotPark-Windows/.test(h)) ev = 'click-download-win';
+    else if (/releases\/latest/.test(h)) ev = 'click-download';
     else if (/buymeacoffee\.com/.test(h)) ev = 'click-coffee';
     else if (/github\.com\/chiyodad\/shotpark\/?$/.test(h)) ev = 'click-github';
     if (ev) goatcounter.count({ path: ev, title: ev, event: true });
   });
+  // Highlight the download for the visitor's OS (Windows → Windows button first; otherwise macOS).
+  (function () {
+    var p = (navigator.userAgentData && navigator.userAgentData.platform) || navigator.platform || '';
+    if (!/^Win/i.test(p) && !/Windows NT/i.test(navigator.userAgent)) return;
+    var mac = document.querySelector('.cta .dl-mac'), win = document.querySelector('.cta .dl-win');
+    if (!mac || !win) return;
+    mac.classList.remove('primary');
+    win.classList.add('primary');
+    win.parentNode.insertBefore(win, mac);
+    var brew = document.querySelector('.brew'), note = document.querySelector('.win-note');
+    if (brew) brew.hidden = true;
+    if (note) note.hidden = false;
+  })();
   document.querySelectorAll('.brew-copy').forEach(function (b) {
     var label = b.textContent;
     b.addEventListener('click', function () {

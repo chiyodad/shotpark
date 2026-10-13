@@ -38,7 +38,7 @@
   "ShotPark for Mac"
  ],
  "applicationCategory": "UtilitiesApplication",
- "operatingSystem": "macOS 13 or later (Apple Silicon, Intel)",
+ "operatingSystem": "macOS 13 or later (Apple Silicon, Intel); Windows 10/11 (preview)",
  "url": "https://shotpark.site/",
  "downloadUrl": "https://github.com/chiyodad/shotpark/releases/latest",
  "image": "https://shotpark.site/img/demo-map.jpg",
@@ -92,6 +92,8 @@
   .brew-logo { flex: none; width: auto; height: 20px; }
   .brew code { font-size: 13px; white-space: nowrap; overflow-x: auto; }
   .brew-copy { flex: none; border: 1px solid var(--line); background: var(--card); color: var(--fg); border-radius: 7px; padding: 4px 10px; font-size: 12.5px; cursor: pointer; }
+  .win-note { margin: 12px auto 0; font-size: 13px; color: var(--muted); }
+  .win-note[hidden], .brew[hidden] { display: none; }
   .btn:hover { text-decoration: none; transform: translateY(-1px); }
   .meta { color: var(--muted); font-size: 13px; margin-top: 14px; }
 
@@ -203,10 +205,12 @@
     <p class="lead">단축키 한 번으로 영역을 선택하여 캡처하고, 바로 주석을 달아 빠르게 공유하세요. <br>Apple Silicon과 Intel 맥 모두에서 네이티브로 동작합니다.</p>
     <p class="switch">Windows에서 <b>PicPick</b>·<b>Lightshot</b>을 쓰셨다면, macOS에서는 ShotPark.</p>
     <div class="cta">
-      <a class="btn primary" href="https://github.com/chiyodad/shotpark/releases/latest">⬇ 다운로드<span class="hide-sm"> (macOS 13+ · Apple Silicon · Intel)</span></a>
+      <a class="btn primary dl-mac" href="https://github.com/chiyodad/shotpark/releases/latest" title="macOS 13+ · Apple Silicon · Intel">⬇ <span>macOS<span class="hide-sm">용 다운로드</span></span></a>
+      <a class="btn dl-win" href="https://github.com/chiyodad/shotpark/releases/latest/download/ShotPark-Windows-x64.zip" title="Windows 10/11 · x64 (ARM PC: ShotPark-Windows-arm64.zip)">⬇ <span>Windows<span class="hide-sm">용 다운로드</span></span></a>
       <a class="btn" href="https://github.com/chiyodad/shotpark">소스 보기</a>
     </div>
     <div class="brew"><img class="brew-logo" src="img/homebrew.svg" alt="Homebrew" width="13" height="20"><code>brew install --cask chiyodad/tap/shotpark</code><button type="button" class="brew-copy" data-done="복사됨">복사</button></div>
+    <div class="win-note" hidden>Windows 10/11 · 압축을 풀고 <b>ShotPark.exe</b>를 실행하세요 · .NET 설치 불필요 · <a href="https://github.com/chiyodad/shotpark/releases/latest/download/ShotPark-Windows-arm64.zip">ARM PC용</a></div>
     <div class="meta">무료 · MIT 라이선스 · 캡처는 모두 로컬에서 처리, 어디에도 업로드하지 않습니다</div>
 
     <div class="shot">
@@ -319,6 +323,14 @@ cd shotpark
         </div>
       </div>
     </div>
+    <div class="step">
+      <div class="n">W</div>
+      <div>
+        <h3>Windows (미리보기)</h3>
+        <p><a href="https://github.com/chiyodad/shotpark/releases/latest/download/ShotPark-Windows-x64.zip">ShotPark-Windows-x64.zip</a>(일반 PC) 또는 <a href="https://github.com/chiyodad/shotpark/releases/latest/download/ShotPark-Windows-arm64.zip">ShotPark-Windows-arm64.zip</a>(ARM PC)을 받아 압축을 풀고 <b>ShotPark.exe</b>를 실행하면 작업 표시줄 트레이에 아이콘이 생깁니다. .NET을 따로 설치할 필요가 없습니다. 기본 단축키는 <kbd>Ctrl+Shift+9</kbd>이고, 트레이 아이콘 → 설정에서 <kbd>PrtSc</kbd> 등으로 바꿀 수 있습니다.</p>
+        <p>코드 서명이 없는 앱이라 처음 실행할 때 SmartScreen 경고가 뜨면 <b>추가 정보 → 실행</b>을 누르세요. 아직 미리보기 버전으로, 텍스트 추출·화면 고정·공유·클립보드 기록은 순서대로 추가할 예정입니다.</p>
+      </div>
+    </div>
   </section>
 
   <section id="faq">
@@ -343,11 +355,25 @@ cd shotpark
     var a = e.target.closest('a'); if (!a || !window.goatcounter || !goatcounter.count) return;
     var h = a.getAttribute('href') || '';
     var ev = null;
-    if (/releases\/latest/.test(h)) ev = 'click-download';
+    if (/ShotPark-Windows/.test(h)) ev = 'click-download-win';
+    else if (/releases\/latest/.test(h)) ev = 'click-download';
     else if (/buymeacoffee\.com/.test(h)) ev = 'click-coffee';
     else if (/github\.com\/chiyodad\/shotpark\/?$/.test(h)) ev = 'click-github';
     if (ev) goatcounter.count({ path: ev, title: ev, event: true });
   });
+  // Highlight the download for the visitor's OS (Windows → Windows button first; otherwise macOS).
+  (function () {
+    var p = (navigator.userAgentData && navigator.userAgentData.platform) || navigator.platform || '';
+    if (!/^Win/i.test(p) && !/Windows NT/i.test(navigator.userAgent)) return;
+    var mac = document.querySelector('.cta .dl-mac'), win = document.querySelector('.cta .dl-win');
+    if (!mac || !win) return;
+    mac.classList.remove('primary');
+    win.classList.add('primary');
+    win.parentNode.insertBefore(win, mac);
+    var brew = document.querySelector('.brew'), note = document.querySelector('.win-note');
+    if (brew) brew.hidden = true;
+    if (note) note.hidden = false;
+  })();
   document.querySelectorAll('.brew-copy').forEach(function (b) {
     var label = b.textContent;
     b.addEventListener('click', function () {
