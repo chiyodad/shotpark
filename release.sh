@@ -90,4 +90,7 @@ SHA_OLD=$(gh api "repos/$TAP/contents/Casks/shotpark.rb" --jq .sha 2>/dev/null |
 printf '%s\n' "$CASK" | base64 | tr -d '\n' > /tmp/shotpark_cask.b64
 gh api -X PUT "repos/$TAP/contents/Casks/shotpark.rb" \
   -f message="shotpark $VER" -f content="$(cat /tmp/shotpark_cask.b64)" ${SHA_OLD:+-f sha="$SHA_OLD"} --jq '.content.path' 
+# The Windows installer needs Inno Setup (Windows-only): let GitHub Actions build it and attach it,
+# together with freshly built portable zips, to this release.
+gh workflow run windows.yml -R "$REPO" -f release_tag="v$VER" && echo "▶ Windows installer build started (GitHub Actions)"
 echo "✓ Released v$VER and updated the Homebrew cask."

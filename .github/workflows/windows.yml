@@ -8,7 +8,7 @@ on:
   workflow_dispatch:
     inputs:
       release_tag:
-        description: 'Attach the Windows zips to this existing release tag (e.g. v1.20.8). Leave empty to skip.'
+        description: 'Build with this version and attach the Windows downloads to this existing release (e.g. v1.20.8). Leave empty to skip.'
         required: false
         default: ''
 
@@ -29,32 +29,68 @@ jobs:
         with:
           dotnet-version: '10.0.x'
 
+      - name: Version
+        run: |
+          $tag = '${{ github.event.inputs.release_tag }}'
+          if ($tag) { $v = $tag.TrimStart('v') }
+          else { $v = (Select-Xml -Path Directory.Build.props -XPath '//Version').Node.InnerText }
+          "VERSION=$v" >> $env:GITHUB_ENV
+          "Building $v"
+
       - name: Test
         run: dotnet test tests/ShotPark.Tests -c Release
 
-      - name: Publish (single-file, no .NET install needed)
+      - name: Publish portable zips (single exe, no .NET install needed)
         run: |
-          foreach ($rid in 'win-x64', 'win-arm64') {
-            dotnet publish src/ShotPark.Win/ShotPark.Win.csproj -c Release -r $rid --self-contained true `
-              -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true `
-              -p:EnableCompressionInSingleFile=true -p:DebugType=none -o out/$rid
+          foreach ($rid in 'x64', 'arm64') {
+            dotnet publish src/ShotPark.Win/ShotPark.Win.csproj -c Release -r win-$rid --self-contained true `
+              -p:Version=$env:VERSION -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true `
+              -p:EnableCompressionInSingleFile=true -p:DebugType=none -o out/single-$rid
+            if ($LASTEXITCODE -ne 0) { exit 1 }
+            Compress-Archive out/single-$rid/ShotPark.exe "out/ShotPark-Windows-$rid.zip" -Force
+          }
+
+      - name: Publish app folders for the installer
+        run: |
+          foreach ($rid in 'x64', 'arm64') {
+            dotnet publish src/ShotPark.Win/ShotPark.Win.csproj -c Release -r win-$rid --self-contained true `
+              -p:Version=$env:VERSION -p:DebugType=none -o out/app-$rid
             if ($LASTEXITCODE -ne 0) { exit 1 }
           }
-          $v = (Select-Xml -Path Directory.Build.props -XPath '//Version').Node.InnerText
-          Compress-Archive out/win-x64/ShotPark.exe "out/ShotPark-Windows-$v-x64.zip"
-          Compress-Archive out/win-arm64/ShotPark.exe "out/ShotPark-Windows-$v-arm64.zip"
-          Get-ChildItem out/*.zip | Format-Table Name, Length
 
-      - name: Render previews (synthetic screen, no real desktop content)
+      - name: Build installer (Inno Setup)
         run: |
-          $p = Start-Process out/win-x64/ShotPark.exe -ArgumentList '--rendertest', "$pwd/out/render" -Wait -PassThru
+          $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
+          if (-not (Test-Path $iscc)) { choco install innosetup -y --no-progress | Out-Null }
+          & $iscc /Q "/DAppVersion=$env:VERSION" "/DSrcX64=$pwd\out\app-x64" "/DSrcArm64=$pwd\out\app-arm64" "/DOutDir=$pwd\out" installer\ShotPark.iss
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+          Get-ChildItem out/*.zip, out/*.exe | Format-Table Name, Length
+
+      - name: Installer smoke test (silent install, run, uninstall)
+        run: |
+          $p = Start-Process out/ShotPark-Windows-Setup.exe -ArgumentList '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART', '/CURRENTUSER', '/TASKS=autostart' -Wait -PassThru
+          if ($p.ExitCode -ne 0) { "setup exit $($p.ExitCode)"; exit 1 }
+          $app = "$env:LOCALAPPDATA\Programs\ShotPark"
+          if (-not (Test-Path "$app\ShotPark.exe")) { "ShotPark.exe not installed"; exit 1 }
+          $run = (Get-ItemProperty 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Run' -ErrorAction SilentlyContinue).ShotPark
+          "autostart: $run"
+          if (-not $run) { "autostart value missing"; exit 1 }
+          $r = Start-Process "$app\ShotPark.exe" -ArgumentList '--rendertest', "$pwd\out\render" -Wait -PassThru
           Get-Content out/render/rendertest.log
-          if ($p.ExitCode -ne 0) { exit 1 }
+          if ($r.ExitCode -ne 0) { exit 1 }
+          $u = Start-Process "$app\unins000.exe" -ArgumentList '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART' -Wait -PassThru
+          Start-Sleep -Seconds 5
+          if (Test-Path "$app\ShotPark.exe") { "uninstall left ShotPark.exe behind"; exit 1 }
+          $run = (Get-ItemProperty 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Run' -ErrorAction SilentlyContinue).ShotPark
+          if ($run) { "uninstall left the autostart value"; exit 1 }
+          "installer OK"
 
       - uses: actions/upload-artifact@v4
         with:
           name: ShotPark-Windows
-          path: windows/out/*.zip
+          path: |
+            windows/out/*.zip
+            windows/out/ShotPark-Windows-Setup.exe
 
       - uses: actions/upload-artifact@v4
         with:
@@ -65,4 +101,4 @@ jobs:
         if: ${{ github.event.inputs.release_tag != '' && github.event.inputs.release_tag != null }}
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release upload "${{ github.event.inputs.release_tag }}" (Get-ChildItem out/ShotPark-Windows-*.zip).FullName --clobber
+        run: gh release upload "${{ github.event.inputs.release_tag }}" out/ShotPark-Windows-Setup.exe out/ShotPark-Windows-x64.zip out/ShotPark-Windows-arm64.zip --clobber
