@@ -74,7 +74,8 @@ sealed class SettingsForm : Form
         _hotKey.KeyUp += (_, e) => { if (e.KeyCode == Keys.PrintScreen) HotKeyDown(_hotKey, e); }; // PrtSc only arrives as KeyUp
         var reset = new Button { Text = L("기본값", "Default") + $" ({HotKeySpec.Default.Display})", AutoSize = true };
         reset.Click += (_, _) => SetHotKey(HotKeySpec.Default);
-        _hotKeyStatus = new Label { AutoSize = true, ForeColor = Color.Firebrick, Margin = new Padding(3, 0, 3, 4) };
+        _hotKeyStatus = new Label { AutoSize = true, ForeColor = Color.Firebrick, Margin = new Padding(3, 0, 3, 4), Visible = false };
+        _hotKeyStatus.TextChanged += (_, _) => _hotKeyStatus.Visible = _hotKeyStatus.Text.Length > 0;
 
         grid.Controls.Add(Head(L("캡처 단축키", "Capture hotkey")), 0, 0);
         grid.Controls.Add(Row(_hotKey, reset), 1, 0);
@@ -86,7 +87,7 @@ sealed class SettingsForm : Form
         grid.Controls.Add(hotHints, 1, 1);
 
         // save folder
-        _folder = new Label { AutoSize = true, AutoEllipsis = true, MaximumSize = new Size(260, 0), Margin = new Padding(3, 8, 8, 3) };
+        _folder = new Label { AutoSize = true, AutoEllipsis = true, MaximumSize = new Size(300, 0), Margin = new Padding(3, 8, 8, 3) };
         UpdateFolderLabel();
         var change = new Button { Text = L("변경…", "Change…"), AutoSize = true };
         change.Click += (_, _) => ChooseFolder();
@@ -176,9 +177,7 @@ sealed class SettingsForm : Form
 
     void UpdateFolderLabel()
     {
-        var path = TrayApp.SaveFolder(_settings);
-        var home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
-        _folder.Text = path.StartsWith(home, StringComparison.OrdinalIgnoreCase) ? "~" + path[home.Length..] : path;
+        _folder.Text = TrayApp.SaveFolder(_settings);
     }
 }
 

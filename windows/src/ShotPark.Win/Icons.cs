@@ -59,12 +59,13 @@ static class Icons
         {
             case Tool.Pen:
             {
-                // a free-hand scribble with a pencil tip, like Lightshot's pen
+                // a pencil over a free-hand scribble
+                var body = new[] { P(0.30f, 0.62f), P(0.78f, 0.14f), P(0.92f, 0.28f), P(0.44f, 0.76f), P(0.26f, 0.80f) };
+                g.DrawPolygon(pen, body);
+                g.DrawLine(pen, P(0.68f, 0.24f), P(0.82f, 0.38f));
                 using var path = new GraphicsPath();
-                path.AddBezier(P(0.06f, 0.78f), P(0.18f, 0.42f), P(0.34f, 0.98f), P(0.46f, 0.66f));
+                path.AddBezier(P(0.04f, 0.92f), P(0.14f, 0.80f), P(0.20f, 1.0f), P(0.30f, 0.92f));
                 g.DrawPath(pen, path);
-                g.DrawLine(pen, P(0.5f, 0.82f), P(0.92f, 0.22f));
-                g.DrawLine(pen, P(0.82f, 0.12f), P(0.98f, 0.28f));
                 return;
             }
             case Tool.Line:

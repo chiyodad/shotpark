@@ -115,6 +115,17 @@ Needs only the Xcode Command Line Tools (`xcode-select --install`). `./build.sh`
 
 On your first capture (`⌘⇧9`) macOS asks for Screen Recording permission. Click **"Open System Settings"**, turn **ShotPark** on in the list, then quit the app once (menu bar icon → Quit) and relaunch it. The first-launch welcome window walks you through this.
 
+## Windows (preview)
+
+A native Windows version lives in [`windows/`](windows/) (C# / .NET 10, WinForms). It is an early preview: region capture over all monitors, pen / line / arrow / rectangle / ellipse / mosaic / text / number, colors and widths, undo, copy (`Ctrl+C` / `Enter`) and save (`Ctrl+S`), a tray icon and settings. The default hotkey is `Ctrl+Shift+9` (`PrtSc` works too, set it in Settings). Text extraction, pinning, sharing and clipboard history are next.
+
+It ships as a single `ShotPark.exe` that needs no .NET install. Until the first Windows release, grab the latest build from the [Windows workflow](https://github.com/chiyodad/shotpark/actions/workflows/windows.yml) artifacts, or build it yourself:
+
+```sh
+cd windows
+dotnet publish src/ShotPark.Win -c Release -r win-x64 --self-contained -p:PublishSingleFile=true -o out
+```
+
 ## Usage
 
 | Action | Keys |
