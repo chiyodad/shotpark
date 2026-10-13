@@ -3,15 +3,15 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>ShotPark — 맥에서 쓰는 픽픽·라이트샷 | 맥용 영역 캡처 · 주석 · 공유</title>
-<meta name="description" content="Windows에서 PicPick(픽픽)·Lightshot(라이트샷)을 쓰셨다면, macOS에서는 ShotPark. 무료 오픈소스 캡처 도구입니다. 단축키 → 드래그 → 주석 → 복사/저장/공유, Apple Silicon 네이티브, 업로드 없음.">
+<title>ShotPark — 맥에서 쓰는 픽픽·라이트샷 | macOS·Windows 영역 캡처 · 주석 · 공유</title>
+<meta name="description" content="Windows에서 PicPick(픽픽)·Lightshot(라이트샷)을 쓰셨다면, macOS에서는 ShotPark. 무료 오픈소스 캡처 도구입니다. 단축키 → 드래그 → 주석 → 복사/저장/공유, Apple Silicon 네이티브, 업로드 없음. Windows 미리보기 버전도 있습니다.">
 <meta property="og:title" content="ShotPark — macOS에서 쓰는 PicPick·Lightshot">
-<meta property="og:description" content="macOS용 영역 캡처 · 주석 · 공유 도구. Windows에서 PicPick·Lightshot을 쓰셨다면, macOS에서는 ShotPark. 무료 · 오픈소스 · Apple Silicon 네이티브.">
+<meta property="og:description" content="macOS용 영역 캡처 · 주석 · 공유 도구. Windows에서 PicPick·Lightshot을 쓰셨다면, macOS에서는 ShotPark. 무료 · 오픈소스 · Apple Silicon 네이티브. Windows 미리보기 지원.">
 <meta property="og:image" content="https://shotpark.site/img/demo-map.jpg">
 <link rel="alternate" hreflang="ko" href="https://shotpark.site/">
 <link rel="alternate" hreflang="en" href="https://shotpark.site/en/">
 <link rel="icon" href="icon.png">
-<meta name="keywords" content="ShotPark, 샷파크, 맥 캡처, 맥 스크린샷, 맥 화면 캡처 프로그램, 픽픽 맥, PicPick Mac, 라이트샷 맥, Lightshot Mac, 맥 캡처 프로그램 추천, macOS 스크린샷, 영역 캡처, 캡처 주석, 모자이크, OCR, 무료 오픈소스">
+<meta name="keywords" content="ShotPark, 샷파크, 맥 캡처, 맥 스크린샷, 맥 화면 캡처 프로그램, 픽픽 맥, PicPick Mac, 라이트샷 맥, Lightshot Mac, 맥 캡처 프로그램 추천, macOS 스크린샷, 영역 캡처, 캡처 주석, 모자이크, OCR, 무료 오픈소스, 윈도우 캡처 프로그램, Windows 스크린샷">
 <meta name="robots" content="index, follow, max-image-preview:large">
 <meta name="author" content="chiyodad">
 <meta name="theme-color" content="#5b4bdb">
@@ -25,7 +25,7 @@
 <meta property="og:image:alt" content="ShotPark으로 캡처하고 주석을 단 지도 화면">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="ShotPark — macOS에서 쓰는 PicPick·Lightshot">
-<meta name="twitter:description" content="macOS용 영역 캡처 · 주석 · 공유 도구. 무료 · 오픈소스 · Apple Silicon 네이티브.">
+<meta name="twitter:description" content="macOS용 영역 캡처 · 주석 · 공유 도구. 무료 · 오픈소스 · Apple Silicon 네이티브. Windows 미리보기 지원.">
 <meta name="twitter:image" content="https://shotpark.site/img/demo-map.jpg">
 <link rel="apple-touch-icon" href="icon.png">
 <script type="application/ld+json">
@@ -59,7 +59,7 @@
   "ko",
   "en"
  ],
- "description": "Windows에서 PicPick(픽픽)·Lightshot(라이트샷)을 쓰셨다면, macOS에서는 ShotPark. 단축키 한 번으로 영역 캡처, 바로 주석(화살표·텍스트·모자이크), 클립보드 복사·저장·공유. 무료 오픈소스."
+ "description": "Windows에서 PicPick(픽픽)·Lightshot(라이트샷)을 쓰셨다면, macOS에서는 ShotPark. 단축키 한 번으로 영역 캡처, 바로 주석(화살표·텍스트·모자이크), 클립보드 복사·저장·공유. 무료 오픈소스. Windows 미리보기 버전도 있습니다."
 }
 </script>
 <style>
@@ -130,6 +130,8 @@
   .step > div { min-width: 0; }
   .step .n { width: 36px; height: 36px; border-radius: 50%; background: var(--accent); color: #fff; font-weight: 700; display: grid; place-items: center; font-size: 15px; }
   .step h3 { margin: 4px 0 6px; font-size: 17px; }
+  #keys .na { color: var(--muted); font-size: 13px; }
+  #keys td:last-child, #keys th:last-child { white-space: normal; }
   .step p { margin: 0 0 10px; color: var(--muted); font-size: 15px; }
   .step ul { margin: 0 0 12px; padding-left: 20px; color: var(--muted); font-size: 15px; }
   .step li { margin: 4px 0; }
@@ -204,7 +206,7 @@
   <section class="hero">
     <img src="icon.png" alt="ShotPark 아이콘">
     <h1>ShotPark</h1>
-    <p class="lead">단축키 한 번으로 영역을 선택하여 캡처하고, 바로 주석을 달아 빠르게 공유하세요. <br>Apple Silicon과 Intel 맥 모두에서 네이티브로 동작합니다.</p>
+    <p class="lead">단축키 한 번으로 영역을 선택하여 캡처하고, 바로 주석을 달아 빠르게 공유하세요. <br>Apple Silicon과 Intel 맥에서 네이티브로 동작하고, Windows 미리보기 버전도 있습니다.</p>
     <p class="switch">Windows에서 <b>PicPick</b>·<b>Lightshot</b>을 쓰셨다면, macOS에서는 ShotPark.</p>
     <div class="cta">
       <a class="btn primary dl-mac" href="https://github.com/chiyodad/shotpark/releases/latest" title="macOS 13+ · Apple Silicon · Intel">⬇ <span>macOS<span class="hide-sm">용 다운로드</span></span></a>
@@ -266,26 +268,26 @@
   <section id="keys">
     <h2>단축키</h2>
     <table>
-      <tr><th>동작</th><th>키</th></tr>
-      <tr><td>영역 캡처 시작</td><td><kbd>⌘⇧9</kbd> (설정에서 변경) · 메뉴 막대 아이콘</td></tr>
-      <tr><td>클립보드 이미지 보기</td><td><kbd>⌃⌘V</kbd></td></tr>
-      <tr><td>모자이크·블러 도구 / 텍스트·QR 추출 / 화면에 고정 (캡처 중)</td><td><kbd>B</kbd> / <kbd>⌘⇧C</kbd> / <kbd>⌘⇧P</kbd></td></tr>
-      <tr><td>전체 화면 선택</td><td><kbd>⌘A</kbd></td></tr>
-      <tr><td>펜 / 선 / 화살표 / 사각형 / 타원 / 마커 / 텍스트 / 번호 / 이모지 / 지우개</td><td><kbd>P</kbd> <kbd>L</kbd> <kbd>A</kbd> <kbd>R</kbd> <kbd>E</kbd> <kbd>M</kbd> <kbd>T</kbd> <kbd>N</kbd> <kbd>S</kbd> <kbd>X</kbd></td></tr>
-      <tr><td>텍스트 줄바꿈 (입력 중)</td><td><kbd>⇧↩</kbd></td></tr>
-      <tr><td>선택 도구 (이동·크기 조절)</td><td><kbd>V</kbd> 또는 활성 도구 다시 클릭</td></tr>
-      <tr><td>클립보드로 복사 후 닫기</td><td><kbd>⌘C</kbd> 또는 <kbd>Enter</kbd></td></tr>
-      <tr><td>이미지를 도장으로 붙여넣기 (복사한 서명 등)</td><td><kbd>⌘V</kbd></td></tr>
-      <tr><td>PNG 저장</td><td><kbd>⌘S</kbd></td></tr>
-      <tr><td>공유 메뉴</td><td><kbd>⌘⇧S</kbd></td></tr>
-      <tr><td>창 통째로 선택</td><td>드래그 대신 창을 클릭</td></tr>
-      <tr><td>영역 / 선택한 주석 미세 이동</td><td>방향키 (<kbd>⇧</kbd>와 함께 10px)</td></tr>
-      <tr><td>주석 옮기기 / 삭제 / 텍스트 다시 편집</td><td>드래그 / <kbd>Delete</kbd> / 더블클릭 (선택 도구)</td></tr>
-      <tr><td>실행 취소</td><td><kbd>⌘Z</kbd></td></tr>
-      <tr><td>다시 실행</td><td><kbd>⌘⇧Z</kbd></td></tr>
-      <tr><td>텍스트 · 도장 크기 키우기 / 줄이기</td><td><kbd>⌘+</kbd> / <kbd>⌘-</kbd></td></tr>
-      <tr><td>선택한 텍스트 · 도장 회전 (15°)</td><td><kbd>⌘[</kbd> / <kbd>⌘]</kbd></td></tr>
-      <tr><td>캡처 취소</td><td><kbd>Esc</kbd> · 우클릭</td></tr>
+      <tr><th>동작</th><th>macOS</th><th>Windows (미리보기)</th></tr>
+      <tr><td>영역 캡처 시작</td><td><kbd>⌘⇧9</kbd> (설정에서 변경) · 메뉴 막대 아이콘</td><td><kbd>Ctrl+Shift+9</kbd> (설정에서 변경) · 트레이 아이콘</td></tr>
+      <tr><td>클립보드 이미지 보기</td><td><kbd>⌃⌘V</kbd></td><td><span class="na">예정</span></td></tr>
+      <tr><td>모자이크·블러 도구 / 텍스트·QR 추출 / 화면에 고정 (캡처 중)</td><td><kbd>B</kbd> / <kbd>⌘⇧C</kbd> / <kbd>⌘⇧P</kbd></td><td><kbd>B</kbd> / 예정 / 예정</td></tr>
+      <tr><td>전체 화면 선택</td><td><kbd>⌘A</kbd></td><td><kbd>Ctrl+A</kbd> (커서가 있는 모니터)</td></tr>
+      <tr><td>펜 / 선 / 화살표 / 사각형 / 타원 / 마커 / 텍스트 / 번호 / 이모지 / 지우개</td><td><kbd>P</kbd> <kbd>L</kbd> <kbd>A</kbd> <kbd>R</kbd> <kbd>E</kbd> <kbd>M</kbd> <kbd>T</kbd> <kbd>N</kbd> <kbd>S</kbd> <kbd>X</kbd></td><td><kbd>P</kbd> <kbd>L</kbd> <kbd>A</kbd> <kbd>R</kbd> <kbd>E</kbd> · <kbd>T</kbd> <kbd>N</kbd> (마커·이모지·지우개는 예정)</td></tr>
+      <tr><td>텍스트 줄바꿈 (입력 중)</td><td><kbd>⇧↩</kbd></td><td><kbd>Shift+Enter</kbd></td></tr>
+      <tr><td>선택 도구 (이동·크기 조절)</td><td><kbd>V</kbd> 또는 활성 도구 다시 클릭</td><td><kbd>V</kbd> 또는 활성 도구 다시 클릭</td></tr>
+      <tr><td>클립보드로 복사 후 닫기</td><td><kbd>⌘C</kbd> 또는 <kbd>Enter</kbd></td><td><kbd>Ctrl+C</kbd> 또는 <kbd>Enter</kbd></td></tr>
+      <tr><td>이미지를 도장으로 붙여넣기 (복사한 서명 등)</td><td><kbd>⌘V</kbd></td><td><span class="na">예정</span></td></tr>
+      <tr><td>PNG 저장</td><td><kbd>⌘S</kbd></td><td><kbd>Ctrl+S</kbd></td></tr>
+      <tr><td>공유 메뉴</td><td><kbd>⌘⇧S</kbd></td><td><span class="na">예정</span></td></tr>
+      <tr><td>창 통째로 선택</td><td>드래그 대신 창을 클릭</td><td><span class="na">예정</span></td></tr>
+      <tr><td>영역 / 선택한 주석 미세 이동</td><td>방향키 (<kbd>⇧</kbd>와 함께 10px)</td><td>방향키 (<kbd>Shift</kbd>와 함께 10px)</td></tr>
+      <tr><td>주석 옮기기 / 삭제 / 텍스트 다시 편집</td><td>드래그 / <kbd>Delete</kbd> / 더블클릭 (선택 도구)</td><td>드래그 / <kbd>Delete</kbd> / 텍스트 도구로 클릭</td></tr>
+      <tr><td>실행 취소</td><td><kbd>⌘Z</kbd></td><td><kbd>Ctrl+Z</kbd></td></tr>
+      <tr><td>다시 실행</td><td><kbd>⌘⇧Z</kbd></td><td><kbd>Ctrl+Shift+Z</kbd> · <kbd>Ctrl+Y</kbd></td></tr>
+      <tr><td>텍스트 · 도장 크기 키우기 / 줄이기</td><td><kbd>⌘+</kbd> / <kbd>⌘-</kbd></td><td><kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd> (굵기·글자 크기 단계)</td></tr>
+      <tr><td>선택한 텍스트 · 도장 회전 (15°)</td><td><kbd>⌘[</kbd> / <kbd>⌘]</kbd></td><td><span class="na">예정</span></td></tr>
+      <tr><td>캡처 취소</td><td><kbd>Esc</kbd> · 우클릭</td><td><kbd>Esc</kbd> · 우클릭</td></tr>
     </table>
   </section>
 
@@ -344,6 +346,7 @@ cd shotpark
 
   <section id="faq">
     <h2>자주 묻는 질문</h2>
+    <details><summary>Windows에서도 쓸 수 있나요?</summary><p>네, 미리보기 버전이 있습니다. 위의 Windows 다운로드 버튼(설치 프로그램)이나 휴대용 zip으로 받으세요. 지금은 영역 캡처, 펜·선·화살표·사각형·타원·모자이크·텍스트·번호 주석, 복사·저장까지 되고, 텍스트 추출·화면 고정·공유·클립보드 기록은 순서대로 추가합니다. 단축키는 <kbd>⌘</kbd> 대신 <kbd>Ctrl</kbd>을 쓰며, 캡처 기본값은 <kbd>Ctrl+Shift+9</kbd>입니다. 위 단축키 표의 Windows 열을 참고하세요.</p></details>
     <details><summary>단축키를 눌러도 아무 일도 안 일어나요</summary><p>대부분 화면 기록 권한이 아직 없어서입니다. 메뉴 막대 아이콘 → "화면 기록 권한 설정…"에서 ShotPark을 켜고 앱을 재실행하세요. 다른 앱이 같은 전역 단축키를 쓰고 있다면 설정에서 조합을 바꿔 보세요.</p></details>
     <details><summary>"손상되었기 때문에 열 수 없습니다"라고 떠요</summary><p>다운로드한 파일에 붙는 격리 속성 때문입니다. 설치 방법 3) 다운로드 아래의 <code>xattr -d com.apple.quarantine /Applications/ShotPark.app</code>으로 해제하면 됩니다.</p></details>
     <details><summary>업데이트했더니 화면 기록 권한을 다시 물어봐요</summary><p>정상입니다. 서명이 바뀐 새 빌드는 macOS가 새 앱으로 취급해서 한 번 더 묻습니다. 권한을 켜고 앱을 다시 실행하면 됩니다.</p></details>

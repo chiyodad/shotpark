@@ -167,6 +167,7 @@ sealed class OverlayForm : Form
         _textBox = new TextBox
         {
             Multiline = true,
+            AcceptsReturn = true, // Shift+Enter → new line; plain Enter commits (handled in KeyDown)
             BorderStyle = BorderStyle.None,
             Font = Painter.TextFont(existing?.Text ?? "가", size),
             ForeColor = color,

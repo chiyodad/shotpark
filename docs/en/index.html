@@ -3,15 +3,15 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>ShotPark — Lightshot / PicPick alternative for Mac</title>
-<meta name="description" content="A free, open-source Lightshot / PicPick alternative for macOS. Native Mac (Apple Silicon + Intel) region screenshots: hotkey → drag → annotate → copy / save / share.">
+<title>ShotPark — Lightshot / PicPick alternative for Mac (and Windows)</title>
+<meta name="description" content="A free, open-source Lightshot / PicPick alternative for macOS. Native Mac (Apple Silicon + Intel) region screenshots: hotkey → drag → annotate → copy / save / share. A Windows preview is available too.">
 <meta property="og:title" content="ShotPark — Lightshot alternative for Mac">
-<meta property="og:description" content="Native Mac region capture, annotation and sharing. Free, open source, no uploads. Universal: Apple Silicon + Intel.">
+<meta property="og:description" content="Native Mac region capture, annotation and sharing. Free, open source, no uploads. Universal: Apple Silicon + Intel. Windows preview available.">
 <meta property="og:image" content="https://shotpark.site/img/demo-map.jpg">
 <link rel="alternate" hreflang="ko" href="https://shotpark.site/">
 <link rel="alternate" hreflang="en" href="https://shotpark.site/en/">
 <link rel="icon" href="../icon.png">
-<meta name="keywords" content="ShotPark, Lightshot alternative Mac, PicPick for Mac, Mac screenshot tool, macOS screenshot app, region screenshot, screenshot annotation, blur screenshot, OCR screenshot, free open source screenshot Mac, Apple Silicon">
+<meta name="keywords" content="ShotPark, Lightshot alternative Mac, PicPick for Mac, Mac screenshot tool, macOS screenshot app, region screenshot, screenshot annotation, blur screenshot, OCR screenshot, free open source screenshot Mac, Apple Silicon, Lightshot alternative Windows, Windows screenshot tool">
 <meta name="robots" content="index, follow, max-image-preview:large">
 <meta name="author" content="chiyodad">
 <meta name="theme-color" content="#5b4bdb">
@@ -25,7 +25,7 @@
 <meta property="og:image:alt" content="A map screenshot annotated with ShotPark">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="ShotPark — Lightshot alternative for Mac">
-<meta name="twitter:description" content="Native Mac region capture, annotation and sharing. Free, open source, no uploads.">
+<meta name="twitter:description" content="Native Mac region capture, annotation and sharing. Free, open source, no uploads. Windows preview available.">
 <meta name="twitter:image" content="https://shotpark.site/img/demo-map.jpg">
 <link rel="apple-touch-icon" href="../icon.png">
 <script type="application/ld+json">
@@ -59,7 +59,7 @@
   "ko",
   "en"
  ],
- "description": "Free, open-source Lightshot / PicPick alternative for macOS: hotkey → drag → annotate (arrows, text, blur) → copy, save or share. Native on Apple Silicon and Intel."
+ "description": "Free, open-source Lightshot / PicPick alternative for macOS: hotkey → drag → annotate (arrows, text, blur) → copy, save or share. Native on Apple Silicon and Intel; Windows preview available."
 }
 </script>
 <style>
@@ -130,6 +130,8 @@
   .step > div { min-width: 0; }
   .step .n { width: 36px; height: 36px; border-radius: 50%; background: var(--accent); color: #fff; font-weight: 700; display: grid; place-items: center; font-size: 15px; }
   .step h3 { margin: 4px 0 6px; font-size: 17px; }
+  #keys .na { color: var(--muted); font-size: 13px; }
+  #keys td:last-child, #keys th:last-child { white-space: normal; }
   .step p { margin: 0 0 10px; color: var(--muted); font-size: 15px; }
   .step ul { margin: 0 0 12px; padding-left: 20px; color: var(--muted); font-size: 15px; }
   .step li { margin: 4px 0; }
@@ -203,7 +205,7 @@
   <section class="hero">
     <img src="../icon.png" alt="ShotPark icon">
     <h1>ShotPark</h1>
-    <p class="lead">A Lightshot alternative for Mac. One hotkey to select a region, annotate it on the spot, and copy, save or share it. <br>Native on Apple Silicon and Intel, zero dependencies, lives quietly in the menu bar.</p>
+    <p class="lead">A Lightshot alternative for Mac. One hotkey to select a region, annotate it on the spot, and copy, save or share it. <br>Native on Apple Silicon and Intel, zero dependencies, lives quietly in the menu bar — and there's a Windows preview too.</p>
     <div class="cta">
       <a class="btn primary dl-mac" href="https://github.com/chiyodad/shotpark/releases/latest" title="macOS 13+ · Apple Silicon · Intel">⬇ <span><span class="hide-sm">Download for </span>macOS</span></a>
       <a class="btn dl-win" href="https://github.com/chiyodad/shotpark/releases/latest/download/ShotPark-Windows-Setup.exe" title="Windows 10/11 · installer (x64 and ARM64)">⬇ <span><span class="hide-sm">Download for </span>Windows</span></a>
@@ -264,26 +266,26 @@
   <section id="keys">
     <h2>Shortcuts</h2>
     <table>
-      <tr><th>Action</th><th>Keys</th></tr>
-      <tr><td>Start a region capture</td><td><kbd>⌘⇧9</kbd> (changeable in settings) · menu bar icon</td></tr>
-      <tr><td>Clipboard images</td><td><kbd>⌃⌘V</kbd></td></tr>
-      <tr><td>Pixelate / blur tool · extract text or QR · pin to screen (during a capture)</td><td><kbd>B</kbd> · <kbd>⌘⇧C</kbd> · <kbd>⌘⇧P</kbd></td></tr>
-      <tr><td>Select the whole screen</td><td><kbd>⌘A</kbd></td></tr>
-      <tr><td>Pen / line / arrow / rectangle / ellipse / marker / text / number / emoji / eraser</td><td><kbd>P</kbd> <kbd>L</kbd> <kbd>A</kbd> <kbd>R</kbd> <kbd>E</kbd> <kbd>M</kbd> <kbd>T</kbd> <kbd>N</kbd> <kbd>S</kbd> <kbd>X</kbd></td></tr>
-      <tr><td>New line while typing text</td><td><kbd>⇧↩</kbd></td></tr>
-      <tr><td>Select (move / resize) mode</td><td><kbd>V</kbd> or click the active tool again</td></tr>
-      <tr><td>Copy to clipboard and close</td><td><kbd>⌘C</kbd> or <kbd>Enter</kbd></td></tr>
-      <tr><td>Paste an image as a stamp (e.g. a copied signature)</td><td><kbd>⌘V</kbd></td></tr>
-      <tr><td>Save as PNG</td><td><kbd>⌘S</kbd></td></tr>
-      <tr><td>Share menu</td><td><kbd>⌘⇧S</kbd></td></tr>
-      <tr><td>Grab a whole window</td><td>Click the window instead of dragging</td></tr>
-      <tr><td>Nudge the region / selected annotation</td><td>Arrow keys (<kbd>⇧</kbd> for 10&nbsp;px)</td></tr>
-      <tr><td>Move / delete / re-edit an annotation</td><td>Drag / <kbd>Delete</kbd> / double-click (select tool)</td></tr>
-      <tr><td>Redo</td><td><kbd>⌘⇧Z</kbd></td></tr>
-      <tr><td>Bigger / smaller text or stamp</td><td><kbd>⌘+</kbd> / <kbd>⌘-</kbd></td></tr>
-      <tr><td>Rotate selected text or stamp (15°)</td><td><kbd>⌘[</kbd> / <kbd>⌘]</kbd></td></tr>
-      <tr><td>Undo</td><td><kbd>⌘Z</kbd></td></tr>
-      <tr><td>Cancel</td><td><kbd>Esc</kbd> · right-click</td></tr>
+      <tr><th>Action</th><th>macOS</th><th>Windows (preview)</th></tr>
+      <tr><td>Start a region capture</td><td><kbd>⌘⇧9</kbd> (changeable in settings) · menu bar icon</td><td><kbd>Ctrl+Shift+9</kbd> (changeable in settings) · tray icon</td></tr>
+      <tr><td>Clipboard images</td><td><kbd>⌃⌘V</kbd></td><td><span class="na">coming</span></td></tr>
+      <tr><td>Pixelate / blur tool · extract text or QR · pin to screen (during a capture)</td><td><kbd>B</kbd> · <kbd>⌘⇧C</kbd> · <kbd>⌘⇧P</kbd></td><td><kbd>B</kbd> · coming · coming</td></tr>
+      <tr><td>Select the whole screen</td><td><kbd>⌘A</kbd></td><td><kbd>Ctrl+A</kbd> (the monitor under the pointer)</td></tr>
+      <tr><td>Pen / line / arrow / rectangle / ellipse / marker / text / number / emoji / eraser</td><td><kbd>P</kbd> <kbd>L</kbd> <kbd>A</kbd> <kbd>R</kbd> <kbd>E</kbd> <kbd>M</kbd> <kbd>T</kbd> <kbd>N</kbd> <kbd>S</kbd> <kbd>X</kbd></td><td><kbd>P</kbd> <kbd>L</kbd> <kbd>A</kbd> <kbd>R</kbd> <kbd>E</kbd> · <kbd>T</kbd> <kbd>N</kbd> (marker, emoji, eraser coming)</td></tr>
+      <tr><td>New line while typing text</td><td><kbd>⇧↩</kbd></td><td><kbd>Shift+Enter</kbd></td></tr>
+      <tr><td>Select (move / resize) mode</td><td><kbd>V</kbd> or click the active tool again</td><td><kbd>V</kbd> or click the active tool again</td></tr>
+      <tr><td>Copy to clipboard and close</td><td><kbd>⌘C</kbd> or <kbd>Enter</kbd></td><td><kbd>Ctrl+C</kbd> or <kbd>Enter</kbd></td></tr>
+      <tr><td>Paste an image as a stamp (e.g. a copied signature)</td><td><kbd>⌘V</kbd></td><td><span class="na">coming</span></td></tr>
+      <tr><td>Save as PNG</td><td><kbd>⌘S</kbd></td><td><kbd>Ctrl+S</kbd></td></tr>
+      <tr><td>Share menu</td><td><kbd>⌘⇧S</kbd></td><td><span class="na">coming</span></td></tr>
+      <tr><td>Grab a whole window</td><td>Click the window instead of dragging</td><td><span class="na">coming</span></td></tr>
+      <tr><td>Nudge the region / selected annotation</td><td>Arrow keys (<kbd>⇧</kbd> for 10&nbsp;px)</td><td>Arrow keys (<kbd>Shift</kbd> for 10&nbsp;px)</td></tr>
+      <tr><td>Move / delete / re-edit an annotation</td><td>Drag / <kbd>Delete</kbd> / double-click (select tool)</td><td>Drag / <kbd>Delete</kbd> / click it with the text tool</td></tr>
+      <tr><td>Redo</td><td><kbd>⌘⇧Z</kbd></td><td><kbd>Ctrl+Shift+Z</kbd> · <kbd>Ctrl+Y</kbd></td></tr>
+      <tr><td>Bigger / smaller text or stamp</td><td><kbd>⌘+</kbd> / <kbd>⌘-</kbd></td><td><kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd> (width / text size steps)</td></tr>
+      <tr><td>Rotate selected text or stamp (15°)</td><td><kbd>⌘[</kbd> / <kbd>⌘]</kbd></td><td><span class="na">coming</span></td></tr>
+      <tr><td>Undo</td><td><kbd>⌘Z</kbd></td><td><kbd>Ctrl+Z</kbd></td></tr>
+      <tr><td>Cancel</td><td><kbd>Esc</kbd> · right-click</td><td><kbd>Esc</kbd> · right-click</td></tr>
     </table>
   </section>
 
@@ -341,6 +343,7 @@ cd shotpark
 
   <section id="faq">
     <h2>FAQ</h2>
+    <details><summary>Does it run on Windows?</summary><p>Yes, as a preview. Use the Windows download button above (installer) or the portable zip. Today it does region capture, pen / line / arrow / rectangle / ellipse / mosaic / text / number annotations, copy and save; text extraction, pinning, sharing and clipboard history come next. Shortcuts use <kbd>Ctrl</kbd> where the Mac uses <kbd>⌘</kbd>, and the capture hotkey defaults to <kbd>Ctrl+Shift+9</kbd> — see the Windows column in the shortcuts table.</p></details>
     <details><summary>Nothing happens when I press the hotkey</summary><p>Screen Recording permission hasn't been granted yet. Menu bar icon → "Screen Recording permission…", enable ShotPark and relaunch the app. If another app already owns the same global hotkey, change the combination in settings.</p></details>
     <details><summary>macOS says the app "is damaged and can't be opened"</summary><p>That's the quarantine flag attached to downloaded files. Clear it with <code>xattr -d com.apple.quarantine /Applications/ShotPark.app</code> (see install method 3) Download).</p></details>
     <details><summary>After updating, it asks for Screen Recording again</summary><p>Expected. A new build with a different signature is treated by macOS as a new app, so it asks once more. Enable it and relaunch.</p></details>
