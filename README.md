@@ -57,7 +57,7 @@ If you used Lightshot or PicPick on Windows, you already know how it works: hotk
 
 **Export**
 - `⌘C` or `Enter` copies to the clipboard and closes.
-- **Extract text** (`⌘⇧C`, the text icon): reads the text in the selection (Korean + English, on-device with Apple's Vision — nothing is uploaded) and copies it as plain text. If there is a **QR code**, its content is copied instead (click the toast to open a link).
+- **Extract text** (`⌘⇧C`, the text icon): reads the text in the selection (Korean, English, Japanese and Chinese, on-device with Apple's Vision — nothing is uploaded) and copies it as plain text. If there is a **QR code**, its content is copied instead (click the toast to open a link).
 - **Beautify** (magic-wand button in the toolbar): adds a 10 pt margin with a soft shadow and rounded corners to what you copy, save or share — nice for slides and blog posts. Shadow and rounded corners can be toggled in Settings.
 - **Pin to screen** (`⌘⇧P`, the pin icon): keeps the capture floating on top of other windows — drag to move, scroll to resize, double-click or `Esc` to close, right-click for copy / save / opacity. Menu bar → Close All Pinned Captures.
 - `⌘S` saves a PNG (`shotpark-yyyyMMdd-HHmmss.png`) straight into your chosen folder (or shows a save dialog); click the toast to reveal it in Finder. Optionally also copy on save / also save on copy.
