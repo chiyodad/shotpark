@@ -21,7 +21,7 @@ public static class ToolbarLayout
         new(ToolbarAction.Tool, Tool.Arrow, "화살표 (A)", "Arrow (A)"),
         new(ToolbarAction.Tool, Tool.Rect, "사각형 (R)", "Rectangle (R)"),
         new(ToolbarAction.Tool, Tool.Ellipse, "타원 (E)", "Ellipse (E)"),
-        new(ToolbarAction.Tool, Tool.Mosaic, "모자이크 (B)", "Mosaic (B)", SeparatorBefore: true),
+        new(ToolbarAction.Tool, Tool.Mosaic, "모자이크 (B) — 가릴 영역을 드래그", "Mosaic (B) — drag over what to hide", SeparatorBefore: true),
         new(ToolbarAction.Tool, Tool.Text, "텍스트 (T)", "Text (T)"),
         new(ToolbarAction.Tool, Tool.Number, "번호 (N)", "Number (N)"),
         new(ToolbarAction.Color, Tool.None, "색상 · 굵기", "Color · width", SeparatorBefore: true),

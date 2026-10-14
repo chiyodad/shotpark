@@ -23,9 +23,10 @@ public readonly record struct HotKeySpec(Mods Mods, int Key)
 
     public static readonly HotKeySpec Default = new(Mods.Ctrl | Mods.Shift, 0x39); // Ctrl+Shift+9
 
-    /// Needs a modifier, unless it is Print Screen or a function key.
+    /// Needs Ctrl, Alt or Win (Shift alone would steal capital letters from every app),
+    /// unless it is Print Screen or a function key.
     public bool IsValid => Key != 0 && !IsModifierKey(Key) &&
-        (Mods != Mods.None || Key == VkSnapshot || (Key >= 0x70 && Key <= 0x87));
+        ((Mods & (Mods.Ctrl | Mods.Alt | Mods.Win)) != 0 || Key == VkSnapshot || (Key >= 0x70 && Key <= 0x87));
 
     public string Display
     {

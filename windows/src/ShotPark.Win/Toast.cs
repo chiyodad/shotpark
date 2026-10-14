@@ -8,6 +8,7 @@ sealed class Toast : Form
     readonly string _text;
     readonly Action? _onClick;
     readonly WinTimer _timer = new() { Interval = 30 };
+    readonly float _scale;
     int _ticks;
 
     Toast(string text, Action? onClick, Rectangle area)
@@ -21,7 +22,9 @@ sealed class Toast : Form
         DoubleBuffered = true;
         BackColor = Color.FromArgb(32, 32, 34);
         Cursor = onClick != null ? Cursors.Hand : Cursors.Default;
-        var scale = DeviceDpi / 96f;
+        // Lay out for the DPI of the monitor the toast appears on (not the primary monitor's).
+        var scale = _scale = Native.DpiForArea(area) / 96f;
+        AutoScaleMode = AutoScaleMode.None;
         using var font = Painter.UiFont(14 * scale);
         var size = TextRenderer.MeasureText(_text, font);
         var w = size.Width + (int)(36 * scale);
@@ -40,6 +43,13 @@ sealed class Toast : Form
 
     protected override bool ShowWithoutActivation => true;
 
+    protected override void WndProc(ref Message m)
+    {
+        // Already sized for its monitor; don't let Windows rescale it when it appears there.
+        if (m.Msg == Native.WM_DPICHANGED) { m.Result = IntPtr.Zero; return; }
+        base.WndProc(ref m);
+    }
+
     protected override CreateParams CreateParams
     {
         get
@@ -52,7 +62,7 @@ sealed class Toast : Form
 
     protected override void OnPaint(PaintEventArgs e)
     {
-        using var font = Painter.UiFont(14 * DeviceDpi / 96f);
+        using var font = Painter.UiFont(14 * _scale);
         TextRenderer.DrawText(e.Graphics, _text, font, ClientRectangle, Color.White,
             TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter | TextFormatFlags.SingleLine);
     }

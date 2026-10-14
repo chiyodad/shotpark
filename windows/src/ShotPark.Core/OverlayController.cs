@@ -26,6 +26,10 @@ public sealed class OverlayController
     RectangleF _dragOrigin;
     Handle _dragHandle;
     bool _shapeMoved;
+    /// True while consecutive arrow-key nudges of the picked shape share one undo step.
+    bool _nudging;
+    /// The text annotation being re-edited: taken out of Doc while its text box is open.
+    (int Index, Shape Shape)? _editing;
 
     public OverlayController(RectangleF screen, IReadOnlyList<RectangleF> monitors, float scale)
     {
@@ -94,17 +98,22 @@ public sealed class OverlayController
 
     // ───────────────────────── pointer ─────────────────────────
 
-    public void PointerDown(PointF p, PointerButton button, bool shift = false)
+    public void PointerDown(PointF p, PointerButton button)
     {
         Pointer = p;
         TipVisible = false;
+        _nudging = false;
         if (button == PointerButton.Right)
         {
+            // Like the Mac app: right-click steps back (cancel the stroke, drop the selection),
+            // and only closes the overlay when there is nothing left to undo.
             if (Drawing != null || _drag != Drag.None) { Drawing = null; _drag = Drag.None; Notify(); }
+            else if (Selection != null) ClearSelection();
             else ActionRequested?.Invoke(OverlayAction.Close);
             return;
         }
 
+        var paletteWasOpen = PaletteOpen;
         if (PaletteRect is { } pr)
         {
             if (pr.Contains(p)) { PaletteClick(p, pr); return; }
@@ -112,7 +121,13 @@ public sealed class OverlayController
         }
 
         var item = ToolbarItemAt(p);
-        if (item >= 0) { Activate(ToolbarLayout.Items[item]); return; }
+        if (item >= 0)
+        {
+            // The colour button toggles the palette, including closing it.
+            if (ToolbarLayout.Items[item].Action == ToolbarAction.Color) { PaletteOpen = !paletteWasOpen; Notify(); }
+            else Activate(ToolbarLayout.Items[item]);
+            return;
+        }
         if (ToolbarRect is { } tbr && tbr.Contains(p)) return; // padding between buttons
 
         if (Selection is not { } sel)
@@ -142,8 +157,10 @@ public sealed class OverlayController
                     var existing = Doc.HitTest(p, 2 * Scale);
                     if (existing is { Tool: Tool.Text })
                     {
-                        Doc.Checkpoint();
-                        Doc.Shapes.Remove(existing);
+                        // Hidden while its text box is open; CommitText/CancelText put it back.
+                        var idx = Doc.Shapes.IndexOf(existing);
+                        Doc.Shapes.RemoveAt(idx);
+                        _editing = (idx, existing);
                         TextRequested?.Invoke(existing.Start, existing);
                     }
                     else
@@ -197,6 +214,15 @@ public sealed class OverlayController
         Notify();
     }
 
+    void ClearSelection()
+    {
+        Picked = null;
+        PaletteOpen = false;
+        Doc.Clear();
+        Selection = null;
+        Notify();
+    }
+
     void BeginNewSelection(PointF p)
     {
         _drag = Drag.NewSelection;
@@ -233,8 +259,7 @@ public sealed class OverlayController
             case Drag.MoveShape when Picked != null:
                 if (!_shapeMoved)
                 {
-                    Doc.Checkpoint();
-                    // the checkpoint cloned everything; keep pointing at the live shape
+                    Doc.Checkpoint(); // snapshots copies; Picked stays the live shape in Doc.Shapes
                     _shapeMoved = true;
                 }
                 Picked.Offset(p.X - last.X, p.Y - last.Y);
@@ -247,12 +272,17 @@ public sealed class OverlayController
                     TipVisible = false;
                     Notify();
                 }
+                // Before anything is selected the hint follows the pointer's monitor.
+                else if (Selection == null && MonitorAt(last) != MonitorAt(p))
+                {
+                    Notify();
+                }
                 return;
         }
         Notify();
     }
 
-    public void PointerUp(PointF p, bool shift = false)
+    public void PointerUp(PointF p)
     {
         Pointer = p;
         switch (_drag)
@@ -360,7 +390,7 @@ public sealed class OverlayController
     /// A colour/width picked while a shape is selected restyles that shape.
     void ApplyStyleToPicked()
     {
-        if (Picked == null) return;
+        if (Picked == null || Picked.Tool == Tool.Mosaic) return; // mosaic has no colour or width
         Doc.Checkpoint();
         Picked.Color = Color;
         switch (Picked.Tool)
@@ -383,30 +413,55 @@ public sealed class OverlayController
     public void Undo()
     {
         Picked = null;
+        _nudging = false;
         if (Doc.Undo()) Notify();
     }
 
     public void Redo()
     {
         Picked = null;
+        _nudging = false;
         if (Doc.Redo()) Notify();
     }
 
     // ───────────────────────── text ─────────────────────────
 
-    /// Called by the UI when the text box closes. Empty text just drops it.
+    /// Called by the UI when the text box closes with Enter / a click elsewhere.
+    /// A new text is one undo step; a re-edit replaces the original in place (also one step,
+    /// keeping its size); emptying a re-edited text deletes it.
     public void CommitText(PointF at, string text)
     {
-        if (!string.IsNullOrWhiteSpace(text))
+        var editing = _editing;
+        _editing = null;
+        if (editing is { } e) Doc.Shapes.Insert(Math.Min(e.Index, Doc.Shapes.Count), e.Shape);
+        var trimmed = text.TrimEnd();
+        if (string.IsNullOrWhiteSpace(trimmed))
         {
-            Doc.Checkpoint();
-            var size = FontSize;
-            Doc.Shapes.Add(new Shape
+            if (editing is { } gone)
             {
-                Tool = Tool.Text, Points = { at }, Color = Color, Text = text.TrimEnd(),
-                FontSize = size, TextSize = MeasureText(text.TrimEnd(), size),
-            });
+                Doc.Checkpoint();
+                Doc.Shapes.Remove(gone.Shape);
+            }
+            Notify();
+            return;
         }
+        Doc.Checkpoint();
+        var size = editing?.Shape.FontSize ?? FontSize;
+        var shape = new Shape
+        {
+            Tool = Tool.Text, Points = { at }, Color = Color, Text = trimmed,
+            FontSize = size, TextSize = MeasureText(trimmed, size),
+        };
+        if (editing is { } ed) Doc.Shapes[Doc.Shapes.IndexOf(ed.Shape)] = shape;
+        else Doc.Shapes.Add(shape);
+        Notify();
+    }
+
+    /// Called when the text box is cancelled (Esc): a re-edited text comes back unchanged.
+    public void CancelText()
+    {
+        if (_editing is { } e) Doc.Shapes.Insert(Math.Min(e.Index, Doc.Shapes.Count), e.Shape);
+        _editing = null;
         Notify();
     }
 
@@ -415,6 +470,7 @@ public sealed class OverlayController
     /// Returns true when the key was handled.
     public bool Key(KeyCode key, bool ctrl, bool shift)
     {
+        if (key is not (KeyCode.Left or KeyCode.Right or KeyCode.Up or KeyCode.Down)) _nudging = false;
         if (ctrl)
         {
             switch (key)
@@ -435,8 +491,13 @@ public sealed class OverlayController
         switch (key)
         {
             case KeyCode.Escape:
+                // One step back at a time, like the Mac app:
+                // stroke → palette → tool → picked shape → selection → close.
                 if (Drawing != null) { Drawing = null; _drag = Drag.None; Notify(); }
                 else if (PaletteOpen) { PaletteOpen = false; Notify(); }
+                else if (Tool != Tool.None) SetTool(Tool.None);
+                else if (Picked != null) { Picked = null; Notify(); }
+                else if (Selection != null) ClearSelection();
                 else ActionRequested?.Invoke(OverlayAction.Close);
                 return true;
             case KeyCode.Enter:
@@ -479,7 +540,8 @@ public sealed class OverlayController
         float dy = key == KeyCode.Up ? -step : key == KeyCode.Down ? step : 0;
         if (Picked != null)
         {
-            Doc.Checkpoint();
+            if (!_nudging) Doc.Checkpoint(); // a run of nudges is one undo step
+            _nudging = true;
             Picked.Offset(dx, dy);
         }
         else if (Selection is { } s)

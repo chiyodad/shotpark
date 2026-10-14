@@ -154,14 +154,18 @@ sealed class SettingsForm : Form
         _settings.CaptureHotKey = spec;
         if (_applyHotKey(spec))
         {
-            _hotKeyStatus.Text = "";
+            // Windows 11 hands PrtSc to the Snipping Tool unless the user turns that off.
+            _hotKeyStatus.Text = spec.Key == HotKeySpec.VkSnapshot
+                ? L("Windows 11은 PrtSc를 캡처 도구가 먼저 씁니다. 설정 → 접근성 → 키보드에서 'Print Screen 키로 화면 캡처 열기'를 끄세요.",
+                    "Windows 11 gives PrtSc to the Snipping Tool: turn off 'Use the Print screen key to open screen capture' in Settings → Accessibility → Keyboard.")
+                : "";
             _settings.Save();
         }
         else
         {
             _settings.CaptureHotKey = previous;
             _applyHotKey(previous);
-            _hotKeyStatus.Text = L($"{spec.Display}은(는) 다른 앱이 사용 중입니다.", $"{spec.Display} is already used by another app.");
+            _hotKeyStatus.Text = L($"다른 앱이 이미 {spec.Display} 단축키를 사용 중입니다.", $"{spec.Display} is already used by another app.");
         }
         _hotKey.Text = _settings.CaptureHotKey.Display;
     }

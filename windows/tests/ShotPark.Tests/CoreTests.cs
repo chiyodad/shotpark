@@ -258,7 +258,7 @@ public class ControllerTests
         c.SetTool(Tool.Line);
         c.PointerDown(new PointF(200, 200), PointerButton.Left);
         c.PointerMove(new PointF(300, 290), shift: true);
-        c.PointerUp(new PointF(300, 290), shift: true);
+        c.PointerUp(new PointF(300, 290));
         var s = c.Doc.Shapes[0];
         Assert.Equal(s.End.X - s.Start.X, s.End.Y - s.Start.Y, 2);
     }
@@ -374,9 +374,128 @@ public class ControllerTests
         c.Key(KeyCode.C, true, false);
         c.Key(KeyCode.Enter, false, false);
         c.Key(KeyCode.S, true, false);
-        c.Key(KeyCode.Escape, false, false);
+        Assert.Equal(new[] { OverlayAction.Copy, OverlayAction.Copy, OverlayAction.Save }, got);
+    }
+
+    [Fact]
+    public void EscStepsBackInsteadOfDiscarding()
+    {
+        var c = WithSelection();
+        var got = new List<OverlayAction>();
+        c.ActionRequested += got.Add;
+        c.SetTool(Tool.Rect);
+        c.PointerDown(new PointF(200, 200), PointerButton.Left);
+        c.PointerMove(new PointF(300, 300));
+        c.PointerUp(new PointF(300, 300));
+        c.Key(KeyCode.Escape, false, false);          // tool → select mode
+        Assert.Equal(Tool.None, c.Tool);
+        Assert.Single(c.Doc.Shapes);
+        Assert.NotNull(c.Selection);
+        c.PointerDown(new PointF(200, 250), PointerButton.Left);  // pick the rect
+        c.PointerUp(new PointF(200, 250));
+        Assert.NotNull(c.Picked);
+        c.Key(KeyCode.Escape, false, false);          // un-pick
+        Assert.Null(c.Picked);
+        Assert.Single(c.Doc.Shapes);
+        c.Key(KeyCode.Escape, false, false);          // drop the selection
+        Assert.Null(c.Selection);
+        Assert.Empty(got);
+        c.Key(KeyCode.Escape, false, false);          // nothing left → close
+        Assert.Equal(new[] { OverlayAction.Close }, got);
+    }
+
+    [Fact]
+    public void RightClickDropsSelectionThenCloses()
+    {
+        var c = WithSelection();
+        var got = new List<OverlayAction>();
+        c.ActionRequested += got.Add;
         c.PointerDown(new PointF(5, 5), PointerButton.Right);
-        Assert.Equal(new[] { OverlayAction.Copy, OverlayAction.Copy, OverlayAction.Save, OverlayAction.Close, OverlayAction.Close }, got);
+        Assert.Null(c.Selection);
+        Assert.Empty(got);
+        c.PointerDown(new PointF(5, 5), PointerButton.Right);
+        Assert.Equal(new[] { OverlayAction.Close }, got);
+    }
+
+    [Fact]
+    public void ShiftOnlyHotkeyIsRejected()
+    {
+        Assert.False(new HotKeySpec(Mods.Shift, 0x41).IsValid);
+        Assert.True(new HotKeySpec(Mods.Shift | Mods.Alt, 0x41).IsValid);
+        Assert.True(new HotKeySpec(Mods.Shift, 0x70).IsValid); // Shift+F1 is fine
+    }
+
+    [Fact]
+    public void ColorButtonClosesThePalette()
+    {
+        var c = WithSelection();
+        var tb = c.ToolbarRect!.Value;
+        var (rects, _) = ToolbarLayout.Rects(1);
+        var color = Array.FindIndex(ToolbarLayout.Items, i => i.Action == ToolbarAction.Color);
+        var r = rects[color];
+        var p = new PointF(tb.X + r.X + r.Width / 2, tb.Y + r.Y + r.Height / 2);
+        c.PointerDown(p, PointerButton.Left); c.PointerUp(p);
+        Assert.True(c.PaletteOpen);
+        c.PointerDown(p, PointerButton.Left); c.PointerUp(p);
+        Assert.False(c.PaletteOpen);
+    }
+
+    [Fact]
+    public void TextReEditIsOneUndoStepAndKeepsSize()
+    {
+        var c = WithSelection();
+        var requests = new List<(PointF, Shape?)>();
+        c.TextRequested += (p, s) => requests.Add((p, s));
+        c.SetTool(Tool.Text);
+        c.PointerDown(new PointF(220, 230), PointerButton.Left);
+        c.CommitText(requests[0].Item1, "hello");
+        var size = c.Doc.Shapes[0].FontSize;
+        c.WidthIndex = 2;                              // a different default size now
+        var hit = new PointF(c.Doc.Shapes[0].Start.X + 2, c.Doc.Shapes[0].Start.Y + 2);
+        c.PointerDown(hit, PointerButton.Left);        // click the text → re-edit
+        Assert.Equal("hello", requests[1].Item2?.Text); // it asked to re-edit that text
+        Assert.Empty(c.Doc.Shapes);                    // hidden while editing
+        c.CommitText(requests[1].Item1, "hello again");
+        Assert.Equal("hello again", c.Doc.Shapes.Single().Text);
+        Assert.Equal(size, c.Doc.Shapes[0].FontSize);  // keeps its own size
+        c.Undo();
+        Assert.Equal("hello", c.Doc.Shapes.Single().Text);
+        c.Undo();
+        Assert.Empty(c.Doc.Shapes);
+    }
+
+    [Fact]
+    public void CancelledReEditRestoresTheText()
+    {
+        var c = WithSelection();
+        PointF at = default;
+        c.TextRequested += (p, _) => at = p;
+        c.SetTool(Tool.Text);
+        c.PointerDown(new PointF(220, 230), PointerButton.Left);
+        c.CommitText(at, "keep me");
+        c.PointerDown(new PointF(c.Doc.Shapes[0].Start.X + 2, c.Doc.Shapes[0].Start.Y + 2), PointerButton.Left);
+        Assert.Empty(c.Doc.Shapes);
+        c.CancelText();
+        Assert.Equal("keep me", c.Doc.Shapes.Single().Text);
+        c.Undo();
+        Assert.Empty(c.Doc.Shapes);                    // only the original commit was undoable
+    }
+
+    [Fact]
+    public void NudgesCoalesceIntoOneUndoStep()
+    {
+        var c = WithSelection();
+        c.SetTool(Tool.Line);
+        c.PointerDown(new PointF(200, 200), PointerButton.Left);
+        c.PointerMove(new PointF(400, 200));
+        c.PointerUp(new PointF(400, 200));
+        c.SetTool(Tool.None);
+        c.PointerDown(new PointF(300, 201), PointerButton.Left);
+        c.PointerUp(new PointF(300, 201));
+        for (var i = 0; i < 5; i++) c.Key(KeyCode.Right, false, false);
+        Assert.Equal(new PointF(205, 200), c.Doc.Shapes[0].Start);
+        c.Undo();
+        Assert.Equal(new PointF(200, 200), c.Doc.Shapes[0].Start);
     }
 
     [Fact]

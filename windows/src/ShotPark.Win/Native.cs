@@ -25,6 +25,28 @@ static class Native
     static extern short GetKeyState(int vk);
 
     public static bool IsKeyDown(int vk) => (GetKeyState(vk) & 0x8000) != 0;
+
+    [StructLayout(LayoutKind.Sequential)]
+    struct POINT { public int X, Y; }
+
+    [DllImport("user32.dll")]
+    static extern IntPtr MonitorFromPoint(POINT pt, uint flags);
+
+    [DllImport("shcore.dll")]
+    static extern int GetDpiForMonitor(IntPtr hmonitor, int dpiType, out uint dpiX, out uint dpiY);
+
+    /// Effective DPI of the monitor containing the centre of `area` (falls back to the system DPI).
+    public static uint DpiForArea(Rectangle area)
+    {
+        try
+        {
+            var mon = MonitorFromPoint(new POINT { X = area.X + area.Width / 2, Y = area.Y + area.Height / 2 }, 2 /* NEAREST */);
+            if (mon != IntPtr.Zero && GetDpiForMonitor(mon, 0 /* MDT_EFFECTIVE_DPI */, out var x, out _) == 0 && x > 0) return x;
+        }
+        catch (DllNotFoundException) { }
+        catch (EntryPointNotFoundException) { }
+        return GetDpiForSystem();
+    }
 }
 
 /// Receives WM_HOTKEY for one global hotkey on a hidden message window.

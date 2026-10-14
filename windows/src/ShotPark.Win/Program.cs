@@ -13,9 +13,15 @@ static class Program
             return RenderTest.Run(args[1]);
 
         using var mutex = new Mutex(true, @"Local\ShotPark.SingleInstance", out var first);
-        if (!first) return 0; // already running in the tray
+        using var show = new EventWaitHandle(false, EventResetMode.AutoReset, TrayApp.ShowEventName);
+        if (!first)
+        {
+            // Already running in the tray: let that copy show itself instead of exiting silently.
+            show.Set();
+            return 0;
+        }
 
-        Application.Run(new TrayApp());
+        Application.Run(new TrayApp(show));
         return 0;
     }
 }

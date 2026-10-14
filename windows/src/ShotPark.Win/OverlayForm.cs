@@ -10,7 +10,6 @@ sealed class OverlayForm : Form
     readonly WinTimer _tipTimer = new() { Interval = 450 };
     TextBox? _textBox;
     PointF _textAt;
-    bool _textReedit;
     int _lastHover = -1;
 
     public OverlayController Controller { get; }
@@ -30,7 +29,9 @@ sealed class OverlayForm : Form
         Bounds = virtualScreen;
         TopMost = true;
         ShowInTaskbar = false;
-        KeyPreview = true;
+        // A Korean/Japanese/Chinese IME would swallow the tool letters (P, L, A, R…) as
+        // composition input and float a candidate box over the capture. The text box re-enables it.
+        ImeMode = ImeMode.Disable;
         DoubleBuffered = true;
         SetStyle(ControlStyles.AllPaintingInWmPaint | ControlStyles.UserPaint | ControlStyles.OptimizedDoubleBuffer | ControlStyles.Opaque, true);
         Text = "ShotPark";
@@ -113,14 +114,14 @@ sealed class OverlayForm : Form
     {
         if (_textBox != null) EndText(commit: true);
         if (e.Button is MouseButtons.Left or MouseButtons.Right)
-            Controller.PointerDown(e.Location, e.Button == MouseButtons.Right ? PointerButton.Right : PointerButton.Left, Shift);
+            Controller.PointerDown(e.Location, e.Button == MouseButtons.Right ? PointerButton.Right : PointerButton.Left);
     }
 
     protected override void OnMouseMove(MouseEventArgs e) => Controller.PointerMove(e.Location, Shift);
 
     protected override void OnMouseUp(MouseEventArgs e)
     {
-        if (e.Button == MouseButtons.Left) Controller.PointerUp(e.Location, Shift);
+        if (e.Button == MouseButtons.Left) Controller.PointerUp(e.Location);
     }
 
     protected override bool ProcessCmdKey(ref Message msg, Keys keyData)
@@ -157,7 +158,6 @@ sealed class OverlayForm : Form
     void BeginText(PointF at, Shape? existing)
     {
         _textAt = at;
-        _textReedit = existing != null;
         var size = existing?.FontSize ?? Controller.FontSize;
         if (existing != null)
         {
@@ -176,6 +176,7 @@ sealed class OverlayForm : Form
             Location = Point.Round(at),
             ScrollBars = ScrollBars.None,
             WordWrap = false,
+            ImeMode = ImeMode.NoControl, // follow the user's own IME state (the form disables it)
         };
         ResizeTextBox();
         _textBox.TextChanged += (_, _) => ResizeTextBox();
@@ -207,8 +208,7 @@ sealed class OverlayForm : Form
         box.Dispose();
         Focus();
         if (commit) Controller.CommitText(_textAt, text);
-        else if (_textReedit) Controller.Undo(); // put the original back
-        else Invalidate();
+        else Controller.CancelText(); // a re-edited text comes back unchanged
     }
 
     // ───────────────────────── results ─────────────────────────

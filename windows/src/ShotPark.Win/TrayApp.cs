@@ -34,11 +34,20 @@ sealed class TrayApp : ApplicationContext
     public static string Version =>
         Assembly.GetExecutingAssembly().GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion.Split('+')[0] ?? "0";
 
-    public TrayApp()
+    /// Signalled by a second launch (Start menu / desktop shortcut while already running).
+    public const string ShowEventName = @"Local\ShotPark.Show";
+    readonly SynchronizationContext _ui;
+    RegisteredWaitHandle? _showWait;
+
+    public TrayApp(EventWaitHandle? showEvent = null)
     {
         _settings = AppSettings.Load(SettingsPath);
+        _ui = SynchronizationContext.Current ?? new WindowsFormsSynchronizationContext();
+        if (showEvent != null)
+            _showWait = ThreadPool.RegisterWaitForSingleObject(showEvent,
+                (_, _) => _ui.Post(_ => ShowWelcome(alreadyRunning: true, conflict: null), null), null, Timeout.Infinite, false);
 
-        _captureItem = new ToolStripMenuItem(L("영역 캡처", "Capture Region"), null, (_, _) => Capture()) { Font = new Font(SystemFonts.MenuFont!, FontStyle.Bold) };
+        _captureItem = new ToolStripMenuItem(L("영역 캡처", "Capture Region"), null, (_, _) => CaptureSoon()) { Font = new Font(SystemFonts.MenuFont!, FontStyle.Bold) };
         var menu = new ContextMenuStrip();
         menu.Items.Add(_captureItem);
         menu.Items.Add(new ToolStripSeparator());
@@ -55,25 +64,44 @@ sealed class TrayApp : ApplicationContext
             ContextMenuStrip = menu,
             Visible = true,
         };
-        _tray.MouseClick += (_, e) => { if (e.Button == MouseButtons.Left) Capture(); };
+        _tray.MouseClick += (_, e) => { if (e.Button == MouseButtons.Left) CaptureSoon(); };
 
         _hotKey.Pressed += Capture;
-        if (!RegisterHotKey(_settings.CaptureHotKey))
+        var registered = RegisterHotKey(_settings.CaptureHotKey);
+        var conflict = registered ? null
+            : L($"다른 앱이 이미 {_settings.CaptureHotKey.Display} 단축키를 사용 중입니다. 설정에서 다른 조합으로 바꿔 주세요.",
+                $"{_settings.CaptureHotKey.Display} is already used by another app. Choose another combination in Settings.");
+        // A balloon is easy to miss (Focus Assist, hidden tray icon), so the first run — or a hotkey
+        // conflict — gets a real window once the message loop is running.
+        if (!_settings.WelcomeShown || conflict != null)
         {
-            _tray.ShowBalloonTip(6000, "ShotPark",
-                L($"{_settings.CaptureHotKey.Display}을(를) 다른 앱이 사용 중입니다. 트레이 아이콘 → 설정에서 바꿔 주세요.",
-                  $"{_settings.CaptureHotKey.Display} is already used by another app. Change it in Settings (tray icon)."),
-                ToolTipIcon.Warning);
-        }
-        else if (!_settings.WelcomeShown)
-        {
-            _tray.ShowBalloonTip(6000, L("ShotPark이 실행 중입니다", "ShotPark is running"),
-                L($"{_settings.CaptureHotKey.Display}을(를) 누르거나 트레이 아이콘을 클릭하면 캡처합니다.",
-                  $"Press {_settings.CaptureHotKey.Display} or click the tray icon to capture."),
-                ToolTipIcon.Info);
+            _ui.Post(_ => ShowWelcome(alreadyRunning: false, conflict), null);
             _settings.WelcomeShown = true;
             _settings.Save();
         }
+    }
+
+    void ShowWelcome(bool alreadyRunning, string? conflict)
+    {
+        var hotkey = _settings.CaptureHotKey.Display;
+        var settingsButton = new TaskDialogButton(L("설정 열기", "Open Settings"));
+        var page = new TaskDialogPage
+        {
+            Caption = "ShotPark",
+            Heading = alreadyRunning ? L("ShotPark이 이미 실행 중입니다", "ShotPark is already running")
+                                     : L("ShotPark이 트레이에서 실행 중입니다", "ShotPark is running in the tray"),
+            Text = (conflict != null ? conflict + "\n\n" : "") +
+                   L($"• {hotkey} 키를 누르거나 트레이 아이콘을 클릭하면 캡처합니다.\n" +
+                     "• 아이콘이 안 보이면 작업 표시줄 오른쪽 ^ 안에 있습니다. 끌어서 작업 표시줄에 두면 늘 보입니다.\n" +
+                     "• 트레이 아이콘을 우클릭하면 설정과 종료 메뉴가 나옵니다.",
+                     $"• Press {hotkey} or click the tray icon to capture.\n" +
+                     "• Can't see the icon? It's under the ^ at the right of the taskbar — drag it onto the taskbar to keep it visible.\n" +
+                     "• Right-click the tray icon for Settings and Quit."),
+            Icon = new TaskDialogIcon(AppIcon),
+            Buttons = { settingsButton, TaskDialogButton.OK },
+            DefaultButton = conflict != null ? settingsButton : TaskDialogButton.OK,
+        };
+        if (TaskDialog.ShowDialog(page) == settingsButton) ShowSettings();
     }
 
     bool RegisterHotKey(HotKeySpec spec)
@@ -84,6 +112,14 @@ sealed class TrayApp : ApplicationContext
     }
 
     // ───────────────────────── capture ─────────────────────────
+
+    /// From the tray menu / icon: wait for the menu to fade so it isn't in the screenshot.
+    void CaptureSoon()
+    {
+        var t = new System.Windows.Forms.Timer { Interval = 250 };
+        t.Tick += (_, _) => { t.Stop(); t.Dispose(); Capture(); };
+        t.Start();
+    }
 
     public void Capture()
     {
@@ -133,7 +169,7 @@ sealed class TrayApp : ApplicationContext
                 overlay.Close();
                 CopyToClipboard(image);
                 if (_settings.CopyAlsoSaves && SaveToFolder(image) is { } copied)
-                    Toast.Show(L("복사하고 저장했습니다 · ", "Copied and saved · ") + Path.GetFileName(copied), () => RevealFile(copied), area);
+                    Toast.Show(L("복사됨 · 저장됨 · ", "Copied · Saved · ") + Path.GetFileName(copied), () => RevealFile(copied), area);
                 else
                     Toast.Show(L("클립보드에 복사됨", "Copied to clipboard"), null, area);
                 image.Dispose();
@@ -160,7 +196,7 @@ sealed class TrayApp : ApplicationContext
                 if (path != null)
                 {
                     if (_settings.SaveAlsoCopies) CopyToClipboard(image);
-                    Toast.Show(L("저장됨 · ", "Saved · ") + Path.GetFileName(path) + L("  (클릭하면 폴더 열기)", "  (click to show)"), () => RevealFile(path), area);
+                    Toast.Show(L("저장됨 · ", "Saved · ") + Path.GetFileName(path) + L("  · 클릭하면 폴더에서 보기", "  · click to show in folder"), () => RevealFile(path), area);
                 }
                 image.Dispose();
                 return;
@@ -269,6 +305,7 @@ sealed class TrayApp : ApplicationContext
 
     void Quit()
     {
+        _showWait?.Unregister(null);
         _overlay?.Close();
         _tray.Visible = false;
         _hotKey.Dispose();

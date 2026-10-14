@@ -33,7 +33,6 @@ DefaultGroupName=ShotPark
 DisableProgramGroupPage=yes
 DisableDirPage=auto
 PrivilegesRequired=lowest
-PrivilegesRequiredOverridesAllowed=dialog
 ArchitecturesAllowed=x64compatible or arm64
 ArchitecturesInstallIn64BitMode=x64compatible or arm64
 MinVersion=10.0.17763
@@ -46,16 +45,21 @@ WizardStyle=modern
 Compression=lzma2/ultra64
 SolidCompression=yes
 LZMANumBlockThreads=4
-AppMutex=Local\ShotPark.SingleInstance
+; No AppMutex: it would only tell the user to quit the tray app by hand (and abort silent
+; updates). Setup closes a running copy itself instead (Restart Manager + PrepareToInstall).
 CloseApplications=force
 RestartApplications=no
 
-#define HasKorean FileExists(AddBackslash(CompilerPath) + "Languages\Korean.isl")
+; Korean is an official Inno Setup translation since 6.5; a copy ships next to this script so
+; the installer is Korean on Korean Windows even with an older compiler.
+#define HasKorean 1
 
 [Languages]
 Name: "en"; MessagesFile: "compiler:Default.isl"
-#if HasKorean
+#if FileExists(AddBackslash(CompilerPath) + "Languages\Korean.isl")
 Name: "ko"; MessagesFile: "compiler:Languages\Korean.isl"
+#else
+Name: "ko"; MessagesFile: "Korean.isl"
 #endif
 
 [CustomMessages]
@@ -99,6 +103,27 @@ Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueType: 
 Filename: "{app}\ShotPark.exe"; Description: "{cm:LaunchNow}"; Flags: nowait postinstall skipifsilent
 
 [Code]
+procedure CloseRunningShotPark;
+var
+  Code: Integer;
+begin
+  { The tray app has no visible window to close; end it so its files can be replaced/removed. }
+  Exec(ExpandConstant('{sys}\taskkill.exe'), '/F /IM ShotPark.exe', '', SW_HIDE, ewWaitUntilTerminated, Code);
+  Sleep(300);
+end;
+
+function PrepareToInstall(var NeedsRestart: Boolean): String;
+begin
+  CloseRunningShotPark;
+  Result := '';
+end;
+
+function InitializeUninstall(): Boolean;
+begin
+  CloseRunningShotPark;
+  Result := True;
+end;
+
 procedure CurUninstallStepChanged(CurUninstallStep: TUninstallStep);
 begin
   { the app's own "start at sign-in" switch writes the same value; never leave it pointing at a removed exe }

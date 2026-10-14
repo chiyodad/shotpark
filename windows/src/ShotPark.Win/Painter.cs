@@ -118,8 +118,8 @@ static class Painter
     static void DrawHint(Graphics g, OverlayController c)
     {
         var m = c.MonitorAt(c.Pointer);
-        var text = Strings.L("드래그해서 캡처할 영역을 선택하세요   ·   Ctrl+A 화면 전체   ·   Esc 취소",
-                             "Drag to select an area   ·   Ctrl+A full screen   ·   Esc to cancel");
+        var text = Strings.L("드래그해서 캡처할 영역을 선택하세요   ·   Ctrl+A 이 모니터 전체   ·   Esc 취소",
+                             "Drag to select an area   ·   Ctrl+A this monitor   ·   Esc to cancel");
         using var font = UiFont(13 * c.Scale);
         var size = g.MeasureString(text, font);
         var box = new RectangleF(m.X + (m.Width - size.Width) / 2 - 14 * c.Scale, m.Y + 28 * c.Scale, size.Width + 28 * c.Scale, size.Height + 14 * c.Scale);

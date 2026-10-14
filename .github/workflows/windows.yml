@@ -4,7 +4,7 @@ on:
   push:
     paths: ['windows/**', '.github/workflows/windows.yml']
   pull_request:
-    paths: ['windows/**']
+    paths: ['windows/**', '.github/workflows/windows.yml']
   workflow_dispatch:
     inputs:
       release_tag:
@@ -30,10 +30,15 @@ jobs:
           dotnet-version: '10.0.x'
 
       - name: Version
+        env:
+          RELEASE_TAG: ${{ github.event.inputs.release_tag }}
         run: |
-          $tag = '${{ github.event.inputs.release_tag }}'
+          $tag = $env:RELEASE_TAG
           if ($tag) { $v = $tag.TrimStart('v') }
           else { $v = (Select-Xml -Path Directory.Build.props -XPath '//Version').Node.InnerText }
+          # Windows version resources need plain numbers: 1.2.3-beta → 1.2.3
+          $v = ($v -replace '[^0-9.].*$', '')
+          if ($v -notmatch '^\d+(\.\d+){1,3}$') { "bad version '$v'"; exit 1 }
           "VERSION=$v" >> $env:GITHUB_ENV
           "Building $v"
 
@@ -62,6 +67,8 @@ jobs:
         run: |
           $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
           if (-not (Test-Path $iscc)) { choco install innosetup -y --no-progress | Out-Null }
+          (Get-Item $iscc).VersionInfo.ProductVersion
+          if (Test-Path "${env:ProgramFiles(x86)}\Inno Setup 6\Languages\Korean.isl") { "Korean.isl: compiler's" } else { "Korean.isl: bundled copy" }
           & $iscc /Q "/DAppVersion=$env:VERSION" "/DSrcX64=$pwd\out\app-x64" "/DSrcArm64=$pwd\out\app-arm64" "/DOutDir=$pwd\out" installer\ShotPark.iss
           if ($LASTEXITCODE -ne 0) { exit 1 }
           Get-ChildItem out/*.zip, out/*.exe | Format-Table Name, Length
@@ -83,6 +90,20 @@ jobs:
           if (Test-Path "$app\ShotPark.exe") { "uninstall left ShotPark.exe behind"; exit 1 }
           $run = (Get-ItemProperty 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Run' -ErrorAction SilentlyContinue).ShotPark
           if ($run) { "uninstall left the autostart value"; exit 1 }
+
+          # Updating over a running copy must not stop and ask the user to quit it.
+          $p = Start-Process out/ShotPark-Windows-Setup.exe -ArgumentList '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART', '/CURRENTUSER', '/TASKS=' -Wait -PassThru
+          if ($p.ExitCode -ne 0) { "re-install exit $($p.ExitCode)"; exit 1 }
+          Start-Process "$app\ShotPark.exe"
+          Start-Sleep -Seconds 4
+          if (-not (Get-Process ShotPark -ErrorAction SilentlyContinue)) { "app did not start"; exit 1 }
+          $p = Start-Process out/ShotPark-Windows-Setup.exe -ArgumentList '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART', '/CURRENTUSER', '/TASKS=' -Wait -PassThru
+          if ($p.ExitCode -ne 0) { "update over a running copy failed: exit $($p.ExitCode)"; exit 1 }
+          Start-Process "$app\ShotPark.exe"
+          Start-Sleep -Seconds 3
+          $u = Start-Process "$app\unins000.exe" -ArgumentList '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART' -Wait -PassThru
+          Start-Sleep -Seconds 5
+          if (Test-Path "$app\ShotPark.exe") { "uninstall over a running copy left files"; exit 1 }
           "installer OK"
 
       - uses: actions/upload-artifact@v4
@@ -101,4 +122,5 @@ jobs:
         if: ${{ github.event.inputs.release_tag != '' && github.event.inputs.release_tag != null }}
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release upload "${{ github.event.inputs.release_tag }}" out/ShotPark-Windows-Setup.exe out/ShotPark-Windows-x64.zip out/ShotPark-Windows-arm64.zip --clobber
+          RELEASE_TAG: ${{ github.event.inputs.release_tag }}
+        run: gh release upload "$env:RELEASE_TAG" out/ShotPark-Windows-Setup.exe out/ShotPark-Windows-x64.zip out/ShotPark-Windows-arm64.zip --clobber
