@@ -185,6 +185,10 @@
     .brew-copy { padding: 3px 8px; font-size: 12px; }
     .shot { margin-top: 16px; }
   }
+  .sr { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+  .tbl { overflow-x: auto; }
+  .cmp, .tbl { position: relative; }
+  @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } .btn:hover { transform: none; } }
 </style>
 </head>
 <body>
@@ -194,9 +198,9 @@
     <nav>
       <a href="#lightshot">Compare</a>
       <a href="#features">Features</a>
-      <a class="hide-sm" href="#keys">Shortcuts</a>
+      <a href="#keys">Shortcuts</a>
       <a href="#install">Install</a>
-      <a class="hide-sm" href="#faq">FAQ</a>
+      <a href="#faq">FAQ</a>
       <a class="hide-sm" href="https://github.com/chiyodad/shotpark">GitHub</a>
       <span class="lang"><a href="../">한국어</a><a class="on" href="./">English</a></span>
     </nav>
@@ -207,16 +211,30 @@
     <h1>ShotPark</h1>
     <p class="lead">A Lightshot alternative for Mac. One hotkey to select a region, annotate it on the spot, and copy, save or share it. <br>Native on Apple Silicon and Intel, zero dependencies, lives quietly in the menu bar — and there's a Windows preview too.</p>
     <div class="cta">
-      <a class="btn primary dl-mac" href="https://github.com/chiyodad/shotpark/releases/latest" title="macOS 13+ · Apple Silicon · Intel">⬇ <span><span class="hide-sm">Download for </span>macOS</span></a>
-      <a class="btn dl-win" href="https://github.com/chiyodad/shotpark/releases/latest/download/ShotPark-Windows-Setup.exe" title="Windows 10/11 · installer (x64 and ARM64)">⬇ <span><span class="hide-sm">Download for </span>Windows</span></a>
+      <a class="btn primary dl-mac" href="https://github.com/chiyodad/shotpark/releases/latest" title="macOS 13+ · Apple Silicon · Intel"><span aria-hidden="true">⬇</span> <span><span class="hide-sm">Download for </span>macOS</span></a>
+      <a class="btn dl-win" href="https://github.com/chiyodad/shotpark/releases/latest/download/ShotPark-Windows-Setup.exe" title="Windows 10/11 · installer (x64 and ARM64)"><span aria-hidden="true">⬇</span> <span><span class="hide-sm">Download for </span>Windows</span></a>
       <a class="btn" href="https://github.com/chiyodad/shotpark">View source</a>
     </div>
-    <div class="brew"><img class="brew-logo" src="../img/homebrew.svg" alt="Homebrew" width="13" height="20"><code>brew install --cask chiyodad/tap/shotpark</code><button type="button" class="brew-copy" data-done="Copied">Copy</button></div>
+    <div class="brew"><img class="brew-logo" src="../img/homebrew.svg" alt="Homebrew" width="13" height="20"><code>brew install --cask chiyodad/tap/shotpark</code><button type="button" class="brew-copy" aria-live="polite" data-done="Copied">Copy</button></div>
     <div class="win-note" hidden>Windows 10/11 · installs without admin rights · or use the <a href="https://github.com/chiyodad/shotpark/releases/latest/download/ShotPark-Windows-x64.zip">portable zip</a> (<a href="https://github.com/chiyodad/shotpark/releases/latest/download/ShotPark-Windows-arm64.zip">ARM</a>)</div>
+    <script>
+  // Highlight the download for the visitor's OS before first paint: Mac → macOS (default), Windows → Windows, others → neither.
+  (function () {
+    var p = (navigator.userAgentData && navigator.userAgentData.platform) || navigator.platform || '', ua = navigator.userAgent;
+    var win = /^Win/i.test(p) || /Windows NT/i.test(ua);
+    var mac = !win && /Mac/i.test(p) && !/iPhone|iPad|iPod/i.test(ua) && !(navigator.maxTouchPoints > 1);
+    if (mac) return;
+    var bm = document.querySelector('.cta .dl-mac'), bw = document.querySelector('.cta .dl-win');
+    var brew = document.querySelector('.brew'), note = document.querySelector('.win-note');
+    if (bm) bm.classList.remove('primary');
+    if (brew) brew.hidden = true;
+    if (win && bm && bw) { bw.classList.add('primary'); bw.parentNode.insertBefore(bw, bm); if (note) note.hidden = false; }
+  })();
+</script>
     <div class="meta">Free · MIT license · everything is processed locally, nothing is ever uploaded</div>
 
     <div class="shot">
-      <video poster="../img/demo-poster.jpg" autoplay muted loop playsinline preload="auto" width="1280" height="800" aria-label="ShotPark demo: pick a region with the hotkey, add a box, arrow, text, numbered stamps and a mosaic, then copy to the clipboard">
+      <video poster="../img/demo-poster.jpg" autoplay muted loop playsinline preload="metadata" width="1280" height="800" aria-label="ShotPark demo: pick a region with the hotkey, add a box, arrow, text, numbered stamps and a mosaic, then copy to the clipboard">
         <source src="../img/demo.mp4" type="video/mp4">
         <source src="../img/demo.webm" type="video/webm">
       </video>
@@ -227,23 +245,24 @@
 
   <section id="lightshot">
     <h2>Why a Lightshot / PicPick alternative?</h2>
-    <p>Lightshot set the bar for quick screenshots: press a key, drag a box, scribble on it, copy. PicPick did the same for millions of Windows users (it's the default choice in Korea). The catch: PicPick has no Mac version at all, and Lightshot's Mac app is an Intel-only build that needs Rosetta on Apple Silicon — if it runs at all. ShotPark keeps that exact workflow and rebuilds it natively for the Mac with Swift and AppKit, with nothing phoning home.</p>
+    <p>Lightshot set the bar for quick screenshots: press a key, drag a box, scribble on it, copy. PicPick did the same for millions of Windows users (it's hugely popular in Korea). The catch: PicPick has no Mac version at all, and Lightshot's Mac app is an Intel-only build that needs Rosetta on Apple Silicon — if it runs at all. ShotPark keeps that exact workflow and rebuilds it natively for the Mac with Swift and AppKit, with nothing phoning home.</p>
     <div class="grid3" style="margin-top:18px">
       <div class="card"><div class="ic">⚡️</div><h3>Same muscle memory</h3><p>Hotkey → drag → annotate → <kbd>⌘C</kbd>. If you used Lightshot or PicPick, you already know how ShotPark works.</p></div>
       <div class="card"><div class="ic">🍎</div><h3>Built for modern Macs</h3><p>Universal native binary (Apple Silicon + Intel) using ScreenCaptureKit. No Rosetta, no Electron, no Java — a small Swift app with zero third-party libraries.</p></div>
-      <div class="card"><div class="ic">🧰</div><h3>More annotation, not less</h3><p>Everything Lightshot had, plus pixelate / blur, text extraction (OCR), stamps and signatures, filled shapes, and annotations you can move, restyle or erase later.</p></div>
+      <div class="card"><div class="ic">🧰</div><h3>More annotation, not less</h3><p>Everything Lightshot had, plus mosaic / blur, text extraction (OCR), stamps and signatures, filled shapes, and annotations you can move, restyle or erase later.</p></div>
     </div>
     <div class="cmp" style="margin-top:22px">
       <table>
-        <tr><th></th><th>macOS built-in</th><th>PicPick</th><th>Lightshot</th><th>CleanShot X</th><th class="me">ShotPark</th></tr>
-        <tr><td>Runs on a Mac</td><td class="ok">●</td><td class="no">✕ Windows only</td><td class="so">△ Intel build</td><td class="ok">●</td><td class="me ok">● Universal (Apple Silicon · Intel)</td></tr>
+        <caption class="sr">Feature comparison: macOS built-in, PicPick, Lightshot, CleanShot X and ShotPark</caption>
+        <tr><th scope="col"></th><th scope="col">macOS built-in</th><th scope="col">PicPick</th><th scope="col">Lightshot</th><th scope="col">CleanShot X</th><th scope="col" class="me">ShotPark</th></tr>
+        <tr><td>Runs on a Mac</td><td class="ok"><span aria-hidden="true">●</span><span class="sr">Yes</span></td><td class="no"><span aria-hidden="true">✕</span><span class="sr">No</span> Windows only</td><td class="so"><span aria-hidden="true">△</span><span class="sr">Partly</span> Intel build</td><td class="ok"><span aria-hidden="true">●</span><span class="sr">Yes</span></td><td class="me ok"><span aria-hidden="true">●</span><span class="sr">Yes</span> Universal (Apple Silicon · Intel)</td></tr>
         <tr><td>Price</td><td>Free</td><td>Free for personal use</td><td>Free</td><td>Paid (US$29+)</td><td class="me">Free · open source (MIT)</td></tr>
-        <tr><td>Annotate right where you captured</td><td class="so">△ separate Markup window</td><td class="so">△ separate editor</td><td class="ok">●</td><td class="ok">●</td><td class="me ok">●</td></tr>
-        <tr><td>Copy to clipboard by default</td><td class="no">✕ saves a file</td><td class="so">△ setting</td><td class="ok">●</td><td class="ok">●</td><td class="me ok">● ⌘C or Enter</td></tr>
-        <tr><td>Pixelate / blur · extract text (OCR)</td><td class="no">✕</td><td class="so">△ pixelate only</td><td class="no">✕</td><td class="ok">●</td><td class="me ok">●</td></tr>
-        <tr><td>Text background (masking) · number · emoji stamps</td><td class="no">✕</td><td class="so">△ some</td><td class="no">✕</td><td class="ok">●</td><td class="me ok">●</td></tr>
-        <tr><td>Share straight to Claude · ChatGPT · Gemini · Slack · KakaoTalk</td><td class="no">✕</td><td class="no">✕</td><td class="no">✕</td><td class="no">✕</td><td class="me ok">●</td></tr>
-        <tr><td>English · Korean UI</td><td class="ok">●</td><td class="ok">●</td><td class="so">△</td><td class="so">△ English</td><td class="me ok">●</td></tr>
+        <tr><td>Annotate right where you captured</td><td class="so"><span aria-hidden="true">△</span><span class="sr">Partly</span> separate Markup window</td><td class="so"><span aria-hidden="true">△</span><span class="sr">Partly</span> separate editor</td><td class="ok"><span aria-hidden="true">●</span><span class="sr">Yes</span></td><td class="ok"><span aria-hidden="true">●</span><span class="sr">Yes</span></td><td class="me ok"><span aria-hidden="true">●</span><span class="sr">Yes</span></td></tr>
+        <tr><td>Copy to clipboard by default</td><td class="no"><span aria-hidden="true">✕</span><span class="sr">No</span> saves a file</td><td class="so"><span aria-hidden="true">△</span><span class="sr">Partly</span> setting</td><td class="ok"><span aria-hidden="true">●</span><span class="sr">Yes</span></td><td class="ok"><span aria-hidden="true">●</span><span class="sr">Yes</span></td><td class="me ok"><span aria-hidden="true">●</span><span class="sr">Yes</span> ⌘C or Enter</td></tr>
+        <tr><td>Mosaic / blur · extract text (OCR)</td><td class="no"><span aria-hidden="true">✕</span><span class="sr">No</span></td><td class="so"><span aria-hidden="true">△</span><span class="sr">Partly</span> mosaic only</td><td class="no"><span aria-hidden="true">✕</span><span class="sr">No</span></td><td class="ok"><span aria-hidden="true">●</span><span class="sr">Yes</span></td><td class="me ok"><span aria-hidden="true">●</span><span class="sr">Yes</span></td></tr>
+        <tr><td>Text background (masking) · number and emoji stamps</td><td class="no"><span aria-hidden="true">✕</span><span class="sr">No</span></td><td class="so"><span aria-hidden="true">△</span><span class="sr">Partly</span> some</td><td class="no"><span aria-hidden="true">✕</span><span class="sr">No</span></td><td class="ok"><span aria-hidden="true">●</span><span class="sr">Yes</span></td><td class="me ok"><span aria-hidden="true">●</span><span class="sr">Yes</span></td></tr>
+        <tr><td>Share straight to Claude · ChatGPT · Gemini · Slack · KakaoTalk</td><td class="no"><span aria-hidden="true">✕</span><span class="sr">No</span></td><td class="no"><span aria-hidden="true">✕</span><span class="sr">No</span></td><td class="no"><span aria-hidden="true">✕</span><span class="sr">No</span></td><td class="no"><span aria-hidden="true">✕</span><span class="sr">No</span></td><td class="me ok"><span aria-hidden="true">●</span><span class="sr">Yes</span></td></tr>
+        <tr><td>English · Korean UI</td><td class="ok"><span aria-hidden="true">●</span><span class="sr">Yes</span></td><td class="ok"><span aria-hidden="true">●</span><span class="sr">Yes</span></td><td class="so"><span aria-hidden="true">△</span><span class="sr">Partly</span></td><td class="so"><span aria-hidden="true">△</span><span class="sr">Partly</span> English</td><td class="me ok"><span aria-hidden="true">●</span><span class="sr">Yes</span></td></tr>
       </table>
       <p class="fine">PicPick's ruler, color picker and whiteboard aren't in ShotPark; it focuses on region capture, annotation and sharing. Based on each product's public information as of October 2026 — <a href="https://github.com/chiyodad/shotpark/issues">tell us</a> if something's off.</p>
     </div>
@@ -265,11 +284,11 @@
 
   <section id="keys">
     <h2>Shortcuts</h2>
-    <table>
-      <tr><th>Action</th><th>macOS</th><th>Windows (preview)</th></tr>
+    <div class="tbl"><table>
+      <tr><th scope="col">Action</th><th scope="col">macOS</th><th scope="col">Windows (preview)</th></tr>
       <tr><td>Start a region capture</td><td><kbd>⌘⇧9</kbd> (changeable in settings) · menu bar icon</td><td><kbd>Ctrl+Shift+9</kbd> (changeable in settings) · tray icon</td></tr>
       <tr><td>Clipboard images</td><td><kbd>⌃⌘V</kbd></td><td><span class="na">coming</span></td></tr>
-      <tr><td>Pixelate / blur tool · extract text or QR · pin to screen (during a capture)</td><td><kbd>B</kbd> · <kbd>⌘⇧C</kbd> · <kbd>⌘⇧P</kbd></td><td><kbd>B</kbd> · coming · coming</td></tr>
+      <tr><td>Mosaic / blur tool · extract text or QR · pin to screen (during a capture)</td><td><kbd>B</kbd> · <kbd>⌘⇧C</kbd> · <kbd>⌘⇧P</kbd></td><td><kbd>B</kbd> · coming · coming</td></tr>
       <tr><td>Select the whole screen</td><td><kbd>⌘A</kbd></td><td><kbd>Ctrl+A</kbd> (the monitor under the pointer)</td></tr>
       <tr><td>Pen / line / arrow / rectangle / ellipse / marker / text / number / emoji / eraser</td><td><kbd>P</kbd> <kbd>L</kbd> <kbd>A</kbd> <kbd>R</kbd> <kbd>E</kbd> <kbd>M</kbd> <kbd>T</kbd> <kbd>N</kbd> <kbd>S</kbd> <kbd>X</kbd></td><td><kbd>P</kbd> <kbd>L</kbd> <kbd>A</kbd> <kbd>R</kbd> <kbd>E</kbd> · <kbd>T</kbd> <kbd>N</kbd> (marker, emoji, eraser coming)</td></tr>
       <tr><td>New line while typing text</td><td><kbd>⇧↩</kbd></td><td><kbd>Shift+Enter</kbd></td></tr>
@@ -280,13 +299,13 @@
       <tr><td>Share menu</td><td><kbd>⌘⇧S</kbd></td><td><span class="na">coming</span></td></tr>
       <tr><td>Grab a whole window</td><td>Click the window instead of dragging</td><td><span class="na">coming</span></td></tr>
       <tr><td>Nudge the region / selected annotation</td><td>Arrow keys (<kbd>⇧</kbd> for 10&nbsp;px)</td><td>Arrow keys (<kbd>Shift</kbd> for 10&nbsp;px)</td></tr>
-      <tr><td>Move / delete / re-edit an annotation</td><td>Drag / <kbd>Delete</kbd> / double-click (select tool)</td><td>Drag / <kbd>Delete</kbd> / click it with the text tool</td></tr>
+      <tr><td>Move / delete / re-edit an annotation</td><td>Drag / <kbd>Delete</kbd> / double-click (select tool)</td><td>Drag / <kbd>Delete</kbd> or <kbd>Backspace</kbd> / click it with the text tool</td></tr>
       <tr><td>Redo</td><td><kbd>⌘⇧Z</kbd></td><td><kbd>Ctrl+Shift+Z</kbd> · <kbd>Ctrl+Y</kbd></td></tr>
       <tr><td>Bigger / smaller text or stamp</td><td><kbd>⌘+</kbd> / <kbd>⌘-</kbd></td><td><kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd> (width / text size steps)</td></tr>
       <tr><td>Rotate selected text or stamp (15°)</td><td><kbd>⌘[</kbd> / <kbd>⌘]</kbd></td><td><span class="na">coming</span></td></tr>
       <tr><td>Undo</td><td><kbd>⌘Z</kbd></td><td><kbd>Ctrl+Z</kbd></td></tr>
-      <tr><td>Cancel</td><td><kbd>Esc</kbd> · right-click</td><td><kbd>Esc</kbd> · right-click</td></tr>
-    </table>
+      <tr><td>Step back / close</td><td><kbd>Esc</kbd> · right-click (text → tool → selection → region → close)</td><td><kbd>Esc</kbd> · right-click (same order as macOS)</td></tr>
+    </table></div>
   </section>
 
   <section id="install">
@@ -318,7 +337,7 @@ cd shotpark
       <div class="n">2</div>
       <div>
         <h3>Allow Screen Recording</h3>
-        <p>On your first capture (<kbd>⌘⇧9</kbd>) macOS asks for Screen Recording permission. Here is what you'll see, in order:</p>
+        <p>The first time ShotPark opens, macOS asks for Screen Recording permission. Here is what you'll see, in order:</p>
         <p>① A system dialog titled <b>Screen Recording</b>: "ShotPark.app would like to record this computer's screen and audio", with <b>Open System Settings</b> and <b>Deny</b> buttons.<br>
         ② In System Settings → <b>Privacy &amp; Security</b> → <b>Screen &amp; System Audio Recording</b>, a list of apps with toggles — turn on the <b>ShotPark.app</b> row.<br>
         ③ Quit ShotPark from the menu bar icon and open it again. The dialog won't appear again for this build.</p>
@@ -335,6 +354,7 @@ cd shotpark
           <li><b>Tray icon</b> — Windows 11 tucks new icons under the <b>^</b> at the right of the taskbar. Drag ShotPark from there onto the taskbar to keep it visible. Clicking the icon also starts a capture.</li>
           <li><b>Start at sign-in</b> — on by default in the installer; switch it in tray icon → Settings.</li>
           <li><b>Using PrtSc</b> — Windows 11 gives PrtSc to the Snipping Tool. Turn off "Use the Print screen key to open screen capture" in <b>Settings → Accessibility → Keyboard</b>, then set PrtSc as the hotkey in ShotPark's Settings.</li>
+          <li><b>Save folder</b> — <kbd>Ctrl+S</kbd> saves straight to your <b>Pictures</b> folder by default; change it in tray icon → Settings.</li>
         </ul>
         <p>This is an early preview: text extraction, pinning, sharing and clipboard history are coming next.</p>
       </div>
@@ -344,7 +364,8 @@ cd shotpark
   <section id="faq">
     <h2>FAQ</h2>
     <details><summary>Does it run on Windows?</summary><p>Yes, as a preview. Use the Windows download button above (installer) or the portable zip. Today it does region capture, pen / line / arrow / rectangle / ellipse / mosaic / text / number annotations, copy and save; text extraction, pinning, sharing and clipboard history come next. Shortcuts use <kbd>Ctrl</kbd> where the Mac uses <kbd>⌘</kbd>, and the capture hotkey defaults to <kbd>Ctrl+Shift+9</kbd> — see the Windows column in the shortcuts table.</p></details>
-    <details><summary>Nothing happens when I press the hotkey</summary><p>Screen Recording permission hasn't been granted yet. Menu bar icon → "Screen Recording permission…", enable ShotPark and relaunch the app. If another app already owns the same global hotkey, change the combination in settings.</p></details>
+    <details><summary>The hotkey only shows a "Screen Recording permission required" alert</summary><p>ShotPark doesn't have Screen Recording permission yet. Click <b>Open System Settings</b> in the alert (or menu bar icon → "Screen Recording Permission…"), turn ShotPark on and relaunch the app.</p></details>
+    <details><summary>Nothing happens at all when I press the hotkey</summary><p>Another app probably owns the same shortcut — ShotPark shows a toast when it can't register it. Pick another combination in Settings, or start a capture from the menu bar icon.</p></details>
     <details><summary>macOS says the app "is damaged and can't be opened"</summary><p>That's the quarantine flag attached to downloaded files. Clear it with <code>xattr -d com.apple.quarantine /Applications/ShotPark.app</code> (see install method 3) Download).</p></details>
     <details><summary>After updating, it asks for Screen Recording again</summary><p>Expected. A new build with a different signature is treated by macOS as a new app, so it asks once more. Enable it and relaunch.</p></details>
     <details><summary>How does sharing to Slack / KakaoTalk / ChatGPT / Gemini work?</summary><p>The image is copied to the clipboard and the file is handed to the app. Apps that accept files (like Slack) open their upload sheet immediately; apps that don't are simply brought to the front, so just paste with ⌘V. Without the ChatGPT / Gemini desktop app, the web app opens instead — paste there.</p></details>
@@ -370,18 +391,10 @@ cd shotpark
     else if (/github\.com\/chiyodad\/shotpark\/?$/.test(h)) ev = 'click-github';
     if (ev) goatcounter.count({ path: ev, title: ev, event: true });
   });
-  // Highlight the download for the visitor's OS (Windows → Windows button first; otherwise macOS).
+  // Respect reduced motion: don't autoplay the demo.
   (function () {
-    var p = (navigator.userAgentData && navigator.userAgentData.platform) || navigator.platform || '';
-    if (!/^Win/i.test(p) && !/Windows NT/i.test(navigator.userAgent)) return;
-    var mac = document.querySelector('.cta .dl-mac'), win = document.querySelector('.cta .dl-win');
-    if (!mac || !win) return;
-    mac.classList.remove('primary');
-    win.classList.add('primary');
-    win.parentNode.insertBefore(win, mac);
-    var brew = document.querySelector('.brew'), note = document.querySelector('.win-note');
-    if (brew) brew.hidden = true;
-    if (note) note.hidden = false;
+    var v = document.querySelector('.shot video');
+    if (v && window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches) { v.removeAttribute('autoplay'); v.pause(); v.controls = true; }
   })();
   document.querySelectorAll('.brew-copy').forEach(function (b) {
     var label = b.textContent;

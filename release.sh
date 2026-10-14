@@ -27,6 +27,7 @@ rm -f "$ZIP"
 ditto -c -k --keepParent build/ShotPark.app "$ZIP"
 SHA=$(shasum -a 256 "$ZIP" | cut -d' ' -f1)
 echo "▶ $ZIP  sha256=$SHA"
+echo "$SHA  ShotPark-$VER.zip" > "$ZIP.sha256"   # checked by docs/install.sh
 
 # Windows build (cross-published from the Mac): single-file exes, same version number.
 # Version-free names keep https://github.com/$REPO/releases/latest/download/ShotPark-Windows-x64.zip stable.
@@ -53,9 +54,9 @@ fi
 git tag "v$VER"
 git push -q origin main && git push -q origin "v$VER"
 if gh release view "v$VER" -R "$REPO" >/dev/null 2>&1; then
-  gh release upload "v$VER" "$ZIP" $WINZIPS -R "$REPO" --clobber
+  gh release upload "v$VER" "$ZIP" "$ZIP.sha256" $WINZIPS -R "$REPO" --clobber
 else
-  gh release create "v$VER" "$ZIP" $WINZIPS -R "$REPO" --title "ShotPark $VER" --notes "$NOTES"
+  gh release create "v$VER" "$ZIP" "$ZIP.sha256" $WINZIPS -R "$REPO" --title "ShotPark $VER" --notes "$NOTES"
 fi
 
 # Homebrew cask in the tap repo (edited via the GitHub API, no clone needed)
@@ -86,11 +87,12 @@ cask "shotpark" do
   end
 
   caveats <<~EOS
-    First capture asks for Screen Recording permission: enable ShotPark in
+    The first time ShotPark opens, macOS asks for Screen Recording permission: enable it in
     System Settings → Privacy & Security → Screen & System Audio Recording, then quit and relaunch it once.
   EOS
 
   zap trash: [
+    "~/Library/Application Support/ShotPark",
     "~/Library/Preferences/ai.worxphere.suseok.shotpark.plist",
   ]
 end

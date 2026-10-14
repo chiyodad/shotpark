@@ -48,11 +48,11 @@ If you used Lightshot or PicPick on Windows, you already know how it works: hotk
 - Multi-monitor, Retina-resolution capture via ScreenCaptureKit (macOS 14+, automatic fallback below).
 
 **Annotate**
-- Pen · line · arrow · rectangle · ellipse · marker (highlighter) · multi-line text · numbered stamps · emoji stamps · **image stamps** (your signature, logo or any picture); 10-color palette (customizable in Settings), 3 stroke widths plus a **dashed** toggle, arrow heads as an open **chevron (>)** or a **circle** "pointer", undo/redo.
+- Pen · line · arrow · rectangle · ellipse · marker (highlighter) · multi-line text · number stamps · emoji stamps · **image stamps** (your signature, logo or any picture); 10-color palette (customizable in Settings), 3 stroke widths plus a **dashed** toggle, arrow heads as an open **chevron (>)** or a **circle** "pointer", undo/redo.
 - Drag any annotation to move it, nudge with arrow keys, Delete to remove; double-click text to edit it again.
 - Text: 3 size presets or 8–200 free entry, togglable shadow / outline / background box (any combination), box color and opacity. `⌘+` / `⌘-` to resize.
 - **Fill** for rectangles and ellipses: none or filled in the shape's color, with an opacity slider (10–100%) — handy for translucent highlight boxes.
-- **Mosaic / blur** (`B`): drag over names, numbers or emails to hide them — pixelate or blur, light / medium / strong. Taken from the original screen, so arrows and text on top stay sharp; move, erase and undo like any annotation.
+- **Mosaic / blur** (`B`): drag over names, numbers or emails to hide them — pixelate (mosaic) or blur, light / medium / strong. Taken from the original screen, so arrows and text on top stay sharp; move, erase and undo like any annotation.
 - What you see is exactly what gets exported (same renderer).
 
 **Export**
@@ -67,7 +67,7 @@ If you used Lightshot or PicPick on Windows, you already know how it works: hotk
 **And**
 - Menu-bar only (no Dock icon), optional launch at login, English or Korean UI following your macOS language.
 - A once-a-day update check shows an "Update to x.y.z" item in the menu when a new release is out.
-- Settings: capture hotkey, save folder, direct-save behaviour, annotation palette.
+- Settings: capture, clipboard, mosaic, text-extraction and pin hotkeys; save folder; direct-save behavior; annotation palette; Beautify shadow / rounded corners; clipboard history.
 - No external libraries. The whole app is a handful of Swift files.
 
 <p align="center">
@@ -113,11 +113,11 @@ Needs only the Xcode Command Line Tools (`xcode-select --install`). `./build.sh`
 
 ### 2. Allow Screen Recording
 
-On your first capture (`⌘⇧9`) macOS asks for Screen Recording permission. Click **"Open System Settings"**, turn **ShotPark** on in the list, then quit the app once (menu bar icon → Quit) and relaunch it. The first-launch welcome window walks you through this.
+The first time ShotPark opens, macOS asks for Screen Recording permission. Click **"Open System Settings"**, turn **ShotPark** on in the list, then quit the app once (menu bar icon → Quit) and relaunch it. The first-launch welcome window walks you through this.
 
 ## Windows (preview)
 
-A native Windows version lives in [`windows/`](windows/) (C# / .NET 10, WinForms). It is an early preview: region capture over all monitors, pen / line / arrow / rectangle / ellipse / mosaic / text / number, colors and widths, undo, copy (`Ctrl+C` / `Enter`) and save (`Ctrl+S`), a tray icon and settings. The default hotkey is `Ctrl+Shift+9` (`PrtSc` works too, set it in Settings). Text extraction, pinning, sharing and clipboard history are next.
+A native Windows version lives in [`windows/`](windows/) (C# / .NET 10, WinForms). It is an early preview: region capture over all monitors, pen / line / arrow / rectangle / ellipse / mosaic / text / number, colors and widths, undo, copy (`Ctrl+C` / `Enter`) and save (`Ctrl+S`), a tray icon and settings. The default hotkey is `Ctrl+Shift+9` (`PrtSc` works too, set it in Settings). `Ctrl+S` saves to your Pictures folder by default, and `Esc` / right-click step back one stage at a time, as on the Mac. Text extraction, pinning, sharing and clipboard history are next.
 
 Download and run **[ShotPark-Windows-Setup.exe](https://github.com/chiyodad/shotpark/releases/latest/download/ShotPark-Windows-Setup.exe)** — a per-user installer (no admin rights) with a Start menu entry and an optional start-at-sign-in, for both x64 and ARM PCs. Prefer no install? The portable [x64 zip](https://github.com/chiyodad/shotpark/releases/latest/download/ShotPark-Windows-x64.zip) / [ARM64 zip](https://github.com/chiyodad/shotpark/releases/latest/download/ShotPark-Windows-arm64.zip) is a single `ShotPark.exe`. No .NET install needed either way. It isn't code-signed, so if SmartScreen warns, choose **More info → Run anyway**. To build it yourself:
 
@@ -138,12 +138,11 @@ dotnet publish src/ShotPark.Win -c Release -r win-x64 --self-contained -p:Publis
 | Select (move / resize) mode | `V` or click the active tool again |
 | Nudge the region / selected annotation | Arrow keys (`⇧` for 10 px) |
 | Delete the selected annotation | `Delete` |
-| Redo | `⌘⇧Z` |
 | Copy to clipboard and close | `⌘C` or `Enter` |
 | Paste an image as a stamp (e.g. a copied signature) | `⌘V` |
 | Save as PNG | `⌘S` |
 | Share menu | `⌘⇧S` |
-| Undo | `⌘Z` |
+| Undo / Redo | `⌘Z` / `⌘⇧Z` |
 | Cancel | `Esc` (stepwise: text entry → tool → annotation selection → region → close) · right-click |
 
 - Text tool (`T`): click to open an input box, `Enter` to commit, `⇧Enter` for a new line, `Esc` to cancel. With the text tool active an options bar offers size presets and style toggles; changes apply while typing.
@@ -160,15 +159,21 @@ dotnet publish src/ShotPark.Win -c Release -r win-x64 --self-contained -p:Publis
 ### Settings (`⌘,` or menu bar → Settings…)
 
 - **Capture hotkey** — click the box and press a combination; applies immediately. Must include `⌘`/`⌥`/`⌃` or be an F key.
+- **Clipboard images · Mosaic · Extract text · Pin hotkeys** — each can be changed or reset with "Default". Mosaic, Extract text and Pin only work during a capture, so a single key like `B` is fine.
 - **Save folder** — defaults to Desktop.
 - **Direct save** — `⌘S` saves without a dialog (on) or shows one (off).
 - **Also copy on save** (default on) / **Also save on copy** (default off).
-- **Palette** — the 10 annotation colours; click one to change it, "Default" restores.
+- **Palette** — the 10 annotation colors; click one to change it, "Default" restores.
+- **Beautify** — turn the shadow and the rounded corners on or off.
+- **Clipboard** — keep the last 30 copied images (on/off) and clear them.
 
 ## FAQ
 
-**Nothing happens when I press the hotkey.**
-Screen Recording permission hasn't been granted yet. Menu bar icon → "Screen Recording Permission…", enable ShotPark and relaunch. If another app owns the same global hotkey, change the combination in Settings.
+**I press the hotkey and only get a "Screen Recording permission required" alert.**
+ShotPark doesn't have Screen Recording permission yet. Click **Open System Settings** in the alert (or menu bar icon → "Screen Recording Permission…"), turn ShotPark on and relaunch the app.
+
+**Nothing happens at all when I press the hotkey.**
+Another app probably owns the same shortcut — ShotPark shows a toast when it can't register it. Pick another combination in Settings, or start a capture from the menu bar icon.
 
 **macOS says the app "is damaged and can't be opened".**
 That's the quarantine flag on downloaded files. Clear it with `xattr -d com.apple.quarantine /Applications/ShotPark.app` (install method 3, Download).
@@ -205,8 +210,15 @@ Sources/ShotPark/
   Welcome.swift         first-launch guide
   UpdateChecker.swift   GitHub Releases check
   ImageStamps.swift     user image stamps (signatures, logos) stored in Application Support
+  Mosaic.swift          mosaic / blur effect (taken from the original screen)
+  Beautify.swift        margin, shadow and rounded corners for exports
+  PinWindow.swift       pin-to-screen floating windows
+  TextRecognizer.swift  text and QR extraction (Vision, on-device)
+  ClipboardHistory.swift / ClipboardHistoryWindow.swift  clipboard image history and its thumbnail window
   L10n.swift            Korean / English string selection (follows macOS language)
 Info.plist              LSUIElement (menu-bar only), permission strings
+Resources/              localized permission strings (en.lproj, ko.lproj)
+makeicon.swift          fallback icon generator used when icon.png is missing
 build.sh                build (universal) → .app bundle → icon → sign → install
 release.sh              build → zip → GitHub release → Homebrew cask (chiyodad/homebrew-tap)
 docs/                   website (shotpark.site) + screenshots + install.sh
