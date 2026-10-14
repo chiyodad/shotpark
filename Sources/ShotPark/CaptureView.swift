@@ -30,11 +30,22 @@ final class CaptureView: NSView, NSTextViewDelegate {
 
     private(set) var shapes: [Shape] = []
     private var currentShape: Shape?
-    private var redoStack: [Shape] = []
-    /// Index of the annotation highlighted for move / delete (selection tool).
-    /// Eraser: shapes removed by the current drag, and per-gesture records so ⌘Z can bring them back.
+
+    /// One undoable change to `shapes`. Every edit — drawing, stamping, deleting, erasing, moving,
+    /// resizing, rotating, restyling, re-editing text — is recorded here so ⌘Z reverts exactly that.
+    private enum Edit {
+        case add(Int, Shape)                                            // inserted at index
+        case remove([(Int, Shape)])                                     // removed (index, shape), in removal order
+        case replace(Int, before: Shape, after: Shape, key: String?)   // edited in place; equal keys coalesce
+    }
+    private var undoStack: [Edit] = []
+    private var redoStack: [Edit] = []
+    /// Eraser: shapes removed by the current drag; recorded as one undo step on mouse-up.
     private var eraseGesture: [(Int, Shape)] = []
-    private var eraseLog: [(countAfter: Int, erased: [(Int, Shape)])] = []
+    /// Snapshot of the shape being dragged / scaled, so the gesture becomes one undo step.
+    private var editBefore: (Int, Shape)?
+    /// The text annotation being re-edited (removed from `shapes` while the editor is open).
+    private var editingOriginal: (Int, Shape)?
     private var eraserHover: Int? { didSet { needsDisplay = true } }
 
     /// Rotation of a text annotation being re-edited (the editor itself is always upright).
@@ -232,11 +243,10 @@ final class CaptureView: NSView, NSTextViewDelegate {
 
     func reset() {
         commitText()
+        if case .move = drag { NSCursor.pop() } else if case .moveShape = drag { NSCursor.pop() }
         state = .idle
         selection = .zero
-        shapes = []
-        redoStack = []
-        eraseLog = []
+        clearAnnotations()
         selectedShape = nil
         hoverWindowRect = nil
         currentShape = nil
@@ -361,12 +371,10 @@ final class CaptureView: NSView, NSTextViewDelegate {
     private func pasteImageStamp() -> Bool {
         guard state == .selected,
               let img = NSImage(pasteboard: NSPasteboard.general),
-              let name = ImageStamps.add(img) else { return false }
-        emojiOptions.images = ImageStamps.names
-        stampImage = name
-        shapes.append(Shape(tool: .emoji, points: [CGPoint(x: selection.midX, y: selection.midY)], color: color,
-                            lineWidth: lineWidth, text: "", fontSize: emojiSize, imageName: name))
-        redoStack = []
+              let name = ImageStamps.addTransient(img) else { return false }
+        // A pasted image is placed once; it is not saved into the user's stamp list.
+        recordAdd(Shape(tool: .emoji, points: [CGPoint(x: selection.midX, y: selection.midY)], color: color,
+                        lineWidth: lineWidth, text: "", fontSize: emojiSize, imageName: name))
         tool = .move
         selectedShape = shapes.count - 1
         window?.invalidateCursorRects(for: self)
@@ -509,7 +517,9 @@ final class CaptureView: NSView, NSTextViewDelegate {
     @discardableResult
     private func applyToSelection(_ change: (inout Shape) -> Void) -> Bool {
         guard let i = editableSelection else { return false }
+        let before = shapes[i]
         change(&shapes[i])
+        recordReplace(i, before: before, key: "style")
         needsDisplay = true
         return true
     }
@@ -591,8 +601,8 @@ final class CaptureView: NSView, NSTextViewDelegate {
         menu.autoenablesItems = false
         let targets = ShareTarget.available
         for target in targets {
-            let title = target.isInstalled ? L("\(target.name)(으)로 보내기", "Send to \(target.name)")
-                                           : L("\(target.name)(으)로 보내기 (웹)", "Send to \(target.name) (web)")
+            let title = target.isInstalled ? L("\(target.name)\(Self.toParticle(target.name)) 보내기", "Send to \(target.name)")
+                                           : L("\(target.name)\(Self.toParticle(target.name)) 보내기 (웹)", "Send to \(target.name) (web)")
             let item = NSMenuItem(title: title, action: #selector(shareToApp(_:)), keyEquivalent: "")
             item.target = self
             item.representedObject = target.name
@@ -613,6 +623,13 @@ final class CaptureView: NSView, NSTextViewDelegate {
         menu.popUp(positioning: nil, at: NSPoint(x: anchor.minX, y: anchor.minY - 4), in: toolbar)
     }
 
+    /// "로" after a vowel-ending or ㄹ-ending Hangul syllable (and Latin names), "으로" otherwise.
+    static func toParticle(_ name: String) -> String {
+        guard let last = name.unicodeScalars.last, (0xAC00...0xD7A3).contains(last.value) else { return "로" }
+        let jong = (Int(last.value) - 0xAC00) % 28
+        return jong == 0 || jong == 8 ? "로" : "으로"
+    }
+
     @objc private func shareToApp(_ sender: NSMenuItem) {
         guard let name = sender.representedObject as? String,
               let target = ShareTarget.all.first(where: { $0.name == name }),
@@ -631,27 +648,95 @@ final class CaptureView: NSView, NSTextViewDelegate {
     @objc func undo(_ sender: Any?) { undoLast() }
     @objc func copy(_ sender: Any?) { if state == .selected { copyToClipboard() } }
 
-    func undoLast() {
-        if textEditor != nil { cancelText(); return }
-        if let last = eraseLog.last, last.countAfter == shapes.count {
-            eraseLog.removeLast()
-            for (i, sh) in last.erased.reversed() { shapes.insert(sh, at: min(i, shapes.count)) }
-            selectedShape = nil
-            window?.invalidateCursorRects(for: self)
-            needsDisplay = true
-            return
-        }
-        if !shapes.isEmpty {
-            redoStack.append(shapes.removeLast())
-            selectedShape = nil
-            window?.invalidateCursorRects(for: self)
-            needsDisplay = true
+    // MARK: undo / redo
+
+    var canUndo: Bool { !undoStack.isEmpty }
+    var canRedo: Bool { !redoStack.isEmpty }
+
+    private func clearAnnotations() {
+        shapes = []
+        undoStack = []
+        redoStack = []
+        eraseGesture = []
+        editBefore = nil
+        editingOriginal = nil
+    }
+
+    private func push(_ e: Edit) {
+        undoStack.append(e)
+        redoStack = []
+    }
+
+    /// Appends a shape as one undo step and makes it the current selection.
+    @discardableResult
+    private func recordAdd(_ sh: Shape) -> Int {
+        shapes.append(sh)
+        push(.add(shapes.count - 1, sh))
+        selectedShape = shapes.count - 1
+        window?.invalidateCursorRects(for: self)
+        needsDisplay = true
+        return shapes.count - 1
+    }
+
+    private func recordRemove(at i: Int) {
+        guard i < shapes.count else { return }
+        push(.remove([(i, shapes.remove(at: i))]))
+        selectedShape = nil
+        window?.invalidateCursorRects(for: self)
+        needsDisplay = true
+    }
+
+    /// Records an in-place edit of shapes[i]. Consecutive edits with the same non-nil key
+    /// (slider drags, repeated nudges) merge into one step. No-op changes are dropped.
+    private func recordReplace(_ i: Int, before: Shape, key: String? = nil) {
+        guard i < shapes.count, shapes[i] != before else { return }
+        if let key, case .replace(let j, let b0, _, let k0)? = undoStack.last, j == i, k0 == key {
+            undoStack[undoStack.count - 1] = .replace(i, before: b0, after: shapes[i], key: key)
+        } else {
+            push(.replace(i, before: before, after: shapes[i], key: key))
         }
     }
 
+    /// Call when a drag that edits shapes[i] starts; `endEdit` turns it into one undo step.
+    private func beginEdit(_ i: Int) { editBefore = i < shapes.count ? (i, shapes[i]) : nil }
+    private func endEdit() {
+        if let (i, before) = editBefore { recordReplace(i, before: before) }
+        editBefore = nil
+    }
+
+    func undoLast() {
+        if textEditor != nil { cancelText(); return }
+        guard var e = undoStack.popLast() else { return }
+        switch e {
+        case .add(let i, _):
+            guard i < shapes.count else { return }
+            e = .add(i, shapes.remove(at: i))
+        case .remove(let list):
+            for (i, sh) in list.reversed() { shapes.insert(sh, at: min(i, shapes.count)) }
+        case .replace(let i, let before, _, _):
+            guard i < shapes.count else { return }
+            shapes[i] = before
+        }
+        redoStack.append(e)
+        selectedShape = nil
+        window?.invalidateCursorRects(for: self)
+        needsDisplay = true
+    }
+
     func redoLast() {
-        guard let sh = redoStack.popLast() else { return }
-        shapes.append(sh)
+        if textEditor != nil { return }
+        guard let e = redoStack.popLast() else { return }
+        switch e {
+        case .add(let i, let sh):
+            shapes.insert(sh, at: min(i, shapes.count))
+        case .remove(let list):
+            for (i, _) in list where i < shapes.count { shapes.remove(at: i) }
+        case .replace(let i, _, let after, _):
+            guard i < shapes.count else { return }
+            shapes[i] = after
+        }
+        undoStack.append(e)
+        selectedShape = nil
         window?.invalidateCursorRects(for: self)
         needsDisplay = true
     }
@@ -676,6 +761,7 @@ final class CaptureView: NSView, NSTextViewDelegate {
 
         // Corner handle of the selected stamp: drag to resize it.
         if let h = stampHandleRect(), h.insetBy(dx: -4, dy: -4).contains(p), let i = selectedShape, let c = shapes[i].points.first {
+            beginEdit(i)
             drag = .scaleShape(i, startSize: shapes[i].fontSize, center: c, startDist: max(hypot(p.x - c.x, p.y - c.y), 1))
             return
         }
@@ -684,6 +770,7 @@ final class CaptureView: NSView, NSTextViewDelegate {
         if state == .selected, tool == .move || tool == .text, let i = shapeIndex(at: p) {
             if event.clickCount == 2, shapes[i].tool == .text { editTextShape(at: i); return }
             selectedShape = i
+            beginEdit(i)
             drag = .moveShape(i, startPoints: shapes[i].points, start: p)
             NSCursor.closedHand.push()
             return
@@ -692,6 +779,7 @@ final class CaptureView: NSView, NSTextViewDelegate {
         if state == .selected, tool == .emoji || tool == .number,
            let i = shapes.indices.reversed().first(where: { (shapes[$0].tool == .emoji || shapes[$0].tool == .number) && shapes[$0].hitTest(p) }) {
             selectedShape = i
+            beginEdit(i)
             drag = .moveShape(i, startPoints: shapes[i].points, start: p)
             NSCursor.closedHand.push()
             return
@@ -721,25 +809,18 @@ final class CaptureView: NSView, NSTextViewDelegate {
                     return
                 }
                 if tool == .emoji {
-                    shapes.append(Shape(tool: .emoji, points: [p], color: color, lineWidth: lineWidth,
-                                        text: stampImage == nil ? emoji : "", fontSize: emojiSize, imageName: stampImage))
-                    redoStack = []
+                    let sh = Shape(tool: .emoji, points: [p], color: color, lineWidth: lineWidth,
+                                   text: stampImage == nil ? emoji : "", fontSize: emojiSize, imageName: stampImage)
                     // A photo / signature is usually placed once and then moved, resized or rotated:
                     // switch to the select tool. ⌥-click keeps the image loaded to stamp it again.
                     if stampImage != nil, !event.modifierFlags.contains(.option) { tool = .move }
-                    selectedShape = shapes.count - 1 // shows the resize handle; ⌘+/⌘− resize it
-                    window?.invalidateCursorRects(for: self)
-                    needsDisplay = true
+                    recordAdd(sh) // selected: shows the resize handle; ⌘+/⌘− resize it
                     return
                 }
                 if tool == .number {
                     let next = (shapes.filter { $0.tool == .number }.compactMap { Int($0.text) }.max() ?? 0) + 1
-                    shapes.append(Shape(tool: .number, points: [p], color: color, lineWidth: lineWidth,
-                                        text: "\(next)", fontSize: textSize))
-                    redoStack = []
-                    selectedShape = shapes.count - 1
-                    window?.invalidateCursorRects(for: self)
-                    needsDisplay = true
+                    recordAdd(Shape(tool: .number, points: [p], color: color, lineWidth: lineWidth,
+                                    text: "\(next)", fontSize: textSize))
                     return
                 }
                 currentShape = Shape(tool: tool, points: [p, p], color: color, lineWidth: lineWidth, dashed: dashed, arrowHead: arrowHead)
@@ -753,7 +834,7 @@ final class CaptureView: NSView, NSTextViewDelegate {
 
         // start a brand-new selection
         clickOutsideSelection = state == .selected
-        shapes = []
+        clearAnnotations()
         currentShape = nil
         state = .selecting
         selection = CGRect(origin: p, size: .zero)
@@ -837,21 +918,24 @@ final class CaptureView: NSView, NSTextViewDelegate {
         case .resize:
             selection = selection.integral
             if selection.width < 4 || selection.height < 4 {
-                state = .idle; selection = .zero; shapes = []
+                state = .idle; selection = .zero; clearAnnotations()
             }
         case .draw:
-            if let s = currentShape, !(s.tool == .mosaic && (s.rect.width < 3 || s.rect.height < 3)) {
-                shapes.append(s); redoStack = []
+            // A plain click with a drawing tool leaves no invisible zero-size shape behind
+            // (a single pen / marker dot is fine).
+            if let s = currentShape, s.tool == .pen || s.tool == .marker || (s.rect.width >= 3 || s.rect.height >= 3) {
                 // Keep the new shape "current": width / dash / colour changes right after drawing apply to it.
-                selectedShape = shapes.count - 1
+                recordAdd(s)
             }
             currentShape = nil
         case .erase:
-            if !eraseGesture.isEmpty { eraseLog.append((countAfter: shapes.count, erased: eraseGesture)) }
+            if !eraseGesture.isEmpty { push(.remove(eraseGesture)) }
             eraseGesture = []
         case .moveShape:
             NSCursor.pop()
+            endEdit()
         case .scaleShape(let i, _, _, _):
+            endEdit()
             if i < shapes.count, shapes[i].tool == .emoji { emojiSize = shapes[i].fontSize.rounded() } // next stamp keeps this size
         case .none:
             break
@@ -908,12 +992,7 @@ final class CaptureView: NSView, NSTextViewDelegate {
             return
         }
         if code == 51 || code == 117 { // delete / forward delete
-            if let i = selectedShape, i < shapes.count {
-                redoStack.append(shapes.remove(at: i))
-                selectedShape = nil
-                window?.invalidateCursorRects(for: self)
-                needsDisplay = true
-            }
+            if let i = selectedShape { recordRemove(at: i) }
             return
         }
         if (123...126).contains(code), state == .selected { // arrows nudge selection or the selected shape
@@ -926,7 +1005,9 @@ final class CaptureView: NSView, NSTextViewDelegate {
             default:  d = CGPoint(x: 0, y: step)
             }
             if let i = selectedShape, i < shapes.count {
+                let before = shapes[i]
                 shapes[i] = shapes[i].translated(by: d)
+                recordReplace(i, before: before, key: "nudge")
             } else {
                 var r = selection.offsetBy(dx: d.x, dy: d.y)
                 r.origin.x = min(max(r.origin.x, 0), bounds.width - r.width)
@@ -989,7 +1070,9 @@ final class CaptureView: NSView, NSTextViewDelegate {
     func stepStampSize(_ dir: Int) {
         let f: CGFloat = dir > 0 ? 1.15 : 1 / 1.15
         if let i = selectedShape, isStamp(i) {
+            let before = shapes[i]
             shapes[i].fontSize = min(max(shapes[i].fontSize * f, 8), 400)
+            recordReplace(i, before: before, key: "size")
             if shapes[i].tool == .emoji { emojiSize = shapes[i].fontSize.rounded() }
         } else {
             emojiSize = min(max(emojiSize * f, 12), 300).rounded()
@@ -1004,6 +1087,7 @@ final class CaptureView: NSView, NSTextViewDelegate {
     /// dir: -1 = ↺ counter-clockwise, 1 = ↻ clockwise, 0 = reset.
     func rotateSelected(_ dir: Int) {
         guard let i = selectedShape, i < shapes.count, shapes[i].isRotatable else { return }
+        let before = shapes[i]
         if dir == 0 { shapes[i].rotation = 0 }
         else {
             var r = shapes[i].rotation + (dir < 0 ? Self.rotateStep : -Self.rotateStep)
@@ -1011,6 +1095,7 @@ final class CaptureView: NSView, NSTextViewDelegate {
             if abs(r) >= 2 * .pi - 0.001 { r = 0 }
             shapes[i].rotation = abs(r) < 0.001 ? 0 : r
         }
+        recordReplace(i, before: before, key: "rotate")
         window?.invalidateCursorRects(for: self)
         needsDisplay = true
     }
@@ -1086,7 +1171,6 @@ final class CaptureView: NSView, NSTextViewDelegate {
         eraseGesture.append((i, shapes.remove(at: i)))
         selectedShape = nil
         eraserHover = nil
-        redoStack = []
         needsDisplay = true
     }
 
@@ -1131,6 +1215,8 @@ final class CaptureView: NSView, NSTextViewDelegate {
     private func editTextShape(at i: Int) {
         guard i < shapes.count, shapes[i].tool == .text, let o = shapes[i].points.first else { return }
         let sh = shapes.remove(at: i)
+        editingOriginal = (i, sh)
+        selectedShape = nil
         editingRotation = sh.rotation
         color = sh.color
         textSize = sh.fontSize
@@ -1198,14 +1284,28 @@ final class CaptureView: NSView, NSTextViewDelegate {
     private func commitText() {
         guard let tv = textEditor else { return }
         let text = tv.string.trimmingCharacters(in: .whitespacesAndNewlines)
+        let original = editingOriginal
+        editingOriginal = nil
         if !text.isEmpty {
             let origin = editingTextOrigin ?? CGPoint(x: tv.frame.minX + 2, y: tv.frame.maxY - textSize * 0.2)
             var sh = Shape(tool: .text, points: [origin], color: color, lineWidth: lineWidth,
                            text: text, fontSize: textSize, textStyle: textStyle,
                            boxColor: boxColor, boxAlpha: boxAlpha)
             sh.rotation = editingRotation
-            shapes.append(sh)
-            redoStack = []
+            if let (i, before) = original {
+                // Re-edit: the annotation keeps its place in the stack and becomes one undo step.
+                let at = min(i, shapes.count)
+                shapes.insert(sh, at: at)
+                recordReplace(at, before: before)
+            } else {
+                recordAdd(sh)
+                selectedShape = nil
+            }
+        } else if let (i, before) = original {
+            // Emptied while re-editing: that deletes the annotation, undoably.
+            let at = min(i, shapes.count)
+            shapes.insert(before, at: at)
+            recordRemove(at: at)
         }
         editingRotation = 0
         tv.removeFromSuperview()
@@ -1218,6 +1318,8 @@ final class CaptureView: NSView, NSTextViewDelegate {
     private func cancelText() {
         textEditor?.removeFromSuperview()
         textEditor = nil
+        if let (i, sh) = editingOriginal { shapes.insert(sh, at: min(i, shapes.count)) } // put the original back untouched
+        editingOriginal = nil
         editingRotation = 0
         window?.makeFirstResponder(self)
         needsDisplay = true
@@ -1716,6 +1818,31 @@ extension CaptureView {
         key(53) // Esc → tool back to move
         check("Esc leaves tool → move", tool == .move && state == .selected)
 
+        // 4b. the undo stack records what actually changed, not just "the last shape"
+        selectedShape = 1                                   // stamp "2"
+        key(51)                                             // Delete
+        check("Delete removes the selected stamp", shapes.map(\.text) == ["1", "3"], "\(shapes.map(\.text))")
+        undoLast()
+        check("undo restores the deleted stamp in place", shapes.map(\.text) == ["1", "2", "3"], "\(shapes.map(\.text))")
+        redoLast()
+        check("redo deletes it again", shapes.map(\.text) == ["1", "3"])
+        undoLast()
+        let p0 = shapes[0].points[0]
+        selectedShape = 0
+        key(124)                                            // → nudge 1px
+        key(124)
+        check("nudge moves the selected stamp", shapes[0].points[0].x == p0.x + 2, "\(shapes[0].points[0])")
+        undoLast()
+        check("undo reverts the whole nudge, keeps the shape", shapes.count == 3 && shapes[0].points[0] == p0, "\(shapes[0].points[0])")
+        selectedShape = 2
+        let sz = shapes[2].fontSize
+        stepStampSize(+1)
+        check("resize changes the stamp", shapes[2].fontSize > sz)
+        undoLast()
+        check("undo reverts the resize", shapes[2].fontSize == sz && shapes.count == 3)
+        selectedShape = nil
+        tool = .move
+
         // 5. emoji stamp + cursor + 10-slot bar
         tool = .emoji
         let before = emojiOptions.choiceCount
@@ -1770,6 +1897,55 @@ extension CaptureView {
             check("image stamp removed", !ImageStamps.names.contains(name))
             key(53)
         } else { check("image stamp saved", false, "add failed") }
+
+        // 5c. ⌘V pastes a one-off stamp without touching the saved stamp list
+        do {
+            let savedNames = ImageStamps.names
+            let pb = NSPasteboard.general
+            let saved = pb.pasteboardItems?.compactMap { item -> NSPasteboardItem? in
+                let copy = NSPasteboardItem()
+                for t in item.types { if let d = item.data(forType: t) { copy.setData(d, forType: t) } }
+                return copy
+            } ?? []
+            let img = NSImage(size: NSSize(width: 40, height: 30), flipped: false) { r in NSColor.systemTeal.setFill(); r.fill(); return true }
+            pb.clearContents(); pb.writeObjects([img])
+            let n = shapes.count
+            let pasted = pasteImageStamp()
+            check("⌘V places a pasted image", pasted && shapes.count == n + 1 && shapes.last?.imageName?.hasPrefix("paste-") == true, "\(shapes.last?.imageName ?? "-")")
+            check("pasted image is not saved as a stamp", ImageStamps.names == savedNames)
+            undoLast()
+            check("undo removes the pasted image", shapes.count == n)
+            pb.clearContents(); if !saved.isEmpty { pb.writeObjects(saved) }
+        }
+
+        // 5e. re-editing a text annotation: Esc keeps the original, commit is one undo step
+        do {
+            tool = .text
+            let n = shapes.count
+            beginText(at: CGPoint(x: 150, y: H - 320))
+            textEditor?.string = "hello"
+            commitText()
+            check("text committed", shapes.count == n + 1 && shapes.last?.text == "hello")
+            let ti = shapes.count - 1
+            tool = .move
+            editTextShape(at: ti)
+            check("re-edit removes the text while editing", shapes.count == n && textEditor?.string == "hello")
+            cancelText()
+            check("Esc while re-editing keeps the original", shapes.count == n + 1 && shapes[ti].text == "hello", "\(shapes.map(\.text))")
+            editTextShape(at: ti)
+            textEditor?.string = "hello again"
+            commitText()
+            check("re-edit commits the new text in place", shapes.count == n + 1 && shapes[ti].text == "hello again")
+            undoLast()
+            check("undo after re-edit restores the old wording", shapes.count == n + 1 && shapes[ti].text == "hello", "\(shapes.map(\.text))")
+            undoLast()
+            check("undo again removes the text", shapes.count == n)
+            redoLast(); redoLast()
+            check("redo twice brings back the edited text", shapes.count == n + 1 && shapes[ti].text == "hello again")
+            selectedShape = ti
+            key(51)
+            selectedShape = nil
+        }
 
         // 5d. resize + rotate a freshly placed emoji stamp
         tool = .emoji

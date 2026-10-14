@@ -12,27 +12,37 @@ APP="build/$NAME.app"
 ARCHS="${SHOTPARK_ARCH:-arm64 x86_64}"
 # SwiftPM with only the Command Line Tools can't do a multi-arch build in one go (needs Xcode's
 # xcbuild), so build each slice separately and glue them with lipo.
+# The output directory depends on the toolchain (.build/<arch>-apple-macosx/release with the
+# classic driver, .build/out/Products/Release with the newer one), so ask SwiftPM where it put
+# each slice and copy it aside before building the next one.
+mkdir -p build
+SLICES=()
 for a in ${=ARCHS}; do
   echo "▶ swift build (release, $a)"
   swift build -c release --arch "$a"
+  BINDIR="$(swift build -c release --arch "$a" --show-bin-path)"
+  [ -f "$BINDIR/$NAME" ] || { echo "빌드 실패: $BINDIR/$NAME 이(가) 없습니다"; exit 1; }
+  # Make sure this really is a fresh build of the current sources, not a stale file.
+  if [ -n "$(find Sources -name '*.swift' -newer "$BINDIR/$NAME")" ]; then
+    echo "빌드 실패: $BINDIR/$NAME 이(가) 소스보다 오래됐습니다"; exit 1
+  fi
+  cp "$BINDIR/$NAME" "build/$NAME.$a"
+  SLICES+=("build/$NAME.$a")
 done
-mkdir -p build
-if [ "$(echo $ARCHS | wc -w)" -gt 1 ]; then
+if [ ${#SLICES[@]} -gt 1 ]; then
   echo "▶ lipo → universal"
-  SLICES=()
-  for a in ${=ARCHS}; do SLICES+=(".build/$a-apple-macosx/release/$NAME"); done
   lipo -create -output "build/$NAME.universal" "${SLICES[@]}"
   BIN="build/$NAME.universal"
 else
-  BIN=".build/${ARCHS}-apple-macosx/release/$NAME"
+  BIN="${SLICES[1]}"
 fi
-[ -f "$BIN" ] || { echo "빌드 실패: 바이너리를 찾을 수 없습니다"; exit 1; }
 
 echo "▶ app bundle"
 rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 cp "$BIN" "$APP/Contents/MacOS/$NAME"
 cp Info.plist "$APP/Contents/Info.plist"
+[ -d Resources ] && cp -R Resources/. "$APP/Contents/Resources/"   # localized Info.plist strings etc.
 echo -n "APPL????" > "$APP/Contents/PkgInfo"
 
 [ -f icon.png ] || swift makeicon.swift || true
@@ -62,6 +72,7 @@ if [[ "${1:-}" == "--install" ]]; then
   echo "▶ install → /Applications/$NAME.app"
   pkill -x "$NAME" 2>/dev/null || true
   pkill -x SwiftShot 2>/dev/null || true          # 이전 이름의 앱 정리
+  for _ in 1 2 3 4 5 6 7 8 9 10; do pgrep -x "$NAME" >/dev/null || break; sleep 0.3; done   # wait for it to quit
   rm -rf "/Applications/$NAME.app" /Applications/SwiftShot.app
   cp -R "$APP" "/Applications/$NAME.app"
   open "/Applications/$NAME.app"

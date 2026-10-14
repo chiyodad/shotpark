@@ -25,7 +25,7 @@ struct TextStyles: OptionSet, Equatable {
 
 enum ArrowHead: Int { case chevron = 0, circle = 1 }
 
-struct Shape {
+struct Shape: Equatable {
     var tool: Tool
     var points: [CGPoint]
     var color: NSColor

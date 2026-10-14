@@ -8,6 +8,8 @@ final class HotKey {
     private var handlerRef: EventHandlerRef?
     let id: UInt32
     let callback: () -> Void
+    /// false when the system or another app already owns the combination.
+    private(set) var isRegistered = false
 
     init(id: UInt32 = 1, keyCode: UInt32, modifiers: UInt32, callback: @escaping () -> Void) {
         self.id = id
@@ -28,7 +30,9 @@ final class HotKey {
         }, 1, &spec, selfPtr, &handlerRef)
 
         let hotKeyID = EventHotKeyID(signature: OSType(0x5353_4854), id: id) // 'SSHT'
-        RegisterEventHotKey(keyCode, modifiers, hotKeyID, GetApplicationEventTarget(), 0, &hotKeyRef)
+        let status = RegisterEventHotKey(keyCode, modifiers, hotKeyID, GetApplicationEventTarget(), 0, &hotKeyRef)
+        isRegistered = status == noErr && hotKeyRef != nil
+        if !isRegistered { NSLog("ShotPark: RegisterEventHotKey failed (\(status)) for keyCode \(keyCode)") }
     }
 
     deinit {

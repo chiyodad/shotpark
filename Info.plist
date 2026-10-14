@@ -19,9 +19,9 @@
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.20.9</string>
+	<string>1.21.0</string>
 	<key>CFBundleVersion</key>
-	<string>50</string>
+	<string>51</string>
 	<key>LSApplicationCategoryType</key>
 	<string>public.app-category.utilities</string>
 	<key>LSMinimumSystemVersion</key>
@@ -31,8 +31,8 @@
 	<key>NSHighResolutionCapable</key>
 	<true/>
 	<key>NSHumanReadableCopyright</key>
-	<string>Built for suseok</string>
+	<string>Copyright © chiyodad · MIT License</string>
 	<key>NSScreenCaptureUsageDescription</key>
-	<string>화면 영역을 캡처하기 위해 화면 기록 권한이 필요합니다.</string>
+	<string>ShotPark needs Screen Recording permission to capture a region of the screen.</string>
 </dict>
 </plist>

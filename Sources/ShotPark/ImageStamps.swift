@@ -27,6 +27,15 @@ enum ImageStamps {
         set { UserDefaults.standard.set(newValue, forKey: namesKey) }
     }
 
+    /// A pasted image used for this capture only: cached in memory, never written to disk or
+    /// added to the user's stamp list (so it cannot push a saved signature or logo out).
+    static func addTransient(_ image: NSImage) -> String? {
+        guard image.size.width > 0, image.size.height > 0 else { return nil }
+        let name = "paste-" + UUID().uuidString
+        cache[name] = image
+        return name
+    }
+
     static func image(_ name: String) -> NSImage? {
         if let i = cache[name] { return i }
         guard let i = NSImage(contentsOf: dir.appendingPathComponent(name)) else { return nil }

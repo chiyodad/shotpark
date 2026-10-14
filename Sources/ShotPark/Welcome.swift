@@ -70,14 +70,14 @@ final class WelcomeWindowController: NSWindowController {
         }
 
         hotkeyLabel.font = .monospacedSystemFont(ofSize: 15, weight: .semibold)
-        stack.addArrangedSubview(step("1", L("메뉴 막대에 카메라 아이콘이 떠 있습니다. 어디서든 아래 단축키를 누르면 화면이 어두워지고 드래그로 영역을 고를 수 있습니다. (설정에서 변경 가능)", "The camera icon in your menu bar is ShotPark. Press the hotkey below anywhere: the screen dims and you drag to select. (Changeable in Settings)"), hotkeyLabel))
+        stack.addArrangedSubview(step("1", L("메뉴 막대의 카메라 아이콘이 ShotPark입니다. 어디서든 아래 단축키를 누르면 화면이 어두워지고, 드래그로 영역을 고를 수 있습니다. (설정에서 변경 가능)", "The camera icon in your menu bar is ShotPark. Press the hotkey below anywhere: the screen dims and you drag to select. (Changeable in Settings)"), hotkeyLabel))
 
         let permBtn = NSButton(title: L("화면 기록 권한 열기", "Open Screen Recording settings"), target: self, action: #selector(openPermission))
         permBtn.bezelStyle = .rounded
         permState.font = .systemFont(ofSize: 12)
         permState.textColor = .secondaryLabelColor
         let permRow = NSStackView(views: [permBtn, permState]); permRow.spacing = 10
-        stack.addArrangedSubview(step("2", L("첫 캡처 때 macOS가 화면 기록 권한을 묻습니다. 시스템 설정 목록에서 ShotPark을 켜 주세요. 캡처 내용은 어디에도 업로드되지 않습니다.", "On the first capture macOS asks for Screen Recording permission. Turn ShotPark on in the System Settings list. Nothing is ever uploaded."), permRow))
+        stack.addArrangedSubview(step("2", L("처음 실행하면 macOS가 화면 기록 권한을 묻습니다. 시스템 설정 목록에서 ShotPark을 켜 주세요. 캡처 내용은 어디에도 업로드되지 않습니다.", "On first launch macOS asks for Screen Recording permission. Turn ShotPark on in the System Settings list. Nothing is ever uploaded."), permRow))
 
         let relaunchBtn = NSButton(title: L("지금 다시 실행", "Relaunch now"), target: self, action: #selector(relaunch))
         relaunchBtn.bezelStyle = .rounded
@@ -114,10 +114,10 @@ final class WelcomeWindowController: NSWindowController {
     }
 
     @objc private func relaunch() {
-        let path = Bundle.main.bundleURL.path
+        // `open -n` after a short delay, with the path passed as an argument (no shell quoting).
         let task = Process()
-        task.launchPath = "/bin/sh"
-        task.arguments = ["-c", "sleep 0.6; /usr/bin/open \"\(path)\""]
+        task.executableURL = URL(fileURLWithPath: "/bin/sh")
+        task.arguments = ["-c", "sleep 0.6; exec /usr/bin/open -n \"$0\"", Bundle.main.bundleURL.path]
         try? task.run()
         NSApp.terminate(nil)
     }

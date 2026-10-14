@@ -39,6 +39,15 @@ final class CaptureSession {
 
     @MainActor
     func start() async {
+        // Without Screen Recording permission the legacy capture path still "succeeds" with a
+        // wallpaper-only image, so check up front and explain instead of showing an empty screen.
+        let env = ProcessInfo.processInfo.environment
+        let testing = env["SHOTPARK_SELFTEST"] == "1" || env["SHOTPARK_DEMO"] != nil || env["SHOTPARK_RENDERTEST"] == "1"
+        guard testing || ScreenCapture.hasPermission() else {
+            end()
+            showPermissionAlert()
+            return
+        }
         let t0 = CFAbsoluteTimeGetCurrent()
         let captured = await ScreenCapture.captureAll(NSScreen.screens)
         NSLog("ShotPark: captured \(captured.count) display(s) in \(Int((CFAbsoluteTimeGetCurrent() - t0) * 1000)) ms")
@@ -117,8 +126,9 @@ final class CaptureSession {
         end()
         switch mode {
         case .copy:
-            Exporter.copy(image)
-            if Settings.copyAlsoSaves, let url = Exporter.saveDirect(image) {
+            let png = Exporter.pngData(image)
+            Exporter.copy(image, png: png)
+            if Settings.copyAlsoSaves, let url = Exporter.saveDirect(image, png: png) {
                 Toast.show(L("클립보드에 복사됨 · 저장됨", "Copied · Saved"), subtitle: url.lastPathComponent, duration: 1.6,
                            onClick: { NSWorkspace.shared.activateFileViewerSelecting([url]) })
             } else {
@@ -136,6 +146,7 @@ final class CaptureSession {
     /// AirDrop, the picker itself) would be hidden behind it. Close the overlay first and show the
     /// picker from a small anchor window at the share button's position instead.
     func showSystemShareSheet(for image: NSImage, at screenRect: NSRect) {
+        Exporter.cleanTemp()
         guard let url = Exporter.writeTempPNG(image) else { return }
         end()
         // Let the menu finish tracking and the overlay disappear before presenting.
@@ -154,6 +165,7 @@ final class CaptureSession {
         }
         windows = []
         views = []
+        ShapeRenderer.backdrop = nil // drop the full-resolution screenshot (and its effect cache)
         onEnd()
         ScreenCapture.prewarm() // keep the next capture instant
     }
@@ -161,7 +173,7 @@ final class CaptureSession {
     private func showPermissionAlert() {
         let alert = NSAlert()
         alert.messageText = L("화면 기록 권한이 필요합니다", "Screen Recording permission is required")
-        alert.informativeText = L("시스템 설정 → 개인정보 보호 및 보안 → 화면 및 시스템 오디오 기록에서 ShotPark을 허용한 뒤 다시 시도해 주세요.", "Enable ShotPark under System Settings → Privacy & Security → Screen & System Audio Recording, then try again.")
+        alert.informativeText = L("시스템 설정 → 개인정보 보호 및 보안 → 화면 및 시스템 오디오 녹음에서 ShotPark을 허용한 뒤 다시 시도해 주세요.", "Enable ShotPark under System Settings → Privacy & Security → Screen & System Audio Recording, then try again.")
         alert.addButton(withTitle: L("시스템 설정 열기", "Open System Settings"))
         alert.addButton(withTitle: L("닫기", "Close"))
         NSApp.activate(ignoringOtherApps: true)
@@ -260,20 +272,36 @@ struct ShareTarget {
 }
 
 enum Exporter {
-    static func writeTempPNG(_ image: NSImage) -> URL? {
-        guard let data = pngData(image) else { return nil }
-        let dir = FileManager.default.temporaryDirectory.appendingPathComponent("ShotPark", isDirectory: true)
-        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
-        let url = dir.appendingPathComponent(Settings.fileName())
+    static var tempDir: URL {
+        FileManager.default.temporaryDirectory.appendingPathComponent("ShotPark", isDirectory: true)
+    }
+
+    /// Screen content handed to other apps lives here briefly; `cleanTemp` removes leftovers.
+    static func writeTempPNG(_ image: NSImage, png: Data? = nil) -> URL? {
+        guard let data = png ?? pngData(image) else { return nil }
+        try? FileManager.default.createDirectory(at: tempDir, withIntermediateDirectories: true)
+        let url = tempDir.appendingPathComponent(Settings.fileName())
         do { try data.write(to: url, options: .atomic) } catch { return nil }
         return url
+    }
+
+    /// Deletes shared temp PNGs older than `age` (the receiving app has long read them by then).
+    static func cleanTemp(olderThan age: TimeInterval = 10 * 60) {
+        let fm = FileManager.default
+        guard let items = try? fm.contentsOfDirectory(at: tempDir, includingPropertiesForKeys: [.contentModificationDateKey]) else { return }
+        let cutoff = Date().addingTimeInterval(-age)
+        for u in items {
+            let m = (try? u.resourceValues(forKeys: [.contentModificationDateKey]))?.contentModificationDate ?? .distantPast
+            if m < cutoff { try? fm.removeItem(at: u) }
+        }
     }
 
     /// Copies the image to the clipboard, then opens it with the target app so
     /// it lands in the app's upload / attach flow. If the app refuses the file,
     /// it is still activated and the image is ready to paste with ⌘V.
     static func share(_ image: NSImage, to target: ShareTarget) {
-        copy(image)
+        let png = pngData(image)
+        copy(image, png: png)
         guard let appURL = target.appURL else {
             if let web = target.webURL {
                 NSWorkspace.shared.open(web)
@@ -284,7 +312,8 @@ enum Exporter {
         if target.pasteHint {
             Toast.show(L("이미지 복사됨 · \(target.name)에서 ⌘V", "Image copied · press ⌘V in \(target.name)"), duration: 2.2)
         }
-        let fileURL = writeTempPNG(image)
+        cleanTemp()
+        let fileURL = writeTempPNG(image, png: png)
         let config = NSWorkspace.OpenConfiguration()
         config.activates = true
         if let fileURL {
@@ -298,26 +327,32 @@ enum Exporter {
         }
     }
 
+    /// PNG bytes, encoded straight from the bitmap (no TIFF round-trip). Callers that need the
+    /// data more than once (copy + save + share) encode once and pass it along.
     static func pngData(_ image: NSImage) -> Data? {
-        guard let tiff = image.tiffRepresentation, let rep = NSBitmapImageRep(data: tiff) else { return nil }
-        return rep.representation(using: .png, properties: [:])
+        if let rep = image.representations.compactMap({ $0 as? NSBitmapImageRep }).first {
+            return rep.representation(using: .png, properties: [:])
+        }
+        guard let cg = image.cgImage(forProposedRect: nil, context: nil, hints: nil) else { return nil }
+        return NSBitmapImageRep(cgImage: cg).representation(using: .png, properties: [:])
     }
 
-    static func copy(_ image: NSImage) {
+    /// Puts the image on the clipboard as PNG (+ TIFF for older apps). Returns false if nothing was written.
+    @discardableResult
+    static func copy(_ image: NSImage, png: Data? = nil) -> Bool {
         let pb = NSPasteboard.general
         pb.clearContents()
-        if let png = pngData(image) {
-            pb.setData(png, forType: .png)
-        }
-        if let tiff = image.tiffRepresentation {
-            pb.setData(tiff, forType: .tiff)
-        }
+        var ok = false
+        if let png = png ?? pngData(image) { ok = pb.setData(png, forType: .png) || ok }
+        if let tiff = image.tiffRepresentation { ok = pb.setData(tiff, forType: .tiff) || ok }
+        if !ok { Toast.show(L("클립보드에 복사하지 못했습니다", "Couldn't copy to the clipboard"), duration: 2) }
+        return ok
     }
 
     /// Writes straight into the configured folder with a unique name. Silent; returns the URL.
     @discardableResult
-    static func saveDirect(_ image: NSImage) -> URL? {
-        guard let data = pngData(image) else { return nil }
+    static func saveDirect(_ image: NSImage, png: Data? = nil) -> URL? {
+        guard let data = png ?? pngData(image) else { return nil }
         let folder = Settings.saveFolder
         try? FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
         let url = uniqueURL(in: folder, name: Settings.fileName())
@@ -330,12 +365,12 @@ enum Exporter {
     static func save(_ image: NSImage) {
         guard let data = pngData(image) else { return }
         let folder = Settings.saveFolder
-        if Settings.saveAlsoCopies { copy(image) }
+        if Settings.saveAlsoCopies { copy(image, png: data) }
 
         if Settings.saveDirectly {
-            if let url = saveDirect(image) {
+            if let url = saveDirect(image, png: data) {
                 Toast.show(Settings.saveAlsoCopies ? L("저장됨 · 클립보드에 복사됨 — \(url.lastPathComponent)", "Saved · Copied — \(url.lastPathComponent)") : L("저장됨 — \(url.lastPathComponent)", "Saved — \(url.lastPathComponent)"),
-                           subtitle: (folder.path as NSString).abbreviatingWithTildeInPath + L("  ·  클릭하면 Finder에서 열림", "  ·  click to reveal in Finder"),
+                           subtitle: (folder.path as NSString).abbreviatingWithTildeInPath + L("  ·  클릭하면 Finder에서 보기", "  ·  click to show in Finder"),
                            onClick: { NSWorkspace.shared.activateFileViewerSelecting([url]) })
                 return
             }

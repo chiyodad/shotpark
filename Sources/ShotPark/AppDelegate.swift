@@ -226,10 +226,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         hotKey = HotKey(keyCode: spec.keyCode, modifiers: spec.carbonModifiers) { [weak self] in
             self?.startCapture()
         }
+        if hotKey?.isRegistered == false {
+            Toast.show(L("\(spec.display) 단축키는 다른 앱이 사용 중입니다", "\(spec.display) is already used by another app"),
+                       subtitle: L("설정에서 다른 조합으로 바꿔 주세요", "Choose another combination in Settings"), duration: 4)
+        }
         captureItem?.keyEquivalent = spec.keyEquivalent
         captureItem?.keyEquivalentModifierMask = spec.nsModifiers
         captureItem?.title = spec.keyEquivalent.isEmpty ? L("영역 캡처  (\(spec.display))", "Capture Region  (\(spec.display))") : L("영역 캡처", "Capture Region")
-        statusItem?.button?.toolTip = L("ShotPark — \(spec.display) 로 영역 캡처", "ShotPark — \(spec.display) to capture a region")
+        statusItem?.button?.toolTip = L("ShotPark — \(spec.display)로 영역 캡처", "ShotPark — \(spec.display) to capture a region")
     }
 
     // MARK: menus
@@ -294,7 +298,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         history.keyEquivalentModifierMask = h.nsModifiers
         menu.addItem(.separator())
 
-        let settings = NSMenuItem(title: L("설정… (단축키 · 저장 폴더)", "Settings… (Hotkey · Save Folder)"), action: #selector(openSettings), keyEquivalent: ",")
+        let settings = NSMenuItem(title: L("설정…", "Settings…"), action: #selector(openSettings), keyEquivalent: ",")
         settings.target = self
         menu.addItem(settings)
         let welcome = NSMenuItem(title: L("시작 안내", "Getting Started"), action: #selector(openWelcome), keyEquivalent: "")
@@ -477,7 +481,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     // MARK: capture
 
     func startCapture() {
-        guard session == nil else { return }
+        // Not while a save panel / alert of ours is up: the overlay would cover it.
+        guard session == nil, NSApp.modalWindow == nil else { return }
         let s = CaptureSession { [weak self] in
             self?.session = nil
         }

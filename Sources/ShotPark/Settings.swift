@@ -27,8 +27,10 @@ struct HotKeySpec: Equatable {
 
     /// Key equivalent string for NSMenuItem (lowercase character, or "" if none).
     var keyEquivalent: String {
-        let last = display.last.map(String.init) ?? ""
-        return last.count == 1 && last.unicodeScalars.first!.isASCII ? last.lowercased() : ""
+        // Only letters / digits make sense as a menu key equivalent; named keys (F1, Space, PgUp)
+        // get none, otherwise their last letter would fire the menu item on its own.
+        let name = Self.normalizedDisplay(keyCode: keyCode, carbonModifiers: 0, fallback: "")
+        return name.count == 1 ? name.lowercased() : ""
     }
 
     /// True when `event` is exactly this key + modifiers (used for in-capture shortcuts).
@@ -51,8 +53,8 @@ struct HotKeySpec: Equatable {
         var text = ""
         if flags.contains(.control) { carbon |= UInt32(controlKey); text += "⌃" }
         if flags.contains(.option) { carbon |= UInt32(optionKey); text += "⌥" }
-        if flags.contains(.shift) { carbon |= UInt32(shiftKey); text += "⇧" }
         if flags.contains(.command) { carbon |= UInt32(cmdKey); text += "⌘" }
+        if flags.contains(.shift) { carbon |= UInt32(shiftKey); text += "⇧" }
         text += keyName(for: event)
         return HotKeySpec(keyCode: code, carbonModifiers: carbon, display: text)
     }
@@ -89,8 +91,8 @@ struct HotKeySpec: Equatable {
         var text = ""
         if carbonModifiers & UInt32(controlKey) != 0 { text += "⌃" }
         if carbonModifiers & UInt32(optionKey) != 0 { text += "⌥" }
-        if carbonModifiers & UInt32(shiftKey) != 0 { text += "⇧" }
         if carbonModifiers & UInt32(cmdKey) != 0 { text += "⌘" }
+        if carbonModifiers & UInt32(shiftKey) != 0 { text += "⇧" }
         return text + name
     }
 }
@@ -147,8 +149,8 @@ enum Settings {
             // ⌃⌘V ("paste from history"): clear of the ⇧⌘-digit combos people use for capture.
             case .history: return HotKeySpec(keyCode: UInt32(kVK_ANSI_V), carbonModifiers: UInt32(cmdKey | controlKey), display: "⌃⌘V")
             case .mosaic:  return HotKeySpec(keyCode: UInt32(kVK_ANSI_B), carbonModifiers: 0, display: "B")
-            case .ocr:     return HotKeySpec(keyCode: UInt32(kVK_ANSI_C), carbonModifiers: UInt32(cmdKey | shiftKey), display: "⇧⌘C")
-            case .pin:     return HotKeySpec(keyCode: UInt32(kVK_ANSI_P), carbonModifiers: UInt32(cmdKey | shiftKey), display: "⇧⌘P")
+            case .ocr:     return HotKeySpec(keyCode: UInt32(kVK_ANSI_C), carbonModifiers: UInt32(cmdKey | shiftKey), display: "⌘⇧C")
+            case .pin:     return HotKeySpec(keyCode: UInt32(kVK_ANSI_P), carbonModifiers: UInt32(cmdKey | shiftKey), display: "⌘⇧P")
             }
         }
         /// In-capture shortcuts may be a bare key; global ones need a modifier.
@@ -202,6 +204,7 @@ enum Settings {
 
     static func fileName(date: Date = Date()) -> String {
         let fmt = DateFormatter()
+        fmt.locale = Locale(identifier: "en_US_POSIX") // always ASCII digits / Gregorian, whatever the user's locale
         fmt.dateFormat = "yyyyMMdd-HHmmss"
         return "shotpark-\(fmt.string(from: date)).png"
     }
@@ -330,7 +333,7 @@ final class SettingsWindowController: NSWindowController {
         let chooseBtn = NSButton(title: L("변경…", "Change…"), target: self, action: #selector(chooseFolder))
         chooseBtn.bezelStyle = .rounded
         chooseBtn.controlSize = .small
-        let openBtn = NSButton(title: L("Finder에서 열기", "Show in Finder"), target: self, action: #selector(openFolder))
+        let openBtn = NSButton(title: L("Finder에서 보기", "Show in Finder"), target: self, action: #selector(openFolder))
         openBtn.bezelStyle = .rounded
         openBtn.controlSize = .small
         let folderRow = NSStackView(views: [folderLabel, chooseBtn, openBtn])

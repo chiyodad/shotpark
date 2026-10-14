@@ -8,7 +8,17 @@ REPO="chiyodad/shotpark"
 TAP="chiyodad/homebrew-tap"
 VER=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' Info.plist)
 NOTES="ShotPark $VER"
-[ "${1:-}" = "--notes" ] && NOTES="$2"
+if [ "${1:-}" = "--notes" ]; then
+  [ -n "${2:-}" ] || { echo "usage: ./release.sh [--notes \"text\"]" >&2; exit 2; }
+  NOTES="$2"
+fi
+
+# Release only a clean, pushed-to-main state, and never re-point an existing tag.
+[ "$(git rev-parse --abbrev-ref HEAD)" = "main" ] || { echo "✗ release from main (now on $(git rev-parse --abbrev-ref HEAD))" >&2; exit 1; }
+[ -z "$(git status --porcelain)" ] || { echo "✗ working tree has uncommitted changes" >&2; git status --short >&2; exit 1; }
+if git rev-parse -q --verify "refs/tags/v$VER" >/dev/null; then
+  echo "✗ tag v$VER already exists — bump CFBundleShortVersionString in Info.plist" >&2; exit 1
+fi
 
 ./build.sh
 mkdir -p dist
@@ -40,8 +50,8 @@ else
   echo "⚠ dotnet not found — skipping the Windows build"
 fi
 
-git tag -f "v$VER"
-git push -q origin main && git push -q -f origin "v$VER"
+git tag "v$VER"
+git push -q origin main && git push -q origin "v$VER"
 if gh release view "v$VER" -R "$REPO" >/dev/null 2>&1; then
   gh release upload "v$VER" "$ZIP" $WINZIPS -R "$REPO" --clobber
 else
@@ -87,9 +97,11 @@ end
 RB
 )
 SHA_OLD=$(gh api "repos/$TAP/contents/Casks/shotpark.rb" --jq .sha 2>/dev/null || true)
-printf '%s\n' "$CASK" | base64 | tr -d '\n' > /tmp/shotpark_cask.b64
+B64=$(mktemp)
+printf '%s\n' "$CASK" | base64 | tr -d '\n' > "$B64"
 gh api -X PUT "repos/$TAP/contents/Casks/shotpark.rb" \
-  -f message="shotpark $VER" -f content="$(cat /tmp/shotpark_cask.b64)" ${SHA_OLD:+-f sha="$SHA_OLD"} --jq '.content.path' 
+  -f message="shotpark $VER" -f content="$(cat "$B64")" ${SHA_OLD:+-f sha="$SHA_OLD"} --jq '.content.path'
+rm -f "$B64"
 # The Windows installer needs Inno Setup (Windows-only): let GitHub Actions build it and attach it,
 # together with freshly built portable zips, to this release.
 gh workflow run windows.yml -R "$REPO" -f release_tag="v$VER" && echo "▶ Windows installer build started (GitHub Actions)"

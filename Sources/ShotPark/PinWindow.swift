@@ -67,6 +67,8 @@ final class PinWindow: NSPanel {
     @objc func saveImage() { Exporter.save(image) }
     @objc func setOpacity(_ sender: NSMenuItem) { alphaValue = CGFloat(sender.tag) / 100 }
     @objc func closePin() { close() }
+    /// Window ▸ Close (⌘W) reaches a borderless window here and would only beep.
+    override func performClose(_ sender: Any?) { close() }
 
     override func keyDown(with event: NSEvent) {
         if event.keyCode == 53 { close(); return }                                   // esc
