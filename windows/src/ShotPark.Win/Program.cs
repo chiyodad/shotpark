@@ -33,6 +33,7 @@ static class RenderTest
     public static int Run(string dir)
     {
         Directory.CreateDirectory(dir);
+        Painter.InstallMetrics();
         var log = new List<string>();
         try
         {
@@ -60,8 +61,9 @@ static class RenderTest
         const float scale = 1.25f;
         using var screen = FakeScreen(1600, 1000, scale);
         using var dim = Painter.Dimmed(screen);
-        using var mosaic = Painter.Pixelated(screen, scale);
+        using var mosaic = new MosaicSource(screen, scale);
         var full = new RectangleF(0, 0, screen.Width, screen.Height);
+        var settings = new AppSettings();
 
         void Save(OverlayController c, string name)
         {
@@ -69,50 +71,76 @@ static class RenderTest
             using (var g = Graphics.FromImage(bmp))
                 Painter.PaintOverlay(g, c, screen, dim, mosaic, new Rectangle(0, 0, screen.Width, screen.Height));
             bmp.Save(Path.Combine(dir, $"{name}-{tag}.png"));
-            log.Add($"{name}-{tag}: selection={c.Selection} toolbar={c.ToolbarRect} palette={c.PaletteRect} shapes={c.Doc.Shapes.Count}");
+            log.Add($"{name}-{tag}: selection={c.Selection} toolbar={c.ToolbarRect} bars={string.Join(",", c.Bars.Select(b => b.Kind))} shapes={c.Doc.Shapes.Count}");
         }
 
-        // 1. nothing selected yet: the hint
-        var idle = new OverlayController(full, new[] { full }, scale);
+        // 1. nothing selected yet: the hint, and the window under the pointer outlined
+        var idle = new OverlayController(full, new[] { full }, scale, settings) { WindowRects = new[] { new RectangleF(40, 30, 1520, 910) } };
         idle.PointerMove(new PointF(800, 500));
         Save(idle, "overlay-idle");
 
         // 2. a marked-up selection, drawn through the same input path as the real window
-        var c = new OverlayController(full, new[] { full }, scale) { MeasureText = Painter.MeasureText };
+        var c = new OverlayController(full, new[] { full }, scale, settings);
         Drag(c, new PointF(330, 150), new PointF(1150, 700));
-        c.Key(KeyCode.R, false, false);
+        c.Key(Vk.R, false, false);
         Drag(c, new PointF(392, 548), new PointF(640, 628));
-        c.Key(KeyCode.A, false, false);
+        c.Key(Vk.A, false, false);
         Drag(c, new PointF(900, 560), new PointF(660, 596));
-        c.Key(KeyCode.T, false, false);
+        c.Key(Vk.T, false, false);
         PointF? textAt = null;
         c.TextRequested += (p, _) => textAt = p;
-        Click(c, new PointF(820, 500));
+        Click(c, new PointF(690, 352));
         if (textAt is { } at) c.CommitText(at, Strings.L("여기를 클릭!", "Click here!"));
-        c.Key(KeyCode.N, false, false);
+        c.Key(Vk.N, false, false);
         Click(c, new PointF(1090, 292));
         Click(c, new PointF(1090, 336));
-        c.Key(KeyCode.B, false, false);
+        c.Key(Vk.B, false, false);
         Drag(c, new PointF(530, 410), new PointF(900, 486));
-        c.Key(KeyCode.P, false, false);
-        c.PointerDown(new PointF(380, 660), PointerButton.Left);
-        for (var i = 1; i <= 30; i++) c.PointerMove(new PointF(380 + i * 6, 660 + MathF.Sin(i / 3f) * 10));
-        c.PointerUp(new PointF(560, 660));
-        c.Key(KeyCode.R, false, false);
+        c.Key(Vk.M, false, false);
+        Drag(c, new PointF(392, 230), new PointF(700, 230));
+        c.Key(Vk.S, false, false);
+        Click(c, new PointF(1060, 640));
         Save(c, "overlay");
 
-        // 3. palette open, a tooltip showing
+        // 3. option bars: stroke (arrow), text with a box, mosaic, emoji, palette; a tooltip
+        c.Key(Vk.A, false, false);
         c.SetPaletteOpen(true);
         c.SetHover(2, true);
-        Save(c, "overlay-palette");
+        Save(c, "bars-arrow");
+        c.Key(Vk.Escape, false, false);
+        c.Key(Vk.R, false, false);
+        settings.Annotation.Fill = 1;
+        Save(c, "bars-rect");
+        c.Key(Vk.T, false, false);
+        settings.Annotation.TextStyle = TextStyles.Shadow | TextStyles.Box;
+        Save(c, "bars-text");
+        c.Key(Vk.B, false, false);
+        Save(c, "bars-mosaic");
+        c.Key(Vk.S, false, false);
+        Save(c, "bars-emoji");
+        c.SetTool(Tool.None);
 
-        // 4. the exported image
+        // 4. a selected, rotated text with its rotate buttons
+        var ti = c.Doc.Shapes.FindIndex(s => s.Tool == Tool.Text);
+        if (ti >= 0)
+        {
+            c.Select(ti);
+            c.Rotate(-1);
+            c.Rotate(-1);
+            Save(c, "rotate");
+        }
+
+        // 5. the exported image, plain and beautified
         using (var result = Painter.RenderResult(screen, mosaic, c.Selection!.Value, c.Doc.Shapes))
+        {
             result.Save(Path.Combine(dir, $"result-{tag}.png"));
+            using var pretty = Painter.Beautify(result, scale, true, true);
+            pretty.Save(Path.Combine(dir, $"result-beautify-{tag}.png"));
+        }
 
-        // 5. toolbar close-up at 200 %
-        var big = new OverlayController(new RectangleF(0, 0, 1600, 300), new[] { new RectangleF(0, 0, 1600, 300) }, 2f);
-        big.SetSelection(new RectangleF(40, 10, 1500, 150));
+        // 6. toolbar close-up at 200 %
+        var big = new OverlayController(new RectangleF(0, 0, 1700, 300), new[] { new RectangleF(0, 0, 1700, 300) }, 2f, settings);
+        big.SetSelection(new RectangleF(20, 10, 1600, 120));
         big.SetTool(Tool.Arrow);
         big.SetHover(5, true);
         var tb = big.ToolbarRect!.Value;
@@ -148,7 +176,7 @@ static class RenderTest
         var tmp = Path.Combine(Path.GetTempPath(), "shotpark-rendertest-settings.json");
         File.Delete(tmp);
         var settings = AppSettings.Load(tmp);
-        using var form = new SettingsForm(settings, _ => true, _ => { });
+        using var form = new SettingsForm(settings, null, _ => true, _ => true, _ => { });
         form.StartPosition = FormStartPosition.Manual;
         form.Location = new Point(-5000, -5000);
         form.ShowInTaskbar = false;
