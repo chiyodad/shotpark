@@ -154,6 +154,7 @@ sealed class ClipGrid : ScrollableControl
 
     int Columns => Math.Max(1, (int)((ClientSize.Width - Inset * 2 * S + Gap * S) / ((CellW + Gap) * S)));
 
+    [System.ComponentModel.DesignerSerializationVisibility(System.ComponentModel.DesignerSerializationVisibility.Hidden)]
     public int Selected
     {
         get => _selected;
