@@ -42,9 +42,10 @@ SetupIconFile=..\src\ShotPark.Win\ShotPark.ico
 UninstallDisplayIcon={app}\ShotPark.exe
 UninstallDisplayName=ShotPark
 WizardStyle=modern
-Compression=lzma2/ultra64
+Compression=lzma2/max
 SolidCompression=yes
-LZMANumBlockThreads=4
+; a separate compressor process keeps the 32-bit compiler from running out of memory
+LZMAUseSeparateProcess=yes
 ; No AppMutex: it would only tell the user to quit the tray app by hand (and abort silent
 ; updates). Setup closes a running copy itself instead (Restart Manager + PrepareToInstall).
 CloseApplications=force
