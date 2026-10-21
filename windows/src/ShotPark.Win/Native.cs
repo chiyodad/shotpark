@@ -104,10 +104,23 @@ static class Native
         "NotifyIconOverflowWindow", "TopLevelWindowForOverflowXamlIsland", "XamlExplorerHostIslandWindow",
     };
 
-    /// Visible top-level windows (screen pixels), front to back — the targets of "click to select a window".
-    public static List<Rectangle> VisibleWindows()
+    [DllImport("user32.dll", CharSet = CharSet.Unicode)]
+    static extern int GetWindowText(IntPtr hWnd, StringBuilder text, int max);
+
+    [DllImport("user32.dll")]
+    static extern bool IsZoomed(IntPtr hWnd);
+
+    [DllImport("user32.dll")]
+    static extern bool PrintWindow(IntPtr hwnd, IntPtr hdc, uint flags);
+
+    /// A visible top-level window: its frame (screen pixels, without the invisible resize border),
+    /// handle, title and whether it is maximized.
+    public sealed record WindowInfo(Rectangle Frame, IntPtr Handle, string Title, bool Maximized);
+
+    /// Visible top-level windows, front to back — the targets of "click to select a window".
+    public static List<WindowInfo> VisibleWindows()
     {
-        var list = new List<Rectangle>();
+        var list = new List<WindowInfo>();
         var self = Environment.ProcessId;
         EnumWindows((h, _) =>
         {
@@ -128,13 +141,59 @@ static class Native
                 if (DwmGetWindowAttribute(h, 9 /* DWMWA_EXTENDED_FRAME_BOUNDS */, out r, Marshal.SizeOf<RECT>()) != 0 && !GetWindowRect(h, out r))
                     return true;
                 var rect = Rectangle.FromLTRB(r.Left, r.Top, r.Right, r.Bottom);
-                if (rect.Width >= 20 && rect.Height >= 20) list.Add(rect);
+                if (rect.Width < 20 || rect.Height < 20) return true;
+                var title = new StringBuilder(256);
+                GetWindowText(h, title, title.Capacity);
+                list.Add(new WindowInfo(rect, h, title.ToString(), IsZoomed(h)));
             }
             catch (Exception) { }
             return true;
         }, IntPtr.Zero);
         return list;
     }
+
+    /// The window on its own (even where other windows cover it), cropped to its visible frame.
+    /// Null when the app doesn't draw for PrintWindow (the result comes back blank).
+    public static Bitmap? CaptureWindow(WindowInfo w)
+    {
+        try
+        {
+            if (!GetWindowRect(w.Handle, out var wr)) return null;
+            int ww = wr.Right - wr.Left, wh = wr.Bottom - wr.Top;
+            if (ww <= 0 || wh <= 0 || ww > 16384 || wh > 16384) return null;
+            using var full = new Bitmap(ww, wh, PixelFormat.Format32bppArgb);
+            using (var g = Graphics.FromImage(full))
+            {
+                var hdc = g.GetHdc();
+                try
+                {
+                    if (!PrintWindow(w.Handle, hdc, 2 /* PW_RENDERFULLCONTENT */)) return null;
+                }
+                finally { g.ReleaseHdc(hdc); }
+            }
+            var crop = new Rectangle(w.Frame.X - wr.Left, w.Frame.Y - wr.Top, w.Frame.Width, w.Frame.Height);
+            crop.Intersect(new Rectangle(0, 0, ww, wh));
+            if (crop.Width < 4 || crop.Height < 4) return null;
+            var bmp = full.Clone(crop, PixelFormat.Format32bppArgb);
+            if (LooksBlank(bmp)) { bmp.Dispose(); return null; }
+            return bmp;
+        }
+        catch (Exception) { return null; }
+    }
+
+    /// All pixels (sampled) the same colour: the app didn't render for PrintWindow.
+    static bool LooksBlank(Bitmap b)
+    {
+        var first = b.GetPixel(b.Width / 2, b.Height / 2).ToArgb();
+        for (var y = 1; y < 8; y++)
+        for (var x = 1; x < 8; x++)
+            if (b.GetPixel(b.Width * x / 8, b.Height * y / 8).ToArgb() != first) return false;
+        return true;
+    }
+
+    /// Windows 11 rounds window corners (8 px at 100 %); Windows 10 and maximized windows don't.
+    public static float CornerRadius(WindowInfo w, float scale) =>
+        !w.Maximized && Environment.OSVersion.Version.Build >= 22000 ? 8 * scale : 0;
 
     // ───────────────────────── cursors ─────────────────────────
 

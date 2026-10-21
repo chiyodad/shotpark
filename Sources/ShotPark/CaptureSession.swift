@@ -57,7 +57,7 @@ final class CaptureSession {
             return
         }
 
-        let windowFrames = ScreenCapture.onScreenWindowFrames()
+        let onScreenWindows = ScreenCapture.onScreenWindows()
         for (screen, img) in captured {
             let win = OverlayWindow(screen: screen)
             win.onPerformClose = { [weak self] in self?.cancel() }
@@ -70,7 +70,12 @@ final class CaptureSession {
             let view = CaptureView(frame: container.bounds, screenshot: img)
             view.autoresizingMask = [.width, .height]
             view.session = self
-            view.windowFrames = windowFrames.map { $0.offsetBy(dx: -screen.frame.minX, dy: -screen.frame.minY) }
+            let px = screen.backingScaleFactor
+            view.windows = onScreenWindows.map {
+                let size = "\(Int(($0.frame.width * px).rounded())) × \(Int(($0.frame.height * px).rounded()))"
+                return CaptureView.WindowTarget(frame: $0.frame.offsetBy(dx: -screen.frame.minX, dy: -screen.frame.minY), id: $0.id,
+                                                label: $0.app.isEmpty ? size : "\($0.app)  ·  \(size)")
+            }
             container.addSubview(view)
 
             win.contentView = container
@@ -109,6 +114,11 @@ final class CaptureSession {
     }
 
     var primaryView: CaptureView? { views.first }
+
+    /// Space on one display's overlay switches every display's overlay.
+    func syncWindowMode(_ on: Bool, from view: CaptureView) {
+        for v in views where v !== view { v.setWindowMode(on) }
+    }
 
     func activate(_ view: CaptureView) {
         for v in views where v !== view { v.reset() }

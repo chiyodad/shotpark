@@ -181,7 +181,7 @@ sealed class TrayApp : ApplicationContext
         }
         var virt = SystemInformation.VirtualScreen;
         Bitmap shot;
-        List<Rectangle> windows;
+        List<Native.WindowInfo> windows;
         try
         {
             windows = Native.VisibleWindows();
@@ -195,9 +195,9 @@ sealed class TrayApp : ApplicationContext
         var monitors = Screen.AllScreens
             .Select(s => new RectangleF(s.Bounds.X - virt.X, s.Bounds.Y - virt.Y, s.Bounds.Width, s.Bounds.Height))
             .ToList();
-        var windowRects = windows.Select(w => new RectangleF(w.X - virt.X, w.Y - virt.Y, w.Width, w.Height)).ToList();
+
         var scale = Native.GetDpiForSystem() / 96f;
-        var overlay = new OverlayForm(shot, virt, monitors, scale, _settings, windowRects);
+        var overlay = new OverlayForm(shot, virt, monitors, scale, _settings, windows);
         overlay.Finished += (action, image, extra) => Finish(overlay, action, image, extra);
         overlay.FormClosed += (_, _) =>
         {

@@ -44,7 +44,7 @@ If you used Lightshot or PicPick on Windows, you already know how it works: hotk
 **Capture**
 - One global hotkey (default `⌘⇧9`, changeable) dims the screen; drag to select a region.
 - Handles on all 8 sides/corners to resize, drag inside to move, arrow keys to nudge 1 px (`⇧` for 10 px), live pixel dimensions, `⌘A` for the whole screen.
-- **Click a window** to grab it whole (a dashed outline shows which one as you hover).
+- **Click a window** to grab it whole: the window under the cursor stays bright, with its app name and size. The window is captured on its own — even the parts other windows cover — with its rounded corners and a soft shadow. Press `Space` for window mode (camera cursor: dragging is off, a click takes the window; `Space` again goes back). Move or resize the selection and it becomes a plain crop again.
 - Multi-monitor, Retina-resolution capture via ScreenCaptureKit (macOS 14+, automatic fallback below).
 
 **Annotate**

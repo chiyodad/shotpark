@@ -12,8 +12,10 @@ enum Beautify {
 
     /// `image` is in pixels; `scale` = pixels per point. Returns the decorated image (same scale).
     /// The margin is only added when there is a shadow to show in it.
+    /// `shapeFromAlpha`: the image already has its own shape (a window with transparent corners),
+    /// so the shadow follows its alpha and nothing is clipped.
     static func apply(to image: CGImage, scale: CGFloat,
-                      shadow: Bool = Beautify.shadow, rounded: Bool = Beautify.rounded) -> CGImage? {
+                      shadow: Bool = Beautify.shadow, rounded: Bool = Beautify.rounded, shapeFromAlpha: Bool = false) -> CGImage? {
         let pad = shadow ? paddingPoints * scale : 0
         let w = CGFloat(image.width), h = CGFloat(image.height)
         let W = Int((w + pad * 2).rounded()), H = Int((h + pad * 2).rounded())
@@ -22,6 +24,13 @@ enum Beautify {
                                   bitmapInfo: CGImageAlphaInfo.premultipliedFirst.rawValue | CGBitmapInfo.byteOrder32Little.rawValue)
         else { return nil }
         let rect = CGRect(x: pad, y: pad, width: w, height: h)
+        if shapeFromAlpha {
+            if shadow {
+                ctx.setShadow(offset: CGSize(width: 0, height: -2 * scale), blur: 8 * scale, color: NSColor.black.withAlphaComponent(0.35).cgColor)
+            }
+            ctx.draw(image, in: rect)
+            return ctx.makeImage()
+        }
         let radius = rounded ? min(10 * scale, min(w, h) / 4) : 0
         let path = CGPath(roundedRect: rect, cornerWidth: radius, cornerHeight: radius, transform: nil)
         if shadow {

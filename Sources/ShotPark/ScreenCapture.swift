@@ -104,15 +104,22 @@ enum ScreenCapture {
         }
     }
 
-    /// Frames of normal on-screen windows (front to back), in AppKit screen coordinates.
+    /// A normal on-screen window: frame in AppKit screen coordinates, window number, app name.
+    struct WindowInfo {
+        let frame: CGRect
+        let id: CGWindowID
+        let app: String
+    }
+
+    /// Normal on-screen windows (front to back), in AppKit screen coordinates.
     /// Used so a plain click on the overlay selects the window under the cursor.
-    static func onScreenWindowFrames() -> [CGRect] {
+    static func onScreenWindows() -> [WindowInfo] {
         guard let primary = NSScreen.screens.first,
               let list = CGWindowListCopyWindowInfo([.optionOnScreenOnly, .excludeDesktopElements], kCGNullWindowID) as? [[String: Any]]
         else { return [] }
         let myPID = ProcessInfo.processInfo.processIdentifier
         let h0 = primary.frame.height
-        var out: [CGRect] = []
+        var out: [WindowInfo] = []
         for w in list {
             guard (w[kCGWindowLayer as String] as? Int ?? 1) == 0,
                   (w[kCGWindowOwnerPID as String] as? Int32) != myPID,
@@ -120,9 +127,40 @@ enum ScreenCapture {
                   let b = w[kCGWindowBounds as String] as? [String: Double],
                   let x = b["X"], let y = b["Y"], let wd = b["Width"], let ht = b["Height"],
                   wd >= 40, ht >= 40 else { continue }
-            out.append(CGRect(x: x, y: h0 - y - ht, width: wd, height: ht))
+            let id = (w[kCGWindowNumber as String] as? NSNumber)?.uint32Value ?? 0
+            out.append(WindowInfo(frame: CGRect(x: x, y: h0 - y - ht, width: wd, height: ht), id: CGWindowID(id),
+                                  app: w[kCGWindowOwnerName as String] as? String ?? ""))
         }
         return out
+    }
+
+    static func onScreenWindowFrames() -> [CGRect] { onScreenWindows().map(\.frame) }
+
+    /// One window on its own — also the parts other windows cover — at `pixelSize`, with
+    /// transparent rounded corners and no shadow (ShotPark adds its own).
+    static func captureWindow(_ id: CGWindowID, pixelSize: CGSize) async -> CGImage? {
+        if #available(macOS 14.0, *) {
+            do {
+                // A fresh list: the cached one may predate this window.
+                let content = try await SCShareableContent.excludingDesktopWindows(false, onScreenWindowsOnly: true)
+                if let win = content.windows.first(where: { $0.windowID == id }) {
+                    let filter = SCContentFilter(desktopIndependentWindow: win)
+                    let config = SCStreamConfiguration()
+                    config.width = Int(pixelSize.width.rounded())
+                    config.height = Int(pixelSize.height.rounded())
+                    config.showsCursor = false
+                    config.captureResolution = .best
+                    config.pixelFormat = kCVPixelFormatType_32BGRA
+                    config.ignoreShadowsSingleWindow = true
+                    config.shouldBeOpaque = false
+                    return try await SCScreenshotManager.captureImage(contentFilter: filter, configuration: config)
+                }
+            } catch {
+                NSLog("window capture failed: \(error.localizedDescription)")
+            }
+            return nil
+        }
+        return CGWindowListCreateImage(.null, .optionIncludingWindow, id, [.boundsIgnoreFraming, .bestResolution])
     }
 
     private static func legacyCapture(_ displayID: CGDirectDisplayID) -> CGImage? {

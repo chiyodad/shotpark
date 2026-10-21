@@ -6,14 +6,17 @@ public enum PointerButton { Left, Right }
 
 public enum OverlayAction { Copy, Save, Close, Share, Ocr, Pin }
 
-public enum CursorKind { Cross, Arrow, Move, SizeNWSE, SizeNESW, SizeNS, SizeWE, IBeam, Hand, Grab, Emoji, Number, Eraser }
+public enum CursorKind { Cross, Arrow, Move, SizeNWSE, SizeNESW, SizeNS, SizeWE, IBeam, Hand, Grab, Emoji, Number, Eraser, Camera }
+
+/// A top-level window the overlay can select with a click: its rectangle (overlay pixels) and a label.
+public sealed record WindowTarget(RectangleF Rect, string Label);
 
 /// Everything the capture overlay does, independent of the UI toolkit: selection, tools, shapes,
 /// toolbar / option bar hit-testing and keyboard shortcuts — a port of the Mac app's CaptureView.
 /// The window feeds it input and paints its state.
 public sealed class OverlayController
 {
-    enum Drag { None, NewSelection, MoveSelection, ResizeSelection, Draw, MoveShape, ScaleShape, Erase, Slider }
+    enum Drag { None, NewSelection, MoveSelection, ResizeSelection, Draw, MoveShape, ScaleShape, Erase, Slider, WindowClick }
 
     Drag _drag;
     PointF _dragStart;
@@ -46,7 +49,14 @@ public sealed class OverlayController
     public Color[] Colors { get; }
 
     /// Top-level windows in overlay coordinates, front to back (click one to select it).
-    public IReadOnlyList<RectangleF> WindowRects { get; set; } = Array.Empty<RectangleF>();
+    public IReadOnlyList<WindowTarget> Windows { get; set; } = Array.Empty<WindowTarget>();
+
+    /// Shorthand for tests: windows without labels.
+    public IReadOnlyList<RectangleF> WindowRects
+    {
+        get => Windows.Select(w => w.Rect).ToList();
+        set => Windows = value.Select(r => new WindowTarget(r, "")).ToList();
+    }
     /// The user's image stamps (file names), supplied by the UI.
     public Func<IReadOnlyList<string>> StampImages { get; set; } = () => Array.Empty<string>();
 
@@ -62,7 +72,14 @@ public sealed class OverlayController
     public string? HoverCell { get; private set; }
     public bool TipVisible { get; set; }
     public PointF Pointer { get; private set; }
-    public RectangleF? HoverWindow { get; private set; }
+    public RectangleF? HoverWindow => HoverWindowIndex >= 0 && HoverWindowIndex < Windows.Count ? VisiblePart(Windows[HoverWindowIndex].Rect) : null;
+    /// Index into Windows of the window under the pointer (nothing selected yet), or -1.
+    public int HoverWindowIndex { get; private set; } = -1;
+    /// Space toggles it: a click picks the window under the pointer and dragging doesn't draw a region.
+    public bool WindowMode { get; private set; }
+    /// The selection is exactly this window (index into Windows), picked with a click: exported in the
+    /// window's own shape. Cleared as soon as the selection is moved or resized.
+    public int? PickedWindow { get; private set; }
     public int EraserHover { get; private set; } = -1;
     public bool EditingText => _editing != null || _textOpen;
     bool _textOpen;
@@ -83,6 +100,8 @@ public sealed class OverlayController
     public event Action<string, PointF>? ImageMenuRequested;
     /// Ctrl+V: the UI places a clipboard image with PlaceImage().
     public event Action? PasteRequested;
+    /// A window was picked with a click (index into Windows): the UI can capture it on its own.
+    public event Action<int>? WindowPicked;
     /// A short message for a toast.
     public event Action<string>? Notice;
 
@@ -286,6 +305,7 @@ public sealed class OverlayController
             // Right-click steps back: cancel the stroke, drop the selection, and only then close.
             if (Drawing != null || _drag != Drag.None) { Drawing = null; _drag = Drag.None; Notify(); }
             else if (Selection != null) ClearSelection();
+            else if (WindowMode) { WindowMode = false; Notify(); }
             else ActionRequested?.Invoke(OverlayAction.Close);
             return;
         }
@@ -327,6 +347,12 @@ public sealed class OverlayController
         if (Selection is not { } sel)
         {
             _clickOutsideSelection = false;
+            if (WindowMode)
+            {
+                _drag = Drag.WindowClick; // window mode: no region dragging, the release picks the window
+                Notify();
+                return;
+            }
             BeginNewSelection(p);
             return;
         }
@@ -446,6 +472,7 @@ public sealed class OverlayController
     void ClearSelection()
     {
         Selected = null;
+        PickedWindow = null;
         PaletteOpen = false;
         Doc.Clear();
         Selection = null;
@@ -455,10 +482,40 @@ public sealed class OverlayController
     void BeginNewSelection(PointF p)
     {
         Selected = null;
+        PickedWindow = null;
         _drag = Drag.NewSelection;
         _dragStart = p;
         Selection = new RectangleF(p, SizeF.Empty);
-        HoverWindow = null;
+        HoverWindowIndex = -1;
+        Notify();
+    }
+
+    /// Selects window `i` (its visible part). It keeps the window's own shape on export when it is
+    /// fully on screen.
+    void PickWindow(int i)
+    {
+        var r = Windows[i].Rect;
+        var visible = VisiblePart(r)!.Value;
+        Selection = RectangleF.FromLTRB(MathF.Round(visible.Left), MathF.Round(visible.Top), MathF.Round(visible.Right), MathF.Round(visible.Bottom));
+        WindowMode = false;
+        HoverWindowIndex = -1;
+        var whole = RectangleF.Inflate(Screen, 0.5f, 0.5f);
+        PickedWindow = whole.Contains(r) ? i : null;
+        if (PickedWindow != null) WindowPicked?.Invoke(i);
+    }
+
+    RectangleF? VisiblePart(RectangleF w)
+    {
+        var r = RectangleF.Intersect(w, Screen);
+        return r.Width >= 4 && r.Height >= 4 ? r : null;
+    }
+
+    /// Space (nothing selected yet): switch between region and window selection.
+    public void ToggleWindowMode()
+    {
+        if (Selection != null || _drag != Drag.None) return;
+        WindowMode = !WindowMode;
+        HoverWindowIndex = WindowIndexAt(Pointer);
         Notify();
     }
 
@@ -472,9 +529,11 @@ public sealed class OverlayController
                 Selection = RectangleF.Intersect(Geometry.Normalize(_dragStart, p), Screen);
                 break;
             case Drag.MoveSelection:
+                PickedWindow = null;
                 Selection = Geometry.Clamp(new RectangleF(_dragOrigin.X + p.X - _dragStart.X, _dragOrigin.Y + p.Y - _dragStart.Y, _dragOrigin.Width, _dragOrigin.Height), Screen);
                 break;
             case Drag.ResizeSelection:
+                PickedWindow = null;
                 Selection = RectangleF.Intersect(Geometry.Resize(_dragOrigin, _dragHandle, p.X - _dragStart.X, p.Y - _dragStart.Y), Screen);
                 break;
             case Drag.Draw when Drawing != null:
@@ -499,6 +558,9 @@ public sealed class OverlayController
             case Drag.Slider:
                 SetSlider(_sliderId, (p.X - _sliderRect.X) / MathF.Max(1, _sliderRect.Width));
                 break;
+            case Drag.WindowClick:
+                Hover(p, last);
+                return;
             default:
                 Hover(p, last);
                 return;
@@ -525,23 +587,21 @@ public sealed class OverlayController
         }
         if (Selection == null)
         {
-            var w = WindowAt(p);
-            if (w != HoverWindow) { HoverWindow = w; changed = true; }
+            var w = WindowIndexAt(p);
+            if (w != HoverWindowIndex) { HoverWindowIndex = w; changed = true; }
             // Before anything is selected the hint follows the pointer's monitor.
             if (MonitorAt(last) != MonitorAt(p)) changed = true;
         }
         if (changed) Notify();
     }
 
-    RectangleF? WindowAt(PointF p)
+    /// The frontmost window under the point (whose visible part is big enough), or -1.
+    int WindowIndexAt(PointF p)
     {
-        foreach (var w in WindowRects)
-            if (w.Contains(p))
-            {
-                var r = RectangleF.Intersect(w, Screen);
-                return r.Width >= 4 && r.Height >= 4 ? r : null;
-            }
-        return null;
+        for (var i = 0; i < Windows.Count; i++)
+            if (Windows[i].Rect.Contains(p))
+                return VisiblePart(Windows[i].Rect) != null ? i : -1;
+        return -1;
     }
 
     public void PointerUp(PointF p)
@@ -554,12 +614,18 @@ public sealed class OverlayController
                 {
                     // A plain click: from the idle screen it grabs the window under the pointer;
                     // outside an existing selection it just clears that selection.
-                    var under = WindowAt(p);
-                    if (!_clickOutsideSelection && under is { } w) Selection = RectangleF.FromLTRB(MathF.Round(w.Left), MathF.Round(w.Top), MathF.Round(w.Right), MathF.Round(w.Bottom));
-                    else { Selection = null; HoverWindow = under; }
+                    var under = WindowIndexAt(p);
+                    if (!_clickOutsideSelection && under >= 0) PickWindow(under);
+                    else { Selection = null; HoverWindowIndex = under; }
                 }
                 else if (Selection is { } sel) Selection = Geometry.ToPixels(sel);
                 break;
+            case Drag.WindowClick:
+            {
+                var under = WindowIndexAt(p);
+                if (under >= 0) PickWindow(under);
+                break;
+            }
             case Drag.ResizeSelection:
                 if (Selection is { } rs && (rs.Width < 4 || rs.Height < 4)) Selection = _dragOrigin;
                 else if (Selection is { } r2) Selection = Geometry.ToPixels(r2);
@@ -622,7 +688,7 @@ public sealed class OverlayController
             if (_drag != Drag.None) return CursorKind.Cross;
             if (ToolbarRect is { } tb && tb.Contains(Pointer)) return CursorKind.Arrow;
             if (InBar(Pointer)) return CursorKind.Arrow;
-            if (Selection is not { } sel) return CursorKind.Cross;
+            if (Selection is not { } sel) return WindowMode ? CursorKind.Camera : CursorKind.Cross;
             if (RotateButtons.Any(b => b.Rect.Contains(Pointer))) return CursorKind.Hand;
             if (StampHandle is { } h && RectangleF.Inflate(h, 4 * Scale, 4 * Scale).Contains(Pointer)) return CursorKind.SizeNWSE;
             if (Tool == Tool.None)
@@ -999,6 +1065,8 @@ public sealed class OverlayController
                 case Vk.Z: Undo(); return true;
                 case Vk.Y: Redo(); return true;
                 case Vk.A:
+                    PickedWindow = null;
+                    WindowMode = false;
                     Selection = MonitorAt(Pointer);
                     Notify();
                     return true;
@@ -1025,7 +1093,11 @@ public sealed class OverlayController
                 else if (Tool != Tool.None) SetTool(Tool.None);
                 else if (Selected != null) { Selected = null; Notify(); }
                 else if (Selection != null) ClearSelection();
+                else if (WindowMode) { WindowMode = false; Notify(); }
                 else ActionRequested?.Invoke(OverlayAction.Close);
+                return true;
+            case Vk.Space when Selection == null:
+                ToggleWindowMode();
                 return true;
             case Vk.Enter:
                 if (Selection != null) ActionRequested?.Invoke(OverlayAction.Copy);
@@ -1076,6 +1148,7 @@ public sealed class OverlayController
         }
         else if (Selection is { } s)
         {
+            PickedWindow = null;
             Selection = Geometry.Clamp(new RectangleF(s.X + dx, s.Y + dy, s.Width, s.Height), Screen);
         }
         Notify();
@@ -1085,6 +1158,7 @@ public sealed class OverlayController
 
     public void SetSelection(RectangleF? r)
     {
+        PickedWindow = null;
         Selection = r;
         Notify();
     }

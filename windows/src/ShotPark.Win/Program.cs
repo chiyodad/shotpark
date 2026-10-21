@@ -75,9 +75,20 @@ static class RenderTest
         }
 
         // 1. nothing selected yet: the hint, and the window under the pointer outlined
-        var idle = new OverlayController(full, new[] { full }, scale, settings) { WindowRects = new[] { new RectangleF(40, 30, 1520, 910) } };
+        var idle = new OverlayController(full, new[] { full }, scale, settings)
+        {
+            Windows = new[]
+            {
+                new WindowTarget(new RectangleF(1170, 170, 330, 380), Strings.L("가을 블렌드  ·  330 × 380", "Autumn blend  ·  330 × 380")),
+                new WindowTarget(new RectangleF(40, 30, 1520, 910), Strings.L("온도 커피 - 브라우저  ·  1520 × 910", "Ondo Coffee - Browser  ·  1520 × 910")),
+            },
+        };
         idle.PointerMove(new PointF(800, 500));
         Save(idle, "overlay-idle");
+        // window mode (Space): the window under the pointer is lit up
+        idle.PointerMove(new PointF(1300, 400));
+        idle.Key(Vk.Space, false, false);
+        Save(idle, "overlay-window-mode");
 
         // 2. a marked-up selection, drawn through the same input path as the real window
         var c = new OverlayController(full, new[] { full }, scale, settings);
@@ -130,7 +141,12 @@ static class RenderTest
             Save(c, "rotate");
         }
 
-        // 5. the exported image, plain and beautified
+        // 5. a window picked with a click keeps its own shape (rounded, transparent, shadow)
+        using (var crop = screen.Clone(new Rectangle(1170, 170, 330, 380), System.Drawing.Imaging.PixelFormat.Format32bppArgb))
+        using (var shaped = Painter.Beautify(crop, scale, shadow: true, rounded: true, radius: 8 * scale))
+            shaped.Save(Path.Combine(dir, $"result-window-{tag}.png"));
+
+        // 6. the exported image, plain and beautified
         using (var result = Painter.RenderResult(screen, mosaic, c.Selection!.Value, c.Doc.Shapes))
         {
             result.Save(Path.Combine(dir, $"result-{tag}.png"));
@@ -138,7 +154,7 @@ static class RenderTest
             pretty.Save(Path.Combine(dir, $"result-beautify-{tag}.png"));
         }
 
-        // 6. toolbar close-up at 200 %
+        // 7. toolbar close-up at 200 %
         var big = new OverlayController(new RectangleF(0, 0, 1700, 300), new[] { new RectangleF(0, 0, 1700, 300) }, 2f, settings);
         big.SetSelection(new RectangleF(20, 10, 1600, 120));
         big.SetTool(Tool.Arrow);

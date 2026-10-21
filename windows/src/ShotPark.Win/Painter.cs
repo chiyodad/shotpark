@@ -117,12 +117,7 @@ static class Painter
 
         if (sel is not { } selection || selection.Width < 1)
         {
-            if (c.HoverWindow is { } hw)
-            {
-                // the window a click would select
-                using var o = new Pen(Color.FromArgb(217, 255, 255, 255), 2 * sc) { DashPattern = new[] { 3f, 2f } };
-                g.DrawRectangle(o, hw.X + sc, hw.Y + sc, hw.Width - 2 * sc, hw.Height - 2 * sc);
-            }
+            if (c.HoverWindow is { } hw && c.HoverWindowIndex >= 0) DrawWindowSpotlight(g, c, shot, hw, clip);
             DrawHint(g, c);
             return;
         }
@@ -179,17 +174,58 @@ static class Painter
         }
     }
 
+    /// The window a click would select: at full brightness, with an outline and its name and size.
+    static void DrawWindowSpotlight(Graphics g, OverlayController c, Bitmap shot, RectangleF hw, Rectangle clip)
+    {
+        var sc = c.Scale;
+        var r = Rectangle.Intersect(Geometry.ToPixels(hw), clip);
+        if (!r.IsEmpty)
+        {
+            var st = g.Save();
+            g.CompositingMode = CompositingMode.SourceCopy;
+            g.InterpolationMode = InterpolationMode.NearestNeighbor;
+            g.PixelOffsetMode = PixelOffsetMode.Half;
+            g.DrawImage(shot, r, r, GraphicsUnit.Pixel);
+            g.Restore(st);
+        }
+        var w = c.WindowMode ? 3 * sc : 2 * sc;
+        using (var o = new Pen(c.WindowMode ? Purple : Color.FromArgb(230, 124, 112, 240), w))
+            g.DrawRectangle(o, hw.X + w / 2, hw.Y + w / 2, hw.Width - w, hw.Height - w);
+
+        var label = c.Windows[c.HoverWindowIndex].Label;
+        var action = c.WindowMode ? Strings.L("클릭하면 이 창 캡처", "Click to capture this window") : Strings.L("클릭하면 창 선택", "Click to select this window");
+        var text = label.Length > 0 ? $"{label}   {action}" : action;
+        using var font = UiFont(12.5f * sc, FontStyle.Bold);
+        var size = g.MeasureString(text, font);
+        float padX = 9 * sc, padY = 4 * sc;
+        var box = new RectangleF(hw.X + 8 * sc, hw.Y + 8 * sc, size.Width + 2 * padX, size.Height + 2 * padY);
+        var m = c.MonitorAt(new PointF(hw.X + 8 * sc, hw.Y + 8 * sc));
+        if (box.Right > m.Right - 4 * sc) box.X = MathF.Max(m.Left + 4 * sc, m.Right - 4 * sc - box.Width);
+        using (var path = RoundRect(box, 6 * sc))
+        using (var bg = new SolidBrush(Color.FromArgb(235, Purple)))
+            g.FillPath(bg, path);
+        g.DrawString(text, font, Brushes.White, box.X + padX, box.Y + padY);
+    }
+
     static void DrawHint(Graphics g, OverlayController c)
     {
         var sc = c.Scale;
         var m = c.MonitorAt(c.Pointer);
-        var rows = new (int Icon, string Text)[]
-        {
-            (0, Strings.L("드래그로 영역 선택", "Drag to select a region")),
-            (1, Strings.L("클릭하여 창 선택", "Click to grab a window")),
-            (2, Strings.L("Ctrl+A  이 모니터 전체", "Ctrl+A  this monitor")),
-            (3, Strings.L("Esc  취소", "Esc  cancel")),
-        };
+        var rows = c.WindowMode
+            ? new (int Icon, string Text)[]
+            {
+                (1, Strings.L("창 선택 모드: 캡처할 창을 클릭", "Window mode: click a window to capture")),
+                (4, Strings.L("Space  영역 선택으로", "Space  back to region")),
+                (3, Strings.L("Esc  취소", "Esc  cancel")),
+            }
+            : new (int Icon, string Text)[]
+            {
+                (0, Strings.L("드래그로 영역 선택", "Drag to select a region")),
+                (1, Strings.L("클릭하여 창 선택", "Click to grab a window")),
+                (4, Strings.L("Space  창 선택 모드", "Space  window mode")),
+                (2, Strings.L("Ctrl+A  이 모니터 전체", "Ctrl+A  this monitor")),
+                (3, Strings.L("Esc  취소", "Esc  cancel")),
+            };
         using var font = UiFont(15 * sc, FontStyle.Bold);
         float icon = 20 * sc, gap = 10 * sc, rowH = 28 * sc, pad = 16 * sc;
         var textW = rows.Max(r => g.MeasureString(r.Text, font).Width);
@@ -225,6 +261,9 @@ static class Painter
                     g.DrawLine(pen, ib.X, ib.Y, ib.X + 6 * sc, ib.Y + 6 * sc);
                     g.DrawLines(pen, new[] { new PointF(ib.Right, ib.Bottom - 5 * sc), new PointF(ib.Right, ib.Bottom), new PointF(ib.Right - 5 * sc, ib.Bottom) });
                     g.DrawLine(pen, ib.Right, ib.Bottom, ib.Right - 6 * sc, ib.Bottom - 6 * sc);
+                    break;
+                case 4:
+                    Icons.Camera(g, pen, ib);
                     break;
                 default:
                     g.DrawEllipse(pen, ib);
@@ -722,11 +761,11 @@ static class Painter
 
     /// "Beautify": a 10 pt margin with a soft shadow and rounded corners (transparent around the
     /// image). The margin is only added when there is a shadow to show in it.
-    public static Bitmap Beautify(Bitmap image, float scale, bool shadow, bool rounded)
+    public static Bitmap Beautify(Bitmap image, float scale, bool shadow, bool rounded, float? radius = null)
     {
         var pad = shadow ? (int)MathF.Round(10 * scale) : 0;
         int w = image.Width, h = image.Height, W = w + pad * 2, H = h + pad * 2;
-        var radius = rounded ? MathF.Min(10 * scale, MathF.Min(w, h) / 4f) : 0;
+        var corner = rounded ? MathF.Min(radius ?? 10 * scale, MathF.Min(w, h) / 4f) : 0;
         var rect = new RectangleF(pad, pad, w, h);
         var outBmp = new Bitmap(W, H, PixelFormat.Format32bppArgb);
         using var g = Graphics.FromImage(outBmp);
@@ -742,7 +781,7 @@ static class Painter
                 mg.SmoothingMode = SmoothingMode.AntiAlias;
                 var sr = rect;
                 sr.Offset(0, 2 * scale);
-                using var sp = RoundRect(sr, MathF.Max(radius, 0.1f));
+                using var sp = RoundRect(sr, MathF.Max(corner, 0.1f));
                 mg.FillPath(Brushes.White, sp);
             }
             var px = ScreenGrab.Pixels(mask, new Rectangle(0, 0, W, H));
@@ -751,9 +790,9 @@ static class Painter
             using var sh = ScreenGrab.FromPixels(px, W, H);
             g.DrawImageUnscaled(sh, 0, 0);
         }
-        if (radius > 0)
+        if (corner > 0)
         {
-            using var clip = RoundRect(rect, radius);
+            using var clip = RoundRect(rect, corner);
             using var tb = new TextureBrush(image, WrapMode.Clamp);
             tb.TranslateTransform(pad, pad);
             g.FillPath(tb, clip);

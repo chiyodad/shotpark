@@ -455,6 +455,62 @@ public class ControllerTests
     }
 
     [Fact]
+    public void WindowModeClickPicksTheWindowAndDragDoesNotDrawARegion()
+    {
+        var c = New();
+        int? picked = null;
+        c.WindowPicked += i => picked = i;
+        c.Windows = new[] { new WindowTarget(new RectangleF(200, 150, 600, 400), "Notepad · 600×400") };
+        c.PointerMove(new PointF(300, 300));
+        Assert.True(c.Key(Vk.Space, false, false));
+        Assert.True(c.WindowMode);
+        Assert.Equal(CursorKind.Camera, c.Cursor);
+        Drag(c, new PointF(300, 300), new PointF(500, 450)); // a drag is still just a click on the window
+        Assert.Equal(new RectangleF(200, 150, 600, 400), c.Selection);
+        Assert.Equal(0, c.PickedWindow);
+        Assert.Equal(0, picked);
+        Assert.False(c.WindowMode);
+    }
+
+    [Fact]
+    public void MovingAPickedWindowDropsItsShape()
+    {
+        var c = New();
+        c.WindowRects = new[] { new RectangleF(200, 150, 600, 400) };
+        Click(c, new PointF(300, 300));
+        Assert.Equal(0, c.PickedWindow);
+        c.Key(Vk.Right, false, false);
+        Assert.Null(c.PickedWindow);
+    }
+
+    [Fact]
+    public void PartlyOffScreenWindowIsAPlainCrop()
+    {
+        var c = New();
+        c.WindowRects = new[] { new RectangleF(-100, 100, 600, 400) };
+        Click(c, new PointF(100, 300));
+        Assert.Equal(new RectangleF(0, 100, 500, 400), c.Selection);
+        Assert.Null(c.PickedWindow);
+    }
+
+    [Fact]
+    public void EscLeavesWindowModeBeforeClosing()
+    {
+        var c = New();
+        var closed = false;
+        c.ActionRequested += a => closed |= a == OverlayAction.Close;
+        c.Key(Vk.Space, false, false);
+        c.Key(Vk.Escape, false, false);
+        Assert.False(c.WindowMode);
+        Assert.False(closed);
+        c.Key(Vk.Escape, false, false);
+        Assert.True(closed);
+    }
+
+    [Fact]
+    public void SpaceIsNotAnInCaptureShortcut() => Assert.False(new HotKeySpec(Mods.None, Vk.Space).IsValidInCapture);
+
+    [Fact]
     public void ClickOutsideASelectionOnlyClearsIt()
     {
         var c = Selected();

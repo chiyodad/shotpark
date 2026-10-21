@@ -37,7 +37,7 @@ public readonly record struct HotKeySpec(Mods Mods, int Key)
     /// Valid as an in-capture shortcut: any non-modifier key, alone or with modifiers, that isn't
     /// Esc / Enter / Delete / an arrow key / a Ctrl shortcut the overlay already uses.
     public bool IsValidInCapture => Key != 0 && !IsModifierKey(Key) &&
-        Key is not (0x1B or 0x0D or 0x2E or 0x08 or 0x25 or 0x26 or 0x27 or 0x28) &&
+        Key is not (0x1B or 0x0D or 0x2E or 0x08 or 0x20 or 0x25 or 0x26 or 0x27 or 0x28) &&
         !(Mods == Mods.Ctrl && Key is 0x43 or 0x53 or 0x5A or 0x59 or 0x41 or 0x56);
 
     public bool Matches(int vk, bool ctrl, bool shift, bool alt) =>

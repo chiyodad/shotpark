@@ -7,8 +7,16 @@ namespace ShotPark.Win;
 /// A borderless top-most window covering every monitor, showing the frozen screenshot.
 sealed class OverlayForm : Form
 {
-    readonly Bitmap _shot, _dim;
-    readonly MosaicSource _mosaic;
+    readonly Bitmap _baseShot, _dim;
+    /// The screenshot the overlay and the export use: the real one, or a copy with the picked window
+    /// pasted in on its own (as if nothing covered it).
+    Bitmap _shot;
+    MosaicSource _mosaic;
+    readonly IReadOnlyList<Native.WindowInfo> _windows;
+    readonly Point _origin;
+    /// The window shown on its own, and its corner radius, while Controller.PickedWindow is set.
+    int? _windowShown;
+    float _windowRadius;
     readonly AppSettings _settings;
     readonly WinTimer _tipTimer = new() { Interval = 450 };
     TextBox? _textBox;
@@ -26,9 +34,11 @@ sealed class OverlayForm : Form
 
     static string L(string ko, string en) => Strings.L(ko, en);
 
-    public OverlayForm(Bitmap shot, Rectangle virtualScreen, IReadOnlyList<RectangleF> monitors, float scale, AppSettings settings, IReadOnlyList<RectangleF> windows)
+    public OverlayForm(Bitmap shot, Rectangle virtualScreen, IReadOnlyList<RectangleF> monitors, float scale, AppSettings settings, IReadOnlyList<Native.WindowInfo> windows)
     {
-        _shot = shot;
+        _baseShot = _shot = shot;
+        _windows = windows;
+        _origin = virtualScreen.Location;
         _settings = settings;
         _dim = Painter.Dimmed(shot);
         _mosaic = new MosaicSource(shot, scale);
@@ -50,7 +60,8 @@ sealed class OverlayForm : Form
 
         Controller = new OverlayController(new RectangleF(0, 0, virtualScreen.Width, virtualScreen.Height), monitors, scale, settings)
         {
-            WindowRects = windows,
+            Windows = windows.Select(w => new WindowTarget(
+                new RectangleF(w.Frame.X - virtualScreen.X, w.Frame.Y - virtualScreen.Y, w.Frame.Width, w.Frame.Height), WindowLabel(w))).ToList(),
             StampImages = () => ImageStamps.Names,
         };
         Controller.Changed += OnChanged;
@@ -62,6 +73,7 @@ sealed class OverlayForm : Form
         Controller.AddImageRequested += AddImage;
         Controller.ImageMenuRequested += ShowImageMenu;
         Controller.PasteRequested += PasteImage;
+        Controller.WindowPicked += ShowWindowAlone;
         Controller.Notice += t => Toast.Show(t, null, Screen.FromPoint(Cursor.Position).WorkingArea, 1200);
         _tipTimer.Tick += (_, _) =>
         {
@@ -99,6 +111,7 @@ sealed class OverlayForm : Form
 
     void OnChanged()
     {
+        if (Controller.PickedWindow == null) DropWindowAlone();
         if (Controller.HoverItem != _lastHover)
         {
             _lastHover = Controller.HoverItem;
@@ -125,6 +138,7 @@ sealed class OverlayForm : Form
             case CursorKind.Eraser: return Cached("eraser", () => { using var b = Icons.EraserCursor(Controller.Scale); return Native.CursorFrom(b, (int)(7 * Controller.Scale), (int)(19 * Controller.Scale)); });
             case CursorKind.Number: return NumberCursor();
             case CursorKind.Emoji: return EmojiCursor();
+            case CursorKind.Camera: return Cached("camera", () => { using var b = Icons.CameraCursor(Controller.Scale); return Native.CursorFrom(b, b.Width / 2, b.Height / 2); });
             default: return Cursors.Cross;
         }
     }
@@ -404,6 +418,51 @@ sealed class OverlayForm : Form
         catch (Exception) { }
     }
 
+    // ───────────────────────── picked window ─────────────────────────
+
+    static string WindowLabel(Native.WindowInfo w)
+    {
+        var title = w.Title.Trim();
+        if (title.Length > 40) title = title[..39] + "…";
+        var size = $"{w.Frame.Width} × {w.Frame.Height}";
+        return title.Length > 0 ? $"{title}  ·  {size}" : size;
+    }
+
+    /// A window picked with a click: paste the window on its own (also the parts other windows
+    /// covered) over the screenshot, so the overlay, mosaic and export all see just that window.
+    void ShowWindowAlone(int i)
+    {
+        if (i < 0 || i >= _windows.Count) return;
+        var w = _windows[i];
+        _windowRadius = Native.CornerRadius(w, Controller.Scale);
+        using var alone = Native.CaptureWindow(w);
+        if (alone == null) { _windowShown = i; return; } // the app won't draw itself: keep the screen pixels
+        var composite = (Bitmap)_baseShot.Clone();
+        using (var g = Graphics.FromImage(composite))
+        {
+            g.CompositingMode = System.Drawing.Drawing2D.CompositingMode.SourceCopy;
+            g.DrawImageUnscaled(alone, w.Frame.X - _origin.X, w.Frame.Y - _origin.Y);
+        }
+        SwapShot(composite);
+        _windowShown = i;
+    }
+
+    void SwapShot(Bitmap shot)
+    {
+        if (!ReferenceEquals(_shot, _baseShot)) _shot.Dispose();
+        _mosaic.Dispose();
+        _shot = shot;
+        _mosaic = new MosaicSource(shot, Controller.Scale);
+    }
+
+    /// The selection moved or changed: back to the real screenshot.
+    void DropWindowAlone()
+    {
+        if (_windowShown == null) return;
+        _windowShown = null;
+        if (!ReferenceEquals(_shot, _baseShot)) SwapShot(_baseShot);
+    }
+
     // ───────────────────────── results ─────────────────────────
 
     /// The annotated selection; `decorated` applies Beautify when it is on (copy / save / share do, pin doesn't).
@@ -411,6 +470,15 @@ sealed class OverlayForm : Form
     {
         if (Controller.Selection is not { } s || s.Width < 1 || s.Height < 1) return null;
         var plain = Painter.RenderResult(_shot, _mosaic, s, Controller.Doc.Shapes);
+        if (Controller.PickedWindow != null && _windowShown != null)
+        {
+            // A picked window keeps its own shape: rounded corners, transparent around it, and
+            // (except when pinned) a soft window shadow.
+            if (!decorated && _windowRadius <= 0) return plain;
+            var shaped = Painter.Beautify(plain, Controller.Scale, shadow: decorated, rounded: _windowRadius > 0, radius: _windowRadius);
+            plain.Dispose();
+            return shaped;
+        }
         if (!decorated || !_settings.Beautify) return plain;
         var pretty = Painter.Beautify(plain, Controller.Scale, _settings.BeautifyShadow, _settings.BeautifyRounded);
         plain.Dispose();
@@ -490,7 +558,8 @@ sealed class OverlayForm : Form
             _tipTimer.Dispose();
             _dim.Dispose();
             _mosaic.Dispose();
-            _shot.Dispose();
+            if (!ReferenceEquals(_shot, _baseShot)) _shot.Dispose();
+            _baseShot.Dispose();
             foreach (var c in _cursors.Values) if (c != Cursors.Cross) c.Dispose();
         }
         base.Dispose(disposing);

@@ -6,7 +6,8 @@ enum MosaicStyle: Int { case pixelate = 0, blur = 1 }
 /// Produces the mosaic / blur fill for an area, taken from the original screenshot
 /// (so annotations drawn on top are never blurred). Results are cached per rect.
 final class MosaicBackdrop {
-    let screenshot: CGImage
+    /// Swapped for a composite while a picked window is shown on its own.
+    var screenshot: CGImage { didSet { cache = [:] } }
     let viewSize: CGSize           // points
     private var cache: [String: CGImage] = [:]
     private static let ciContext = CIContext(options: [.cacheIntermediates: false])

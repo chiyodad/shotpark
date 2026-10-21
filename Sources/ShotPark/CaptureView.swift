@@ -25,7 +25,10 @@ final class CaptureView: NSView, NSTextViewDelegate {
 
     let screenshot: CGImage
     private(set) var state: State = .idle
-    private(set) var selection: CGRect = .zero
+    private(set) var selection: CGRect = .zero {
+        // Moving or resizing a picked window turns it back into a plain crop.
+        didSet { if let w = pickedWindow, selection != w.rect { dropPickedWindow() } }
+    }
     private var drag: Drag = .none
 
     private(set) var shapes: [Shape] = []
@@ -57,9 +60,28 @@ final class CaptureView: NSView, NSTextViewDelegate {
             if oldValue != selectedShape { syncOptionBars(); layoutToolbar() }
         }
     }
-    /// Window frames (view coords, front to back) for click-to-select-window.
-    var windowFrames: [CGRect] = []
-    private var hoverWindowRect: CGRect?
+    /// A window that can be picked: frame in view coords, window number (0 = unknown) and label.
+    struct WindowTarget {
+        var frame: CGRect
+        var id: CGWindowID = 0
+        var label: String = ""
+    }
+    /// Windows (view coords, front to back) for click-to-select-window.
+    var windows: [WindowTarget] = [] { didSet { hoverWindowIndex = nil } }
+    var windowFrames: [CGRect] {
+        get { windows.map(\.frame) }
+        set { windows = newValue.map { WindowTarget(frame: $0) } }
+    }
+    private var hoverWindowIndex: Int?
+    private var hoverWindowRect: CGRect? { hoverWindowIndex.map { windows[$0].frame.intersection(bounds) } }
+    /// Space toggles it while nothing is selected: drags don't make a region, a click takes the window.
+    private(set) var windowMode = false {
+        didSet { if oldValue != windowMode { window?.invalidateCursorRects(for: self); needsDisplay = true } }
+    }
+    private var windowClickPending = false
+    /// The window picked by a click: captured on its own (also the covered parts) with its own shape.
+    private(set) var pickedWindow: (rect: CGRect, id: CGWindowID)?
+    private(set) var windowImage: CGImage?
     /// True while a drag that began by clicking outside an existing selection is in progress.
     private var clickOutsideSelection = false
 
@@ -248,7 +270,9 @@ final class CaptureView: NSView, NSTextViewDelegate {
         selection = .zero
         clearAnnotations()
         selectedShape = nil
-        hoverWindowRect = nil
+        hoverWindowIndex = nil
+        windowMode = false
+        windowClickPending = false
         currentShape = nil
         drag = .none
         toolbar.isHidden = true
@@ -287,7 +311,34 @@ final class CaptureView: NSView, NSTextViewDelegate {
             if let h = stampHandleRect() { addCursorRect(h.insetBy(dx: -4, dy: -4), cursor: .crosshair) }
             for (_, r) in rotateButtonRects() { addCursorRect(r, cursor: .pointingHand) }
         } else {
-            addCursorRect(bounds, cursor: .crosshair)
+            addCursorRect(bounds, cursor: windowMode ? Self.cameraCursor : .crosshair)
+        }
+    }
+
+    /// Window mode cursor: a camera, so it's clear a click takes a picture of the window.
+    static let cameraCursor: NSCursor = {
+        let side: CGFloat = 26
+        let img = NSImage(size: NSSize(width: side, height: side), flipped: false) { _ in
+            let cfg = NSImage.SymbolConfiguration(pointSize: 15, weight: .semibold)
+            guard let sym = NSImage(systemSymbolName: "camera.fill", accessibilityDescription: nil)?.withSymbolConfiguration(cfg) else { return true }
+            let sz = sym.size
+            let rect = NSRect(x: (side - sz.width) / 2, y: (side - sz.height) / 2, width: sz.width, height: sz.height)
+            // dark outline, white fill: visible on light and dark windows
+            let around: [(CGFloat, CGFloat)] = [(-1.2, 0), (1.2, 0), (0, -1.2), (0, 1.2), (-1, -1), (1, 1), (-1, 1), (1, -1)]
+            let outline = CaptureView.tinted(sym, .black)
+            for (dx, dy) in around { outline.draw(in: rect.offsetBy(dx: dx, dy: dy)) }
+            CaptureView.tinted(sym, .white).draw(in: rect)
+            return true
+        }
+        return NSCursor(image: img, hotSpot: NSPoint(x: side / 2, y: side / 2))
+    }()
+
+    private static func tinted(_ image: NSImage, _ color: NSColor) -> NSImage {
+        NSImage(size: image.size, flipped: false) { r in
+            image.draw(in: r)
+            color.set()
+            r.fill(using: .sourceAtop)
+            return true
         }
     }
 
@@ -832,6 +883,12 @@ final class CaptureView: NSView, NSTextViewDelegate {
             }
         }
 
+        if state == .idle && windowMode {
+            // Window mode: no region; the click picks the window on mouse-up.
+            windowClickPending = true
+            return
+        }
+
         // start a brand-new selection
         clickOutsideSelection = state == .selected
         clearAnnotations()
@@ -899,14 +956,10 @@ final class CaptureView: NSView, NSTextViewDelegate {
                 // from the idle screen it grabs the window under the cursor (looked up fresh,
                 // never from a stale hover rect).
                 let p = clamp(convert(event.locationInWindow, from: nil))
-                let under = windowFrames.first { $0.contains(p) }?.intersection(bounds)
-                if !clickOutsideSelection, let r = under, r.width >= 4, r.height >= 4 {
-                    selection = r.integral
-                    state = .selected
-                } else {
+                if clickOutsideSelection || !pickWindow(at: p) {
                     state = .idle
                     selection = .zero
-                    hoverWindowRect = under
+                    hoverWindowIndex = windowIndex(at: p)
                 }
             } else {
                 state = .selected
@@ -938,7 +991,10 @@ final class CaptureView: NSView, NSTextViewDelegate {
             endEdit()
             if i < shapes.count, shapes[i].tool == .emoji { emojiSize = shapes[i].fontSize.rounded() } // next stamp keeps this size
         case .none:
-            break
+            if windowClickPending {
+                windowClickPending = false
+                _ = pickWindow(at: clamp(convert(event.locationInWindow, from: nil)))
+            }
         }
         drag = .none
         layoutToolbar()
@@ -954,26 +1010,102 @@ final class CaptureView: NSView, NSTextViewDelegate {
             return
         }
         guard state == .idle else { return }
-        let p = convert(event.locationInWindow, from: nil)
-        let r = windowFrames.first { $0.contains(p) }?.intersection(bounds)
-        if r != hoverWindowRect { hoverWindowRect = r; needsDisplay = true }
+        let i = windowIndex(at: convert(event.locationInWindow, from: nil))
+        if i != hoverWindowIndex { hoverWindowIndex = i; needsDisplay = true }
     }
 
     override func mouseExited(with event: NSEvent) {
-        if hoverWindowRect != nil { hoverWindowRect = nil; needsDisplay = true }
+        if hoverWindowIndex != nil { hoverWindowIndex = nil; needsDisplay = true }
+    }
+
+    /// Frontmost window under `p` (big enough to select), or nil.
+    private func windowIndex(at p: CGPoint) -> Int? {
+        guard let i = windows.firstIndex(where: { $0.frame.contains(p) }) else { return nil }
+        let r = windows[i].frame.intersection(bounds)
+        return r.width >= 4 && r.height >= 4 ? i : nil
+    }
+
+    /// Select the window under `p`. A window that lies fully on this screen is then also captured
+    /// on its own — covered parts included, with its rounded corners — and exported with a shadow.
+    @discardableResult
+    func pickWindow(at p: CGPoint) -> Bool {
+        guard let i = windowIndex(at: p) else { return false }
+        pickWindow(index: i)
+        return true
+    }
+
+    func pickWindow(index i: Int) {
+        let w = windows[i]
+        windowMode = false
+        hoverWindowIndex = nil
+        selection = w.frame.intersection(bounds).integral
+        state = .selected
+        layoutToolbar()
+        window?.invalidateCursorRects(for: self)
+        needsDisplay = true
+        guard w.id != 0, bounds.insetBy(dx: -1, dy: -1).contains(w.frame) else { return }
+        let rect = selection
+        pickedWindow = (rect, w.id)
+        let size = CGSize(width: rect.width * pixelScale, height: rect.height * pixelScale)
+        Task { @MainActor [weak self] in
+            let img = await ScreenCapture.captureWindow(w.id, pixelSize: size)
+            guard let self, let img, let p = self.pickedWindow, p.id == w.id, p.rect == rect else { return }
+            self.showWindowAlone(img)
+        }
+    }
+
+    /// Show the picked window by itself (the overlay, mosaic and export all use it).
+    func showWindowAlone(_ img: CGImage) {
+        guard let p = pickedWindow else { return }
+        windowImage = img
+        // Mosaic / blur read the window's own pixels, not what covered it.
+        let s = pixelScale
+        if let ctx = CGContext(data: nil, width: screenshot.width, height: screenshot.height, bitsPerComponent: 8, bytesPerRow: 0,
+                               space: CGColorSpace(name: CGColorSpace.sRGB) ?? CGColorSpaceCreateDeviceRGB(),
+                               bitmapInfo: CGImageAlphaInfo.premultipliedFirst.rawValue | CGBitmapInfo.byteOrder32Little.rawValue) {
+            ctx.draw(screenshot, in: CGRect(x: 0, y: 0, width: screenshot.width, height: screenshot.height))
+            ctx.draw(img, in: CGRect(x: p.rect.minX * s, y: p.rect.minY * s, width: p.rect.width * s, height: p.rect.height * s))
+            if let composite = ctx.makeImage() { mosaicBackdrop.screenshot = composite }
+        }
+        needsDisplay = true
+    }
+
+    private func dropPickedWindow() {
+        pickedWindow = nil
+        if windowImage != nil {
+            windowImage = nil
+            mosaicBackdrop.screenshot = screenshot
+            needsDisplay = true
+        }
+    }
+
+    private func toggleWindowMode() {
+        setWindowMode(!windowMode)
+        session?.syncWindowMode(windowMode, from: self)
+    }
+
+    private func leaveWindowMode() {
+        setWindowMode(false)
+        session?.syncWindowMode(false, from: self)
+    }
+
+    func setWindowMode(_ on: Bool) {
+        guard state == .idle else { return }
+        windowMode = on
+        refreshHover()
     }
 
     /// Compute the hovered window from the current mouse position (called once the overlay is up).
     func refreshHover() {
         guard state == .idle, let win = window else { return }
         let p = convert(win.mouseLocationOutsideOfEventStream, from: nil)
-        hoverWindowRect = bounds.contains(p) ? windowFrames.first { $0.contains(p) }?.intersection(bounds) : nil
+        hoverWindowIndex = bounds.contains(p) ? windowIndex(at: p) : nil
         needsDisplay = true
     }
 
     override func rightMouseDown(with event: NSEvent) {
         // Lightshot: right-click cancels
-        if state == .idle { session?.cancel() } else { reset() }
+        if state == .idle { if windowMode { leaveWindowMode() } else { session?.cancel() } } else { reset() }
     }
 
     // MARK: keyboard
@@ -988,7 +1120,12 @@ final class CaptureView: NSView, NSTextViewDelegate {
             else if state == .selected && tool != .move { tool = .move; palette.isHidden = true }
             else if selectedShape != nil { selectedShape = nil }
             else if state != .idle { reset() }
+            else if windowMode { leaveWindowMode() }
             else { session?.cancel() }
+            return
+        }
+        if code == 49, state == .idle, textEditor == nil, flags.isEmpty { // space: window mode on / off
+            toggleWindowMode()
             return
         }
         if code == 51 || code == 117 { // delete / forward delete
@@ -1052,6 +1189,8 @@ final class CaptureView: NSView, NSTextViewDelegate {
     override func selectAll(_ sender: Any?) { selectWholeScreen() }
 
     private func selectWholeScreen() {
+        windowMode = false
+        session?.syncWindowMode(false, from: self)
         state = .selected
         selection = bounds
         layoutToolbar()
@@ -1348,15 +1487,15 @@ final class CaptureView: NSView, NSTextViewDelegate {
         let dim = NSColor.black.withAlphaComponent(0.45)
         if state == .idle {
             dim.setFill()
-            bounds.fill()
-            if let r = hoverWindowRect {
-                // outline the window under the cursor (a click selects it) — the dim stays uniform
-                // so nothing flashes when the overlay appears
-                let o = NSBezierPath(rect: r.insetBy(dx: 1, dy: 1))
-                o.lineWidth = 2
-                o.setLineDash([6, 4], count: 2, phase: 0)
-                NSColor.white.withAlphaComponent(0.85).setStroke()
-                o.stroke()
+            if let i = hoverWindowIndex, let r = hoverWindowRect {
+                // spotlight: the window a click takes stays bright, with an outline and its name
+                let path = NSBezierPath(rect: bounds)
+                path.append(NSBezierPath(rect: r))
+                path.windingRule = .evenOdd
+                path.fill()
+                drawWindowSpotlight(r, label: windows[i].label)
+            } else {
+                bounds.fill()
             }
             drawIdleHint()
             return
@@ -1368,6 +1507,13 @@ final class CaptureView: NSView, NSTextViewDelegate {
         path.append(NSBezierPath(rect: selection))
         path.windingRule = .evenOdd
         path.fill()
+
+        if let img = windowImage, let p = pickedWindow {
+            // the picked window by itself: what covered it is gone, its corners show the dimmed desktop
+            dim.setFill()
+            selection.fill()
+            ctx.draw(img, in: p.rect)
+        }
 
         // annotations (clipped to selection)
         ctx.saveGState()
@@ -1464,11 +1610,40 @@ final class CaptureView: NSView, NSTextViewDelegate {
         str.draw(at: CGPoint(x: box.minX + pad, y: box.minY + pad / 2))
     }
 
+    static let windowPurple = NSColor(srgbRed: 92 / 255, green: 77 / 255, blue: 219 / 255, alpha: 1)
+
+    /// Outline plus a "name · size   click to …" tag on the window a click would take.
+    private func drawWindowSpotlight(_ r: CGRect, label: String) {
+        let w: CGFloat = windowMode ? 3 : 2
+        let o = NSBezierPath(rect: r.insetBy(dx: w / 2, dy: w / 2))
+        o.lineWidth = w
+        (windowMode ? Self.windowPurple : NSColor(srgbRed: 124 / 255, green: 112 / 255, blue: 240 / 255, alpha: 0.9)).setStroke()
+        o.stroke()
+
+        let action = windowMode ? L("클릭하면 이 창 캡처", "Click to capture this window") : L("클릭하면 창 선택", "Click to select this window")
+        let text = label.isEmpty ? action : "\(label)   \(action)"
+        let str = NSAttributedString(string: text, attributes: [.font: NSFont.systemFont(ofSize: 12.5, weight: .semibold),
+                                                                .foregroundColor: NSColor.white])
+        let size = str.size()
+        let padX: CGFloat = 9, padY: CGFloat = 4
+        var box = NSRect(x: r.minX + 8, y: r.maxY - 8 - size.height - padY * 2, width: size.width + padX * 2, height: size.height + padY * 2)
+        if box.maxX > bounds.maxX - 4 { box.origin.x = max(bounds.minX + 4, bounds.maxX - 4 - box.width) }
+        if box.minY < bounds.minY + 4 { box.origin.y = bounds.minY + 4 }
+        Self.windowPurple.withAlphaComponent(0.92).setFill()
+        NSBezierPath(roundedRect: box, xRadius: 6, yRadius: 6).fill()
+        str.draw(at: CGPoint(x: box.minX + padX, y: box.minY + padY))
+    }
+
     private func drawIdleHint() {
         // One line per action, each with an SF Symbol in front of it.
-        let rows: [(String, String)] = [
+        let rows: [(String, String)] = windowMode ? [
+            ("macwindow",              L("창 선택 모드: 캡처할 창을 클릭", "Window mode: click a window to capture")),
+            ("camera",                 L("Space  영역 선택으로", "Space  back to region")),
+            ("xmark.circle",           L("Esc  취소", "Esc  cancel")),
+        ] : [
             ("rectangle.dashed",       L("드래그로 영역 선택", "Drag to select a region")),
             ("macwindow",              L("클릭하여 창 선택", "Click to grab a window")),
+            ("camera",                 L("Space  창 선택 모드", "Space  window mode")),
             ("arrow.up.left.and.arrow.down.right", L("⌘A  전체 화면", "⌘A  whole screen")),
             ("xmark.circle",           L("Esc  취소", "Esc  cancel")),
         ]
@@ -1585,7 +1760,10 @@ final class CaptureView: NSView, NSTextViewDelegate {
                                   bitmapInfo: CGImageAlphaInfo.premultipliedFirst.rawValue | CGBitmapInfo.byteOrder32Little.rawValue)
         else { return nil }
 
-        ctx.draw(cropped, in: CGRect(x: 0, y: 0, width: w, height: h))
+        // A picked window comes out alone, with its own transparent rounded corners.
+        let alone = windowImage
+        if let alone { ctx.draw(alone, in: CGRect(x: 0, y: 0, width: w, height: h)) }
+        else { ctx.draw(cropped, in: CGRect(x: 0, y: 0, width: w, height: h)) }
         ctx.scaleBy(x: CGFloat(w) / selection.width, y: CGFloat(h) / selection.height)
         ctx.translateBy(x: -selection.minX, y: -selection.minY)
 
@@ -1596,7 +1774,11 @@ final class CaptureView: NSView, NSTextViewDelegate {
         NSGraphicsContext.restoreGraphicsState()
 
         guard let out = ctx.makeImage() else { return nil }
-        if decorated && Beautify.isOn, let pretty = Beautify.apply(to: out, scale: CGFloat(w) / selection.width) {
+        // A window gets a shadow on export (not when pinned) that follows its own rounded shape.
+        let pretty: CGImage? = alone != nil
+            ? (decorated ? Beautify.apply(to: out, scale: CGFloat(w) / selection.width, shadow: true, rounded: false, shapeFromAlpha: true) : nil)
+            : (decorated && Beautify.isOn ? Beautify.apply(to: out, scale: CGFloat(w) / selection.width) : nil)
+        if let pretty {
             return NSImage(cgImage: pretty, size: NSSize(width: CGFloat(pretty.width) * selection.width / CGFloat(w),
                                                          height: CGFloat(pretty.height) * selection.width / CGFloat(w)))
         }
@@ -1803,6 +1985,34 @@ extension CaptureView {
         windowFrames = []
         click(CGPoint(x: 10, y: 10))
         check("idle click with no window stays idle", state == .idle)
+
+        // 3b. Space → window mode: a drag makes no region, a click takes the window; Esc leaves the mode first
+        windowFrames = [CGRect(x: 200, y: 200, width: 300, height: 150)]
+        key(49)
+        check("space turns window mode on", windowMode)
+        dragFrom(CGPoint(x: 20, y: 20), to: CGPoint(x: 180, y: 180))
+        check("window mode: drag makes no region", state == .idle && windowMode, "state=\(state)")
+        click(CGPoint(x: 250, y: 250))
+        check("window mode: click picks the window", state == .selected && selection == CGRect(x: 200, y: 200, width: 300, height: 150) && !windowMode, "\(selection)")
+        reset()
+        key(49); key(53)
+        check("esc leaves window mode, keeps the overlay", !windowMode && state == .idle)
+        key(49); key(49)
+        check("space again → region mode", !windowMode)
+        // a picked window with its own image: moving it reverts to a plain crop
+        windows = [WindowTarget(frame: CGRect(x: 200, y: 200, width: 300, height: 150), id: 1)]
+        click(CGPoint(x: 250, y: 250))
+        let pixel = CGContext(data: nil, width: 4, height: 4, bitsPerComponent: 8, bytesPerRow: 0, space: CGColorSpaceCreateDeviceRGB(),
+                              bitmapInfo: CGImageAlphaInfo.premultipliedFirst.rawValue)?.makeImage()
+        if let pixel { showWindowAlone(pixel) }
+        check("picked window shown alone", pickedWindow != nil && windowImage != nil)
+        if let r = renderResult(decorated: true) {
+            check("window export adds the shadow margin", r.size.width == 300 + 2 * Beautify.paddingPoints, "\(r.size)")
+        } else { check("window export", false) }
+        key(124)
+        check("nudging drops the window shape", pickedWindow == nil && windowImage == nil)
+        reset()
+        windowFrames = []
 
         // 4. number stamps: 1, 2, 3 and the cursor for the next one
         dragFrom(CGPoint(x: 100, y: H - 100), to: CGPoint(x: 500, y: H - 400))

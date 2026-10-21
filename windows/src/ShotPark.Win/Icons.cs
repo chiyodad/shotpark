@@ -236,6 +236,35 @@ static class Icons
         }
     }
 
+    /// A small camera (window mode).
+    public static void Camera(Graphics g, Pen pen, RectangleF b)
+    {
+        var body = new RectangleF(b.X, b.Y + b.Height * 0.25f, b.Width, b.Height * 0.65f);
+        using (var p = Painter.RoundRect(body, b.Height * 0.12f)) g.DrawPath(pen, p);
+        g.DrawLines(pen, new[]
+        {
+            new PointF(b.X + b.Width * 0.3f, body.Y), new PointF(b.X + b.Width * 0.38f, b.Y + b.Height * 0.1f),
+            new PointF(b.X + b.Width * 0.62f, b.Y + b.Height * 0.1f), new PointF(b.X + b.Width * 0.7f, body.Y),
+        });
+        var lens = b.Width * 0.34f;
+        g.DrawEllipse(pen, b.X + (b.Width - lens) / 2, body.Y + (body.Height - lens) / 2, lens, lens);
+    }
+
+    /// The window-mode cursor: a camera with a dark halo so it shows on any background.
+    public static Bitmap CameraCursor(float scale)
+    {
+        var side = (int)MathF.Ceiling(28 * scale);
+        var bmp = new Bitmap(side, side);
+        using var g = Graphics.FromImage(bmp);
+        g.SmoothingMode = SmoothingMode.AntiAlias;
+        var b = new RectangleF(4 * scale, 5 * scale, side - 8 * scale, side - 10 * scale);
+        using (var halo = new Pen(Color.FromArgb(170, 0, 0, 0), 4 * scale) { LineJoin = LineJoin.Round })
+            Camera(g, halo, b);
+        using (var pen = new Pen(Color.White, 1.8f * scale) { LineJoin = LineJoin.Round })
+            Camera(g, pen, b);
+        return bmp;
+    }
+
     /// The eraser cursor image.
     public static Bitmap EraserCursor(float scale)
     {
